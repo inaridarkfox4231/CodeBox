@@ -131,6 +131,189 @@ function defineActorTypes() {
   fireworksBallBuilder.actionList.add(new BurnFireAction(burningGunpowderBuilder));
 }
 
+function createLightImage(redFactor, greenFactor, blueFactor, alphaFactor, lightRadius, graphicsSize) {
+  // Required: default colorMode(RGB, 255, 255, 255, 255);
+
+  let halfSideLength = graphicsSize / 2f;
+  let newImage = createImage(graphicsSize, graphicsSize);
+  newImage.loadPixels();
+
+  for (let pixelYPosition = 0; pixelYPosition < graphicsSize; pixelYPosition++) {
+    for (let pixelXPosition = 0; pixelXPosition < graphicsSize; pixelXPosition++) {
+      // alphaRatio will be calculated from:
+      let distanceFromCenter = max(sqrt(sq(halfSideLength - pixelXPosition) + sq(halfSideLength - pixelYPosition)), 1);  // should be 1 or more
+      // Required conditions are:
+      // (1) alphaRatio = factor / (distanceFromCenter ^ exponent)
+      // (2) alphaRatio = 1 where distance = lightRadius
+      // (3) alphaRatio = 1/255 where distance = halfSideLength (= border of this graphics screen)
+      // Therefore,
+      let exponent = ((log(255)) / log(halfSideLength)) / (1 - log(lightRadius) / log(halfSideLength));
+      // and factor = (lightRadius ^ exponent)
+      // Therefore alphaRatio = (lightRadius / distanceFromCenter) ^ exponent
+
+      let alphaRatio = pow(lightRadius / distanceFromCenter, exponent);
+      newImage.set(pixelXPosition, pixelYPosition, color(255f * redFactor, 255f * greenFactor, 255f * blueFactor, 255f * alphaFactor * alphaRatio));
+    }
+  }
+  newImage.updatePixels();
+  return newImage;
+}
+
+class ActorSystem{
+  constructor() {
+    // SimpleCrossReferenceArrayの方がいいかもしれない（addとかremoveとか出てくるし）
+    // ていうか知りたいのは原理であってこのコード自体はどうでもいいのよね・・・
+    this.liveActorList = new SimpleCrossReferenceArray();
+    this.newActorList = new SimpleCrossReferenceArray();
+    this.deadActorList = new SimpleCrossReferenceArray();
+  }
+  registerNewActor(obj) {
+    this.newActorList.add(obj);
+    obj.belongingActorSystem = this;
+  }
+  registerDeadActor(obj) {
+    this.deadActorList.add(obj);
+  }
+  run(){
+    this.updateActorList();
+    this.display();
+  }
+  display(){
+    this.liveActorList.loop("act");
+  }
+  updateActorList(){
+    for(let currentObject of this.deadActorList){
+      this.liveActorList.remove(currentObject);
+      currentPhysicsSystem.removeBody(currentObject);
+      currentObject.belongingPool.deallocate(currentObject);
+    }
+    this.deadActorList.clear();
+    for(let currentObject of this.newActorList){
+      this.liveActorList.add(currentObject);
+      currentPhysicsSystem.addBody(currentObject);
+    }
+    this.newActorList.clear();
+  }
+}
+
+class Actor extends PhysicsBody{
+  constructor(x = 0, y = 0){
+    super(x, y);
+    this.displayer;
+    this.actionList = new SimpleCrossReferenceArray();
+    this.lifetimeFrameCount = 0;
+    this.properFrameCount = 0;
+    this.belongingActorSystem;
+    this.scaleFactor = 1;
+  }
+  initialize(){
+    super.initialize();
+    this.displayer = null;
+    this.actionList.clear();
+    this.lifetimeFrameCount = 0;
+    this.properFrameCount = 0;
+    this.belongingActorSystem = null;
+    this.scaleFactor = 1;
+  }
+  act(){
+    this.displayer.display(this);
+    for(let currentObject of this.actionList){
+      currentObject.execute(this);
+    }
+    this.properFrameCount++;
+    if(this.properFrameCount > this.lifetimeFrameCount){ this.belongingActorSystem.registerDeadActor(this); }
+  }
+  getProgressRatio() {
+    if(this.lifetimeFrameCount < 1){ return 0; }
+    return Math.min(this.properFrameCount / this.lifetimeFrameCount, 1);
+  }
+  getFadeRatio() {
+    return 1 - this.getProgressRatio();
+  }
+}
+
+// んー
+class ActorDisplayer{
+  constructor(img) {
+    this.actorImage = img;
+  }
+  display(parentActor) {
+    image(actorImage, parentActor.xPosition, parentActor.yPosition);
+  }
+}
+
+
+class Action {
+  constructor(){}
+  execute(parentActor){}
+}
+
+// Generates new actor(s);
+class FireAction extends Action{
+  constructor(b){
+    super();
+    this.builder = b;
+  }
+}
+
+class ActorBuilder{
+  constructor(){
+    this.displayer = null;
+    this.actionList = new SimpleCrossReferenceArray();
+    this.component;
+    this.lifetimeFrameCount = 0;
+    this.xPosition = 0;
+    this.yPosition = 0;
+    this.xVelocity = 0;
+    this.yVelocity = 0;
+    this.pool;
+  }
+  clone(){
+    let clonedBuilder = new ActorBuilder();
+    clonedBuilder.displayer = this.displayer;
+    for(let currentObject of this.actionList){
+      clonedBuilder.actionList.add(currentObject);
+    }
+    clonedBuilder.component = this.component;
+    clonedBuilder.lifetimeFrameCount = this.lifetimeFrameCount;
+
+    clonedBuilder.xPosition = this.xPosition;
+    clonedBuilder.yPosition = this.yPosition;
+    clonedBuilder.xVelocity = this.xVelocity;
+    clonedBuilder.yVelocity = this.yVelocity;
+
+    clonedBuilder.pool = this.pool;
+
+    return clonedBuilder;
+  }
+  build(x, y, vx, vy){
+    if(!x){ x = this.xPosition; }
+    if(!y){ y = this.yPosition; }
+    if(!vx){ vx = this.xVelocity; }
+    if(!vy){ vy = this.yVelocity; }]
+    
+  }
+
+
+
+
+
+  Actor build(float x, float y, float vx, float vy) {
+    Actor newActor = (Actor)pool.allocate();
+    newActor.displayer = this.displayer;
+    for (Action currentObject : this.actionList) {
+      newActor.actionList.add(currentObject);
+    }
+    newActor.component = this.component;
+    newActor.lifetimeFrameCount = this.lifetimeFrameCount;
+
+    newActor.xPosition = x;
+    newActor.yPosition = y;
+    newActor.xVelocity = vx;
+    newActor.yVelocity = vy;
+    return newActor;
+  }
+}
 
 
 
@@ -146,11 +329,42 @@ function defineActorTypes() {
 
 
 
-
-
-
-
-
+// Simple Cross Reference Array.
+// 改造する前のやつ。
+class SimpleCrossReferenceArray extends Array{
+  constructor(){
+    super();
+  }
+  add(element){
+    this.push(element);
+    element.belongingArray = this; // 所属配列への参照
+  }
+  addMulti(elementArray){
+    // 複数の場合
+    elementArray.forEach((element) => { this.add(element); })
+  }
+  remove(element){
+    let index = this.indexOf(element, 0);
+    this.splice(index, 1); // elementを配列から排除する
+  }
+  loop(methodName, args = []){
+    if(this.length === 0){ return; }
+    // methodNameには"update"とか"display"が入る。まとめて行う処理。
+    for(let i = 0; i < this.length; i++){
+      this[i][methodName](...args);
+    }
+  }
+  loopReverse(methodName, args = []){
+    if(this.length === 0){ return; }
+    // 逆から行う。排除とかこうしないとエラーになる。もうこりごり。
+    for(let i = this.length - 1; i >= 0; i--){
+      this[i][methodName](...args);
+    }
+  }
+  clear(){
+    this.length = 0;
+  }
+}
 
 
 
@@ -439,8 +653,6 @@ abstract class FireAction extends Action {
     builder = b;
   }
 }
-
-
 
 final class ActorBuilder {
   ActorDisplayer displayer = null;

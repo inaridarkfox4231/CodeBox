@@ -1,5 +1,5 @@
 // https://p5js.org/examples/simulate-particle-system.html
-
+// シフマン先生のパーティクルシステムですね
 
 let system;
 
