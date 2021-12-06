@@ -291,17 +291,9 @@ class ActorBuilder{
     if(!y){ y = this.yPosition; }
     if(!vx){ vx = this.xVelocity; }
     if(!vy){ vy = this.yVelocity; }]
-    
-  }
-
-
-
-
-
-  Actor build(float x, float y, float vx, float vy) {
-    Actor newActor = (Actor)pool.allocate();
+    let newActor = this.pool.allocate();
     newActor.displayer = this.displayer;
-    for (Action currentObject : this.actionList) {
+    for(let currentObject of this.actionList){
       newActor.actionList.add(currentObject);
     }
     newActor.component = this.component;
@@ -315,19 +307,436 @@ class ActorBuilder{
   }
 }
 
+class BurnFireAction extends FireAction{
+  constructor(b) {
+    super(b);
+    this.burningTimeRatio = 0.6;
+  }
+
+  execute(parentActor) {
+    if(parentActor.getProgressRatio() > this.burningTimeRatio){ return; }
+    let burnRatio = (this.burningTimeRatio - parentActor.getProgressRatio()) / this.burningTimeRatio;
+
+    let xOff = 3 * sin(3 * frameCount * TWO_PI / IDEAL_FRAME_RATE) * burnRatio;
+    let newActor = this.builder.build(parentActor.xPosition + xOff, parentActor.yPosition, parentActor.xVelocity - xOff, parentActor.yVelocity);
+    newActor.scaleFactor = burnRatio;
+    parentActor.belongingActorSystem.registerNewActor(newActor);
+  }
+}
+
+class ExplodeFireAction extends FireAction{
+  constructor(b) {
+    super(b);
+    this.displayerCandidateList = new SimpleCrossReferenceArray();
+  }
+  execute(parentActor){
+    if(parentActor.properFrameCount == floor(parentActor.lifetimeFrameCount * 0.99)){
+      this.explode(parentActor, 400 / IDEAL_FRAME_RATE);
+    }
+    if(parentActor.properFrameCount == parentActor.lifetimeFrameCount){
+      this.explode(parentActor, 150 / IDEAL_FRAME_RATE);
+    }
+  }
+  explode(parentActor, initialSpeed){
+    // Set the displayer of the child (GunpowderBall) randomly for the purpose of color variation
+    let gunpowderBallDisplayer = this.displayerCandidateList.get(floor(random(this.displayerCandidateList.size())));
+
+    let anglePartitionCount = 15;
+    let unitAngle = TWO_PI / anglePartitionCount;
+
+    for(let i = 0; i < anglePartitionCount; i++){
+      for(let k = 0; k < anglePartitionCount; k++){
+        let newActor = this.builder.build();
+        newActor.displayer = gunpowderBallDisplayer;
+        newActor.xPosition = parentActor.xPosition;
+        newActor.yPosition = parentActor.yPosition;
+
+        let theta = (i + random(0.5)) * unitAngle;
+        let phi = (k + random(0.5)) * unitAngle;
+        newActor.xVelocity = initialSpeed * cos(theta) * cos(phi);
+        newActor.yVelocity = initialSpeed * cos(theta) * sin(phi);
+
+        parentActor.belongingActorSystem.registerNewActor(newActor);
+      }
+    }
+  }
+}
+
+class LeaveGunpowderFireAction extends FireAction{
+  constructor(b){
+    super(b);
+  }
+  execute(parentActor) {
+    if (random(1) < this.calculateFireProbability(parentActor)) {
+      let newActor = this.builder.build(parentActor.xPosition, parentActor.yPosition, parentActor.xVelocity, parentActor.yVelocity);
+      newActor.displayer = parentActor.displayer;
+      parentActor.belongingActorSystem.registerNewActor(newActor);
+    }
+  }
+  calculateFireProbability(parentActor) {
+    if (parentActor.getProgressRatio() < 0.2){ return 0.1 * parentActor.getProgressRatio() * 5; }
+    return 0.1 * parentActor.getFadeRatio();
+  }
+}
+
+// User defined displayers
+// 多分ちかちかする感じのあれ
+class FlashActorDisplayer extends ActorDisplayer{
+  constructor(img) {
+    super(img);
+  }
+  display(parentActor) {
+    if(random(1) < calculateDisplayProbability(parentActor)) {
+      image(this.actorImage, parentActor.xPosition, parentActor.yPosition);
+    }
+  }
+  calculateDisplayProbability(parentActor) {
+    let fadeRatio = parentActor.getFadeRatio();
+    if(fadeRatio > 0.5){ return 0.9; }
+    return fadeRatio * 2 * 0.9;
+  }
+}
+
+// 小さくなる？
+class ShrinkActorDisplayer extends ActorDisplayer{
+  constructor(img) {
+    super(img);
+    this.displayTimeRatio = 0.8;
+  }
+  display(parentActor) {
+    if(parentActor.getProgressRatio() > this.displayTimeRatio) return;
+    let shrinkRatio = (this.displayTimeRatio - parentActor.getProgressRatio()) / this.displayTimeRatio;
+
+    pushMatrix();
+    translate(parentActor.xPosition, parentActor.yPosition);
+    scale(parentActor.scaleFactor * pow(shrinkRatio, 0.5f));
+    image(this.actorImage, 0f, 0f);
+    popMatrix();
+  }
+}
+
+class FadeActorDisplayer extends ActorDisplayer{
+  constructor(img) {
+    super(img);
+  }
+  display(Actor parentActor){
+    tint(color(0, 0, 100, 100 * pow(parentActor.getFadeRatio(), 0.5)));
+    image(this.actorImage, parentActor.xPosition, parentActor.yPosition);
+    noTint();
+  }
+}
+
+class ObjectPool{
+  constructor(pSize = 256) {
+    this.poolSize = pSize;
+    this.pool = new SimpleCrossReferenceArray();
+    this.temporalInstanceList = new SimpleCrossReferenceArray();
+    this.index = 0;
+    this.temporalInstanceCount = 0;
+  }
+  allocate(){
+    if(this.isAllocatable() == false){
+      console.log("Object pool allocation failed. Too many objects created!");
+      // Need exception handling
+      return null;
+    }
+    let allocatedInstance = this.pool.get(index);
+    allocatedInstance.isAllocated = true; // Physics Bodyはpoolableのextendsなのでこのプロパティを付与するの忘れないでね
+    this.index++;
+    return allocatedInstance;
+  }
+  allocateTemporal(){
+    let allocatedInstance = this.allocate();
+    this.setTemporal(allocatedInstance);
+    return allocatedInstance;
+  }
+  add(obj){
+    this.pool.add(obj);
+  }
+  isAllocatable(){
+    return this.index < this.poolSize;
+  }
+  deallocate(killedObject){
+    if(!killedObject.isAllocated){
+      return;
+    }
+    killedObject.initialize();
+    killedObject.isAllocated = false;
+    this.index--;
+    this.pool.set(this.index, killedObject);
+  }
+  update(){
+    while(this.temporalInstanceCount > 0){
+      this.temporalInstanceCount--;
+      this.deallocate(this.temporalInstanceList.get(this.temporalInstanceCount));
+    }
+    this.temporalInstanceList.clear(); // not needed when array.
+  }
+  setTemporal(obj){
+    this.temporalInstanceList.add(obj);
+    this.temporalInstanceCount++;
+  }
+}
+
+class PhysicsBody{
+  constructor(x = 0, y = 0){
+    this.component;
+    this.xPosition = x;
+    this.yPosition = y;
+    this.xVelocity;
+    this.yVelocity;
+    this.xAcceleration;
+    this.yAcceleration;
+  }
+  initialize() {
+    this.component = null;
+    this.xPosition = 0;
+    this.yPosition = 0;
+    this.xVelocity = 0;
+    this.yVelocity = 0;
+    this.xAcceleration = 0;
+    this.yAcceleration = 0;
+  }
+  getMass() {
+    return this.component.getMass();
+  }
+  getRadius() {  // Body is regarded as a simple sphere
+    return this.component.getRadius();
+  }
+  applyForce(xForce, yForce) {
+    this.xAcceleration += xForce / this.getMass();
+    this.yAcceleration += yForce / this.getMass();
+  }
+  update() {
+    this.component.update(this);
+    this.xVelocity += this.xAcceleration;
+    this.xAcceleration = 0;
+    this.yVelocity += this.yAcceleration;
+    this.yAcceleration = 0;
+    this.xPosition += this.xVelocity;
+    this.yPosition += this.yVelocity;
+  }
+}
+
+class PhysicsBodyComponent{
+  constructor(m, r){}
+  update(body){}
+  getMass(){}
+  getRadius(){}
+}
+
+class ImmutablePhysicsBodyComponent extends PhysicsBodyComponent{
+  constructor(m, r){
+    super(m, r);
+    this.mass = m;
+    this.radius = r;
+  }
+  getMass(){
+    return this.mass;
+  }
+  getRadius(){
+    return this.radius;
+  }
+  update(body){}
+}
+
+class PropellantPhysicsBodyComponent extends PhysicsBodyComponent{
+  constructor(m, r, exaustGasSpeed = 1, massChgRate = 1) {
+    super(m, r);
+    this.mass = m;
+    this.radius = r;
+    this.massChangeRate = massChgRate;
+    this.thrustMagnitude = exaustGasSpeed * massChgRate; // Thrust |T| = v * (dm/dt) = exaustGasSpeed * massChangeRate
+  }
+  getMass() {
+    return this.mass;
+  }
+  getRadius() {
+    return this.radius;
+  }
+  update(body) {
+    this.mass -= this.massChangeRate;
+
+    let xTUnit, yTUnit, zTUnit;
+    if(body.xVelocity == 0 && body.xVelocity == 0) {
+      xTUnit = 0;
+      yTUnit = -1;
+    }else{
+      let bodyAbsV = sqrt(sq(body.xVelocity) + sq(body.yVelocity));
+      xTUnit = body.xVelocity / bodyAbsV;
+      yTUnit = body.yVelocity / bodyAbsV;
+    }
+    body.applyForce(this.thrustMagnitude * xTUnit, this.thrustMagnitude * yTUnit);
+
+    if (this.mass < 0) ;  // should be fixed // ???
+  }
+}
 
 
 
+class PhysicsForceField{
+  constructor(bodies) {
+    this.bodyList = bodies;
+  }
+  update(){};
+}
+
+class GravityForceField extends PhysicsForceField{
+  constructor(bodies, g) {
+    super(bodies);
+    if(g == undefined){ g = 9.80665 / sq(IDEAL_FRAME_RATE); }
+    this.gravityAcceleration = g;
+  }
+  update(){
+    for(let currentBody of bodyList) {
+      currentBody.yAcceleration += this.gravityAcceleration;
+    }
+  }
+}
+
+class DragForceField extends PhysicsForceField{
+  constructor(bodies, d = 1, c = 1){
+    super(bodies);
+    this.dencity = d;
+    this.coefficient = c;
+
+    // drag force = 1/2 * dencity * |relative velocity|^2 * (frontal projected area = r^2 * PI) * (drag coefficient) * (unit vector of relative velocity)
+    //            = v^2 * r^2 * factor * (unit vector of relative velocity)
+    // relative velocity = velocity of the fluid in the rest frame of the body
+    this.factor = 0.5f * this.dencity * PI * this.coefficient;
+  }
+  update(){};
+  getXFluidVelocity(){};
+  getYFluidVelocity(){};
+  getXRelativeVelocity(body) {
+    return this.getXFluidVelocity() - body.xVelocity;
+  }
+  getYRelativeVelocity(body) {
+    return this.getYFluidVelocity() - body.yVelocity;
+  }
+  applyDragForce(body) {
+    let xRelVel = this.getXRelativeVelocity(body);
+    let yRelVel = this.getYRelativeVelocity(body);
+
+    if(xRelVel == 0 && yRelVel == 0) return;
+
+    // v = relative velocity of the fluid
+    let vPow2 = sq(xRelVel) + sq(yRelVel);
+    let vMag = sqrt(vPow2);
+    let rPow2 = sq(body.getRadius());
+    let forceMag = vPow2 * rPow2 * this.factor;
+    let xVUnit = xRelVel / vMag;
+    let yVUnit = yRelVel / vMag;
+    body.applyForce(forceMag * xVUnit, forceMag * yVUnit);
+  }
+}
+
+class StableAtmosphereDragForceField extends DragForceField{
+  constructor(bodies, d = 1, c = 1) {
+    super(bodies, d, c);
+  }
+  update() {
+    for(let currentBody of bodyList) {
+      this.applyDragForce(currentBody);
+    }
+  }
+  getXFluidVelocity() {
+    return 0;
+  }
+  getYFluidVelocity() {
+    return 0;
+  }
+}
+
+class PhysicsJoint{
+  constructor(b1, b2) {
+    this.body1 = b1;
+    this.body2 = b2;
+  }
+  update() {
+    // Omitted
+  }
+}
 
 
 
+class PhysicsSystem{
+  PhysicsSystem(fr = 60, initialCapacity = 1024) {
+    this.idealFrameRate = fr;
+    this.bodyList = new SimpleCrossReferenceArray();
+    this.jointList = new SimpleCrossReferenceArray();
+    this.forceFieldList = new SimpleCrossReferenceArray();
+  }
+  update() {
+    for(let currentObject of this.forceFieldList) {
+      currentObject.update();
+    }
+    for(let currentObject of this.jointList) {
+      currentObject.update();
+    }
+    for(let currentObject of this.bodyList) {
+      currentObject.update();
+    }
+  }
+  addBody(obj) {
+    bodyList.add(obj);
+  }
+  removeBody(obj) {
+    bodyList.remove(obj);
+  }
+  addJoint(obj) {
+    jointList.add(obj);
+  }
+  removeJoint(obj) {
+    jointList.remove(obj);
+  }
+  addForceField(obj) {
+    forceFieldList.add(obj);
+  }
+  removeForceField(obj) {
+    forceFieldList.remove(obj);
+  }
+}
 
+// ------------------------------------------------------------ //
 
+// This tab is independent.
+// Required: colorMode(HSB, 360f, 100f, 100f, 100f);
 
+class AbstractBackground{
+  constructor(x, y) {
+    this.xSize = (x !== undefined ? x : width);
+    this.ySize = (y !== undefined ? y : height);
+  }
+  display(){};
+}
 
+class PreRenderedBackground extends AbstractBackground {
+  PreRenderedBackground(x, y) {
+    x = (x !== undefined ? x : width);
+    y = (y !== undefined ? y : height);
+    this.graphics = createImage(x, y);
+  }
+  display() {
+    image(this.graphics, 0, 0);
+  }
+}
 
-
-
+class GradationBackground extends PreRenderedBackground{
+  GradationBackground(x, y, aboveColor, belowColor, gradient) {
+    super(x, y);
+    if(aboveColor == undefined){ aboveColor = color(0, 0, 100); }
+    if(belowColor == undefined){ belowColor = color(240, 20, 100); }
+    if(gradient == undefined){ gradient = 1; }
+    this.graphics.loadPixels();
+    for (let xp = 0; xp < x; xp++) {
+      for (let yp = 0; yp < y; yp++) {
+        this.graphics.set(xp, yp, lerpColor(aboveColor, belowColor, pow(float(yp) / y, gradient));
+      }
+    }
+    this.graphics.updatePixels();
+  }
+}
 
 // Simple Cross Reference Array.
 // 改造する前のやつ。
@@ -342,6 +751,13 @@ class SimpleCrossReferenceArray extends Array{
   addMulti(elementArray){
     // 複数の場合
     elementArray.forEach((element) => { this.add(element); })
+  }
+  get(index){
+    if(index >= this.length){ return undefined; }
+    return this[index];
+  }
+  set(index, obj){
+    this[index] = obj;
   }
   remove(element){
     let index = this.indexOf(element, 0);
@@ -707,7 +1123,7 @@ final class ActorBuilder {
   }
 }
 
-
+// ------------------------------------------------------------ //
 
 // This tab is independent.
 // Required: colorMode(HSB, 360f, 100f, 100f, 100f);
@@ -844,6 +1260,7 @@ class GradationBackground extends PreRenderedBackground {
   }
 }
 
+// ------------------------------------------------------------ //
 
 // User defined actions
 
