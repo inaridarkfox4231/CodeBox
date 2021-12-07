@@ -12,6 +12,29 @@
 // 消えてそれから残ったひとつがばーん！して225個くらいできてそれから
 // さらに分裂してるみたいですね
 
+// まず
+// ローンチで1個作る
+// それが3.5～4.5秒で消えるわけだが
+// それまでの間、explodeとBurnFireActionをやるわけ
+// で、explodeは消える瞬間とその直前に225個吐き出すので
+// まずBurnの方を考えるわけですけど
+// それが生み出すあれはBurningGunPowderといいまして
+// 0.5秒で消えるわけ
+// それを生み出すのが寿命の6割までなので
+// 残り時間は最低でも1.4秒ある
+// だから生み出したものはすべて消えて
+// explodeの瞬間は1つだけとそういうことですね。
+// で、生み出すあれについてはちょっと横にそれる感じですかね。
+
+// explodeは消えるちょっと前に225個速い速度で飛ばす
+// 消える瞬間には225個こちらはやや遅い速度で飛ばす
+// これにより2段式の花火になるというわけ
+// そんでもってそれらはleaveをする
+// leaveというのはちかちかをする。ちかちかで残っていく感じ。で、それらの
+// 花火がちかちかして消えるという感じみたいです。
+
+// 重いのはグラフィックを3000個弱同時に描画してるからですね。以上。
+
 const IDEAL_FRAME_RATE = 30;
 
 let currentActorSystem;
@@ -32,8 +55,8 @@ function setup(){
   defineActorTypes();
 
   colorMode(HSB, 360, 100, 100, 100);
-  //gradationBackground = new GradationBackground(width, height, color(240, 100, 10, 30), color(240, 100, 40, 30), 2);
-//  fogBackground = new AlphaFogBackground(width, height, color(0, 0, 100), 0, 30, 0.005);
+  gradationBackground = new GradationBackground(width, height, color(20, 100, 10, 30), color(60, 100, 40, 30), 2);
+  //fogBackground = new AlphaFogBackground(width, height, 0, 0, 100, 0, 30, 0.005);
   noStroke();
 }
 
@@ -41,8 +64,10 @@ function draw(){
    imageMode(CORNER);
   // よくわかんないけどはしっこ？によせてるぽい。単に背景おいてるだけだから
   // いかようにもできるよ
-  //gradationBackground.display();
-  background(0);
+  clear();
+  gradationBackground.display();
+  //fogBackground.display();
+  //background(0);
 
    imageMode(CENTER); // 中央揃え？
   translate(width * 0.5, 0);
@@ -77,8 +102,18 @@ function initializeObjectPool() {
   }
 }
 
+// つまりすべての起点はfireworksBallBuilderというわけね。
+// これが240フレームおきに実行されるというわけ。
+// 実行されると、まず1つのボールが出現する。そこから理解していきましょう。xは-50～50のランダム、heightってのは要するに
+// 画面の下側ってわけね。で、-100/30は逆方向の初速度ね。重力に逆らって進む。
+// このballの寿命はIDEAL_FRAME_RATEに3.5～4.5を掛けたものですね。
+// 要するに3.5～4.5秒で最初の1つは消えるわけですね
+// それにしても直接放り込むとか乱暴すぎやしませんかね
+// ではShrinkとはなんなのかって話ですけど。
+
+// 文字通りlaunchだからローンチってことなんでしょう
 function launchFireworks() {
-  let ball = fireworksBallBuilder.build(random(-50, 50), height, 0, - 100 / 30);
+  let ball = fireworksBallBuilder.build(random(-50, 50), height, 0, - 100 / IDEAL_FRAME_RATE);
   ball.lifetimeFrameCount = floor((4 + random(-0.5, 0.5)) * IDEAL_FRAME_RATE);
   currentActorSystem.registerNewActor(ball);
 }
@@ -95,19 +130,20 @@ function defineActorTypes() {
   burningGunpowderBuilder.pool = actorPool;
   burningGunpowderBuilder.displayer = new ShrinkActorDisplayer(createLightImage(1, 1, 0.9, 1, 1, 10));
   burningGunpowderBuilder.component = new ImmutablePhysicsBodyComponent(0.005, 0.02);
-  burningGunpowderBuilder.lifetimeFrameCount = floor(IDEAL_FRAME_RATE * 0.5);
+  burningGunpowderBuilder.lifetimeFrameCount = floor(IDEAL_FRAME_RATE * 0.5); // 寿命がすべて決まっている
 
   // Defining actor type: "FlashingGunpowder"
   let flashingGunpowderBuilder = new ActorBuilder();
   flashingGunpowderBuilder.pool = actorPool;
   flashingGunpowderBuilder.component = new ImmutablePhysicsBodyComponent(0.005, 0.02);
-  flashingGunpowderBuilder.lifetimeFrameCount = floor(IDEAL_FRAME_RATE * 2.5);
+  flashingGunpowderBuilder.lifetimeFrameCount = floor(IDEAL_FRAME_RATE * 2.5); // こんな風に
+  // Flashingは次のあれで使われる感じ
 
   // Defining actor type: "GunpowderBall"
   let gunpowderBallBuilder = new ActorBuilder();
   gunpowderBallBuilder.pool = actorPool;
   gunpowderBallBuilder.component = new ImmutablePhysicsBodyComponent(0.2, 0.05);
-  gunpowderBallBuilder.lifetimeFrameCount = int(IDEAL_FRAME_RATE * 4.5);
+  gunpowderBallBuilder.lifetimeFrameCount = floor(IDEAL_FRAME_RATE * 4.5);
   gunpowderBallBuilder.actionList.add(new LeaveGunpowderFireAction(flashingGunpowderBuilder));
 
   let displayerCandidateList = new SimpleCrossReferenceArray();
@@ -138,6 +174,9 @@ function defineActorTypes() {
   fireworksBallBuilder.actionList.add(explode);
   fireworksBallBuilder.actionList.add(new BurnFireAction(burningGunpowderBuilder));
 }
+// まずここでShrinkのdisplayerを用意してるので最初にふよふよしてるのはこれではないかと
+// じゃあ何で18とかになるの？？隠れてる？
+// actionListの中身は毎フレーム実行されるが・・。
 
 function createLightImage(redFactor, greenFactor, blueFactor, alphaFactor, lightRadius, graphicsSize) {
   // Required: default colorMode(RGB, 255, 255, 255, 255);
@@ -293,23 +332,30 @@ class ActorBuilder{
 class BurnFireAction extends FireAction{
   constructor(b) {
     super(b);
-    this.burningTimeRatio = 0.6;
+    this.burningTimeRatio = 0.6;// 0.6???
   }
 
   execute(parentActor) {
-
-
-
+    // つまり寿命の6割までの間なんか起こすわけね。6割まで限定で。
+    // explodeとは別にこれをやってる、最初の1個がなんか途中で分裂してるように感じるのはこれか、途中でカウンターが止まるのは
+    // 寿命の6割を超えたからだろう。そして・・・
     if(parentActor.getProgressRatio() > this.burningTimeRatio){ return; }
+    // 0.6に近づくほど小さい値。
     let burnRatio = (this.burningTimeRatio - parentActor.getProgressRatio()) / this.burningTimeRatio;
-
+    // ・・・を、frameCount...これあれですね。frameCountですね・・いいのか？
+    // で、まあ-3～3の分布ってとこだろ。それをburnRatioに掛けてxOffというかこれx方向のオフセットか。はい。なるほど。
+    // で？？
     let xOff = 3 * sin(3 * frameCount * TWO_PI / IDEAL_FRAME_RATE) * burnRatio;
-
+    // 自分のxOffだけ隣に速度は逆方向、んー。位置と速度で同じ値使ってるんだが・・いいのこれ？
+    // まあとにかく位置はそういう感じか。問題はactionListなんだけど。
     let newActor = this.builder.build(parentActor.xPosition + xOff, parentActor.yPosition, parentActor.xVelocity - xOff, parentActor.yVelocity);
+    // ああ、builderがactionList持っててそれコピーするのね。ということは・・FireActionが持ってるbuilderだね。で・・
+    // burningGunpowderBuilderを持っていますね。じゃあこれのactionListということ・・
+    // もしかして、ない？？
+    // ああでもまあ、無いってしないと際限なく分裂しちゃうからさもありなんやね
+    // じゃあなんかやるのはexplodeの方か。
 
-
-
-    newActor.scaleFactor = burnRatio;
+    newActor.scaleFactor = burnRatio; // 大きさもburnRatioが決めているようですね
     parentActor.belongingActorSystem.registerNewActor(newActor);
   }
 }
@@ -320,15 +366,20 @@ class ExplodeFireAction extends FireAction{
     this.displayerCandidateList = new SimpleCrossReferenceArray();
   }
   execute(parentActor){
+    // なるほど
+    // 臨界点とその直前とで2回爆発させることであのように2色になったりするわけだ
+    // 3色とかも改造すればいけるわね・・・
+    // それまでは何もしないので何も起こらないわけだ
     if(parentActor.properFrameCount == floor(parentActor.lifetimeFrameCount * 0.99)){
-      this.explode(parentActor, 400 / IDEAL_FRAME_RATE);
+      this.explode(parentActor, 400 / IDEAL_FRAME_RATE); // より遠くまで飛ぶ
     }
     if(parentActor.properFrameCount == parentActor.lifetimeFrameCount){
-      this.explode(parentActor, 150 / IDEAL_FRAME_RATE);
+      this.explode(parentActor, 150 / IDEAL_FRAME_RATE); // 近くまで飛ぶ
     }
   }
   explode(parentActor, initialSpeed){
     // Set the displayer of the child (GunpowderBall) randomly for the purpose of color variation
+    // 登録されているdisplayerのうちどれかをランダム抽出する感じですかね・・。
     let gunpowderBallDisplayer = this.displayerCandidateList.get(floor(random(this.displayerCandidateList.length)));
 
     let anglePartitionCount = 15;
@@ -345,10 +396,28 @@ class ExplodeFireAction extends FireAction{
 
         let theta = (i + random(0.5)) * unitAngle;
         let phi = (k + random(0.5)) * unitAngle;
+        // -1～1に対して方向・・なんだけど、これphiも0～2PIで動いてるのよね・・
+        // 個人的には、要するに2パラメータで速度分布でしょ？つまり円盤の上の1点・・単位円盤の上の1点を指定してるわけね。
+        // それが225個あるわけでそのうちのどれかを。だったら単位円盤の上の点を素直にランダムに取れば良さそうなのよね。
+        // たとえば方向はランダムで距離はランダムのsqrtにするとかね。ハナビィのnokoyamaさんが・・まあいろんな人がやってるけど。
+        // 見た目的にいい感じならいいんだけど
+        // ていうかこれあれでしょ、255にしぼってるの、単に描画能力が限界だから・・
+        // っていうのもありつつ、仮に大きくできたとしても限界はありそうではあるわね。どうだったっけあっちは。640個？640だって。
+        // あれ見栄えしないの多分あれ、動きが単調すぎるんだと思う。単調すぎる。ぽ～～～ん、って直線的に動いて終わり、的な？うん。
+        // ていうか
+        // 放物軌道描いてないんだよね。だから物理ベースのリアルな挙動に勝てないんだろう。
+        // 仕方ないよね物理ベースやろうと思ったらGPGPU使うしかないんだから。あの個数で高速っていうんなら。
+        // たとえばさっきちらっとやったけどこの花火を1つあたり2500でやるんだったら・・？
+        // ああそうか225だけ出してからまたなんかあるんだっけ。続きを調べますかね。
         newActor.xVelocity = initialSpeed * cos(theta) * cos(phi);
         newActor.yVelocity = initialSpeed * cos(theta) * sin(phi);
 
+        // belongingActorSystemっていうのはこのexplodeを実行するactorの親システムってことね。
+        // そのシステムに新しくこのnewActorを入れる。そうなるとそのactorはどんな挙動をするのか？？？
         parentActor.belongingActorSystem.registerNewActor(newActor);
+        // explodeの方はgunpowderBallBuilderから生成されてて
+        // このgunpowderBallBuilderのactionListにはnew LeaveGunpowderFireAction(flashingGunpowderBuilder)...
+        // ということはexplodeで発生するactorはこのLeaveなんちゃらを実行するわけだ。
       }
     }
   }
@@ -361,13 +430,29 @@ class LeaveGunpowderFireAction extends FireAction{
   execute(parentActor) {
 
     if (random(1) < this.calculateFireProbability(parentActor)) {
+      // 一定の確率で・・・全く同じ位置に
+      // leaveってくらいだから残すんじゃない？その場所に。
       let newActor = this.builder.build(parentActor.xPosition, parentActor.yPosition, parentActor.xVelocity, parentActor.yVelocity);
-      newActor.displayer = parentActor.displayer;
-      parentActor.belongingActorSystem.registerNewActor(newActor);
+      newActor.displayer = parentActor.displayer; // displayerはおさがり
 
+      // ここで生成していますね
+      parentActor.belongingActorSystem.registerNewActor(newActor);
+      // 早い話が糞・・言い方
+      // その場に置いていくって感じですかね。速度は？同じ？？
+
+      // flashingGunpowderBuilder
+      // これですね。で、これがactionListを持たないので、残していったあれについてはちかちかするだけということでしょう。
+      // ちかちかして、消える。そういうことみたいです。なるほど。
+      // んー。
+      // 同じ速度、同じ位置なら挙動も同じはずだけど・・となると見えているのは結局225個？ってこと？
+
+      // あとあれ、昇ってくときに18個になって1に戻るのが気になる。
     }
   }
   calculateFireProbability(parentActor) {
+    // FadeRatioは1-Progressですね
+    // 2割まではその0.5倍・・つまり0.0～0.1って感じで
+    // それ以降は0.08～0.0とか？
     if (parentActor.getProgressRatio() < 0.2){ return 0.1 * parentActor.getProgressRatio() * 5; }
     return 0.1 * parentActor.getFadeRatio();
   }
@@ -737,6 +822,48 @@ class GradationBackground extends PreRenderedBackground{
       }
     }
     this.graphics.updatePixels();
+  }
+}
+
+class FogBackground extends PreRenderedBackground{
+  constructor(x, y, h = 0, s = 0, b = 0, baseBrightness = 70, noiseBrightness = 30, noiseIncrement = 0.01) {
+    if(x === undefined){ x = width; }
+    if(y === undefined){ y = height; }
+    super(x, y);
+    this.createFog(x, y, color(h, s, b), baseBrightness, noiseBrightness, noiseIncrement);
+  }
+  createFog(x, y, baseColor, baseBrightness, noiseBrightness, noiseIncrement) {
+    this.graphics.loadPixels();
+    let xoff = 0.0;
+    for(let xp = 0; xp < x; xp++){
+      xoff += noiseIncrement;
+      let yoff = 0.0;
+      for(let yp = 0; yp < y; yp++){
+        yoff += noiseIncrement;
+        let bright = constrain(baseBrightness + noise(xoff, yoff) * noiseBrightness, 0, 100);
+        this.graphics.set(xp, yp, this.getPixelColor(baseColor, bright));
+      }
+    }
+    this.graphics.updatePixels();
+  }
+  getPixelColor(baseColor, bright){};
+}
+
+class OpaqueFogBackground extends FogBackground {
+  constructor(x, y, h = 0, s = 0, b = 0, baseBrightness = 70, noiseBrightness = 30, noiseIncrement = 0.01) {
+    super(x, y, h, s, b, baseBrightness, noiseBrightness, noiseIncrement);
+  }
+  getPixelColor(baseColor, bright){
+    return color(hue(baseColor), saturation(baseColor), bright);
+  }
+}
+
+class AlphaFogBackground extends FogBackground {
+  constructor(x, y, h = 0, s = 0, b = 100, baseBrightness = 70, noiseBrightness = 30, noiseIncrement = 0.01) {
+    super(x, y, h, s, b, baseBrightness, noiseBrightness, noiseIncrement);
+  }
+  getPixelColor(baseColor, bright){
+    return color(hue(baseColor), saturation(baseColor), brightness(baseColor), bright);
   }
 }
 
