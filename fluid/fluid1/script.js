@@ -18,49 +18,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// 物理的根拠はおいといてとりあえず移植しちゃおう
+// オイラー方程式かもって話が出てる（完全流体）
+
 'use strict';
 
-// Mobile promo section
-/*
-const promoPopup = document.getElementsByClassName('promo')[0];
-const promoPopupClose = document.getElementsByClassName('promo-close')[0];
-*/
 if (isMobile()) {
     setTimeout(() => {
         promoPopup.style.display = 'table';
     }, 20000);
 }
-/*
-promoPopupClose.addEventListener('click', e => {
-    promoPopup.style.display = 'none';
-});
 
-const appleLink = document.getElementById('apple_link');
-appleLink.addEventListener('click', e => {
-    ga('send', 'event', 'link promo', 'app');
-    window.open('https://apps.apple.com/us/app/fluid-simulation/id1443124993');
-});
-
-const googleLink = document.getElementById('google_link');
-googleLink.addEventListener('click', e => {
-    ga('send', 'event', 'link promo', 'app');
-    window.open('https://play.google.com/store/apps/details?id=games.paveldogreat.fluidsimfree');
-});
-*/
 // Simulation section
 
 const canvas = document.getElementsByTagName('canvas')[0];
 resizeCanvas();
 
 let config = {
-    SIM_RESOLUTION: 128,
-    DYE_RESOLUTION: 1024,
+    SIM_RESOLUTION: 128, // simulateResolution. たとえば128x128なら縦横128分割。
+    DYE_RESOLUTION: 1024, // 染める場合のResolution.
     CAPTURE_RESOLUTION: 512,
-    DENSITY_DISSIPATION: 1,
+    DENSITY_DISSIPATION: 1, // 減衰要素ここか
     VELOCITY_DISSIPATION: 0.2,
     PRESSURE: 0.8,
     PRESSURE_ITERATIONS: 20,
-    CURL: 30,
+    CURL: 30, // vorticityの計算に使う定数
     SPLAT_RADIUS: 0.25,
     SPLAT_FORCE: 6000,
     SHADING: true,
@@ -81,6 +63,7 @@ let config = {
 }
 
 // これがcolor持ってるから色はこれが決めてるっぽいね。
+// 寿命とかがあって時間経過で消える、とかではなさそうなのが気になるのよね。
 function pointerPrototype () {
     this.id = -1;
     this.texcoordX = 0;
@@ -104,56 +87,64 @@ if (isMobile()) {
     config.DYE_RESOLUTION = 512;
 }
 if (!ext.supportLinearFiltering) {
+  console.log("!ext.supportLinearFiltering"); // 出ないのでどうやらサポートされていますね。しかし詳細が不明だ・・・
     config.DYE_RESOLUTION = 512;
     config.SHADING = false;
     config.BLOOM = false;
     config.SUNRAYS = false;
 }
 
+// ちょっといいですかね
+// supportされていますね
+// じゃあいいか
+let isSupported;
+    if (gl.getExtension("WEBGL_color_buffer_float") === null) {
+      console.log("noSupport");
+      const fbo = gl.createFramebuffer();
+      const tex = gl.createTexture();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.FLOAT, null);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+        isSupported = false;
+      } else {
+        isSupported = true;
+      }
+      gl.deleteTexture(tex);
+      gl.deleteFramebuffer(fbo);
+    } else {
+      console.log("support");
+      isSupported = true;
+    }
+// 参考：https://qiita.com/kyasbal_1994/items/4c401c402062abfcdb72
+// なんかよくわかんないけど組み合わせないとロードできたかどうかわからないらしい
+
+
 startGUI();
 // とりあえずwebgl1前提で書き直していく
 function getWebGLContext (canvas) {
     const params = { alpha: true, depth: false, stencil: false, antialias: false, preserveDrawingBuffer: false };
 
-    //let gl = canvas.getContext('webgl2', params);
-    //const isWebGL2 = !!gl;
-    //if (!isWebGL2)
-        //gl = canvas.getContext('webgl', params) || canvas.getContext('experimental-webgl', params);
     let gl = canvas.getContext('webgl', params);
 
     let halfFloat;
     let supportLinearFiltering;
-    /*
-    if (isWebGL2) {
-        gl.getExtension('EXT_color_buffer_float');
-        supportLinearFiltering = gl.getExtension('OES_texture_float_linear');
-    } else {*/
-        halfFloat = gl.getExtension('OES_texture_half_float');
-        supportLinearFiltering = gl.getExtension('OES_texture_half_float_linear');
-    //}
+
+    halfFloat = gl.getExtension('OES_texture_half_float');
+    supportLinearFiltering = gl.getExtension('OES_texture_half_float_linear');
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
-    //const halfFloatTexType = isWebGL2 ? gl.HALF_FLOAT : halfFloat.HALF_FLOAT_OES;
     const halfFloatTexType = halfFloat.HALF_FLOAT_OES;
     let formatRGBA;
     let formatRG;
     let formatR;
-/*
-    if (isWebGL2)
-    {
-        formatRGBA = getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, halfFloatTexType);
-        formatRG = getSupportedFormat(gl, gl.RG16F, gl.RG, halfFloatTexType);
-        formatR = getSupportedFormat(gl, gl.R16F, gl.RED, halfFloatTexType);
-    }
-    else
-    {*/
-        formatRGBA = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
-        formatRG = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
-        formatR = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
-    //}
 
-    //ga('send', 'event', isWebGL2 ? 'webgl2' : 'webgl', formatRGBA == null ? 'not supported' : 'supported');
+    // webgl1って区別ないから全部RGBAになってるのね
+    formatRGBA = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatRG = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
+    formatR = getSupportedFormat(gl, gl.RGBA, gl.RGBA, halfFloatTexType);
 
     return {
         gl,
@@ -477,6 +468,7 @@ const blurShader = compileShader(gl.FRAGMENT_SHADER, `
     }
 `);
 
+// uTextureの内容をそのままコピーするシェーダ
 const copyShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -487,6 +479,7 @@ const copyShader = compileShader(gl.FRAGMENT_SHADER, `
     }
 `);
 
+// uTextureの内容に定数valueを掛けて貼り付けるシェーダ（valueが0なら全部0にする）
 const clearShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -498,6 +491,7 @@ const clearShader = compileShader(gl.FRAGMENT_SHADER, `
     }
 `);
 
+// すべての値をcolorに設定するシェーダ
 const colorShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     uniform vec4 color;
@@ -535,7 +529,7 @@ const displayShaderSource = `
     uniform sampler2D uDithering;
     uniform vec2 ditherScale;
     uniform vec2 texelSize;
-    vec3 linearToGamma (vec3 color) {
+    vec3 linearToGamma (vec3 color) { // linearをGammaに変換・・
         color = max(color, vec3(0));
         return max(1.055 * pow(color, vec3(0.416666667)) - 0.055, vec3(0));
     }
@@ -570,7 +564,7 @@ const displayShaderSource = `
         bloom = linearToGamma(bloom);
         c += bloom;
     #endif
-        float a = max(c.r, max(c.g, c.b));
+        float a = max(c.r, max(c.g, c.b)); // 透明度はr,g,bのうちMAXのものを採用する、なるほど・・真っ黒だと見えなくなると。
         gl_FragColor = vec4(c, a);
     }
 `;
@@ -671,7 +665,7 @@ const sunraysShader = compileShader(gl.FRAGMENT_SHADER, `
     }
 `);
 
-// splat用のフラグメントシェーダ
+// splat用のフラグメントシェーダはこっちですね
 const splatShader = compileShader(gl.FRAGMENT_SHADER, `
     precision highp float;
     precision highp sampler2D;
@@ -680,27 +674,29 @@ const splatShader = compileShader(gl.FRAGMENT_SHADER, `
     uniform float aspectRatio;
     uniform vec3 color;
     uniform vec2 point;
-    uniform float radius;
+    uniform float radius; // radiusの方は補正済み。
     void main () {
         vec2 p = vUv - point.xy;
-        p.x *= aspectRatio;
+        p.x *= aspectRatio; // 多分きれいな円にするための処理
         vec3 splat = exp(-dot(p, p) / radius) * color;
-        vec3 base = texture2D(uTarget, vUv).xyz;
-        gl_FragColor = vec4(base + splat, 1.0);
+        vec3 base = texture2D(uTarget, vUv).xyz; // これがベースカラーで
+        gl_FragColor = vec4(base + splat, 1.0); // そこにsplatの色を単純に加算する形。
     }
 `);
 
+// advectionってあるから移流項の計算してるのかな（わからん）
+// これがボールドのAなんだろう。
 const advectionShader = compileShader(gl.FRAGMENT_SHADER, `
     precision highp float;
     precision highp sampler2D;
     varying vec2 vUv;
     uniform sampler2D uVelocity;
-    uniform sampler2D uSource;
+    uniform sampler2D uSource; // この2つは同じものであるようだ。
     uniform vec2 texelSize;
     uniform vec2 dyeTexelSize;
     uniform float dt;
     uniform float dissipation;
-    vec4 bilerp (sampler2D sam, vec2 uv, vec2 tsize) {
+    vec4 bilerp (sampler2D sam, vec2 uv, vec2 tsize) { // ここでやってるのがあのbilinearなんちゃらであるということだろう
         vec2 st = uv / tsize - 0.5;
         vec2 iuv = floor(st);
         vec2 fuv = fract(st);
@@ -711,19 +707,20 @@ const advectionShader = compileShader(gl.FRAGMENT_SHADER, `
         return mix(mix(a, b, fuv.x), mix(c, d, fuv.x), fuv.y);
     }
     void main () {
-    #ifdef MANUAL_FILTERING
-        vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize;
+    #ifdef MANUAL_FILTERING // わかった。マニュアルってそういうことか。サポートされてない場合は自前でやるってことね。
+        vec2 coord = vUv - dt * bilerp(uVelocity, vUv, texelSize).xy * texelSize; // dt倍を引いていますね！ここか。
         vec4 result = bilerp(uSource, coord, dyeTexelSize);
-    #else
+    #else // つまり基本はこっちが実行されるわけ。普通にリニアで取得してくれるから。
         vec2 coord = vUv - dt * texture2D(uVelocity, vUv).xy * texelSize;
         vec4 result = texture2D(uSource, coord);
     #endif
         float decay = 1.0 + dissipation * dt;
-        gl_FragColor = result / decay;
+        gl_FragColor = result / decay; // 1.0よりちょっと大きい値で割ってるけどね。decay:減衰
     }`,
     ext.supportLinearFiltering ? null : ['MANUAL_FILTERING']
 );
 
+// divergence？
 const divergenceShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -743,11 +740,12 @@ const divergenceShader = compileShader(gl.FRAGMENT_SHADER, `
         if (vR.x > 1.0) { R = -C.x; }
         if (vT.y > 1.0) { T = -C.y; }
         if (vB.y < 0.0) { B = -C.y; }
-        float div = 0.5 * (R - L + T - B);
+        float div = 0.5 * (R - L + T - B); // TとBの符号がcurlと違うだけ。divなので。各点の発散を計算する。
         gl_FragColor = vec4(div, 0.0, 0.0, 1.0);
     }
 `);
 
+// このcurlってのがいまいち謎（それ言ったら全部謎だけど）
 const curlShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -756,17 +754,19 @@ const curlShader = compileShader(gl.FRAGMENT_SHADER, `
     varying highp vec2 vR;
     varying highp vec2 vT;
     varying highp vec2 vB;
-    uniform sampler2D uVelocity;
+    uniform sampler2D uVelocity; // 入力は速度だけ
     void main () {
         float L = texture2D(uVelocity, vL).y;
         float R = texture2D(uVelocity, vR).y;
         float T = texture2D(uVelocity, vT).x;
         float B = texture2D(uVelocity, vB).x;
-        float vorticity = R - L - T + B;
+        float vorticity = R - L - T + B; // 渦度。(f(x+dx,y)-f(x-dx,y)-f(x,y+dy)+f(x,y-dy))*0.5
         gl_FragColor = vec4(0.5 * vorticity, 0.0, 0.0, 1.0);
     }
 `);
 
+// 渦度？んー、何だこれ・・・
+// まあ要するに外力項だと思うんだけど。元になってるのが速度なのよね。
 const vorticityShader = compileShader(gl.FRAGMENT_SHADER, `
     precision highp float;
     precision highp sampler2D;
@@ -776,26 +776,29 @@ const vorticityShader = compileShader(gl.FRAGMENT_SHADER, `
     varying vec2 vT;
     varying vec2 vB;
     uniform sampler2D uVelocity;
-    uniform sampler2D uCurl;
+    uniform sampler2D uCurl; // 入力はさっきの渦度と速度のやつ。
     uniform float curl;
     uniform float dt;
     void main () {
-        float L = texture2D(uCurl, vL).x;
-        float R = texture2D(uCurl, vR).x;
+        float L = texture2D(uCurl, vL).x; // これはどうも4方向の渦度を調べていますね。なるほどね。なんかつかめそうです。
+        float R = texture2D(uCurl, vR).x; // .xとあるのはさっきx成分に入れたから。
         float T = texture2D(uCurl, vT).x;
         float B = texture2D(uCurl, vB).x;
-        float C = texture2D(uCurl, vUv).x;
-        vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L));
-        force /= length(force) + 0.0001;
-        force *= curl * C;
-        force.y *= -1.0;
-        vec2 velocity = texture2D(uVelocity, vUv).xy;
-        velocity += force * dt;
-        velocity = min(max(velocity, -1000.0), 1000.0);
-        gl_FragColor = vec4(velocity, 0.0, 1.0);
+        float C = texture2D(uCurl, vUv).x; // 中心の渦度
+        vec2 force = 0.5 * vec2(abs(T) - abs(B), abs(R) - abs(L)); // 渦度の渦度的な（うずうず）
+        force /= length(force) + 0.0001; // あー、これあれか。方向単位ベクトルにしてるのか。おおよそね。
+        force *= curl * C; // curlは固定変数。Cは中心の渦度。これがスカラー値になるわけ。
+        force.y *= -1.0; // なんか向き逆転させてますが・・
+        vec2 velocity = texture2D(uVelocity, vUv).xy; // 該当部分の速度を・・
+        velocity += force * dt; // 加速させてるのはここ
+        velocity = min(max(velocity, -1000.0), 1000.0); // -1000.0～1000.0の範囲にclampする
+        gl_FragColor = vec4(velocity, 0.0, 1.0); // 更新した値を出力。結局、force*dtを足しただけなのね。
     }
-`);
+`); // force*dtを足すだけです。だからforce*dtが何であるかが重要です。
 
+// 圧力項かなぁ多分ヤコビ法で近似解出してるんだろうけどなぁうーん
+// イテレーションしてるのはここだけ
+// pressureを計算するためのイテレーションです
 const pressureShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -804,8 +807,8 @@ const pressureShader = compileShader(gl.FRAGMENT_SHADER, `
     varying highp vec2 vR;
     varying highp vec2 vT;
     varying highp vec2 vB;
-    uniform sampler2D uPressure;
-    uniform sampler2D uDivergence;
+    uniform sampler2D uPressure; // pressure値
+    uniform sampler2D uDivergence; // div値
     void main () {
         float L = texture2D(uPressure, vL).x;
         float R = texture2D(uPressure, vR).x;
@@ -818,6 +821,7 @@ const pressureShader = compileShader(gl.FRAGMENT_SHADER, `
     }
 `);
 
+// うーん。何だろう。まあ読んで字のごとくgradientを引いてるんだけど。何だこれ・・
 const gradientSubtractShader = compileShader(gl.FRAGMENT_SHADER, `
     precision mediump float;
     precision mediump sampler2D;
@@ -834,7 +838,7 @@ const gradientSubtractShader = compileShader(gl.FRAGMENT_SHADER, `
         float T = texture2D(uPressure, vT).x;
         float B = texture2D(uPressure, vB).x;
         vec2 velocity = texture2D(uVelocity, vUv).xy;
-        velocity.xy -= vec2(R - L, T - B);
+        velocity.xy -= vec2(R - L, T - B); // pressureのグラディエントを、速度から引く。そんだけ。
         gl_FragColor = vec4(velocity, 0.0, 1.0);
     }
 `);
@@ -921,7 +925,7 @@ const gradienSubtractProgram = new Program(baseVertexShader, gradientSubtractSha
 
 const displayMaterial = new Material(baseVertexShader, displayShaderSource);
 
-//
+// フレームバッファの初期化
 function initFramebuffers () {
     let simRes = getResolution(config.SIM_RESOLUTION);
     let dyeRes = getResolution(config.DYE_RESOLUTION);
@@ -930,15 +934,19 @@ function initFramebuffers () {
     const rgba    = ext.formatRGBA;
     const rg      = ext.formatRG;
     const r       = ext.formatR;
+    // ここですね。ここでgl.LINEARを指定していますね。
+    // もう普通にLINEARでいい気もするな・・
     const filtering = ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST;
 
     gl.disable(gl.BLEND);
-
     if (dye == null)
         dye = createDoubleFBO(dyeRes.width, dyeRes.height, rgba.internalFormat, rgba.format, texType, filtering);
     else
         dye = resizeDoubleFBO(dye, dyeRes.width, dyeRes.height, rgba.internalFormat, rgba.format, texType, filtering);
 
+    // 速度のフレームバッファを用意する
+    // 無い場合はここで新しく・・（最初だけね）
+    // ある場合はリサイズするっぽいですね
     if (velocity == null)
         velocity = createDoubleFBO(simRes.width, simRes.height, rg.internalFormat, rg.format, texType, filtering);
     else
@@ -985,6 +993,7 @@ function initSunraysFramebuffers () {
     sunraysTemp = createFBO(res.width, res.height, r.internalFormat, r.format, texType, filtering);
 }
 
+// FBOを作る
 function createFBO (w, h, internalFormat, format, type, param) {
     gl.activeTexture(gl.TEXTURE0);
     let texture = gl.createTexture();
@@ -1019,6 +1028,7 @@ function createFBO (w, h, internalFormat, format, type, param) {
     };
 }
 
+// FBOの対を作る
 function createDoubleFBO (w, h, internalFormat, format, type, param) {
     let fbo1 = createFBO(w, h, internalFormat, format, type, param);
     let fbo2 = createFBO(w, h, internalFormat, format, type, param);
@@ -1184,31 +1194,38 @@ function applyInputs () {
 function step (dt) {
     gl.disable(gl.BLEND);
 
+    // だって最初にcurlからだもん。どゆこと。
     curlProgram.bind();
     gl.uniform2f(curlProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     gl.uniform1i(curlProgram.uniforms.uVelocity, velocity.read.attach(0));
-    blit(curl);
+    blit(curl); // curlに書き込み
 
+    // 次にvorticityの出番。velocityに最初の書き込みを行なう
     vorticityProgram.bind();
     gl.uniform2f(vorticityProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     gl.uniform1i(vorticityProgram.uniforms.uVelocity, velocity.read.attach(0));
-    gl.uniform1i(vorticityProgram.uniforms.uCurl, curl.attach(1));
+    gl.uniform1i(vorticityProgram.uniforms.uCurl, curl.attach(1)); // ここでcurlを使う
     gl.uniform1f(vorticityProgram.uniforms.curl, config.CURL);
     gl.uniform1f(vorticityProgram.uniforms.dt, dt);
     blit(velocity.write);
     velocity.swap();
 
+    // そのあとdivergenceを用意して・・
     divergenceProgram.bind();
     gl.uniform2f(divergenceProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     gl.uniform1i(divergenceProgram.uniforms.uVelocity, velocity.read.attach(0));
     blit(divergence);
 
+    // clearは指定したバッファの各値にvalueを掛け算するもの。
+    // この場合pressureの各成分（すべてのpressure）にコンフィグのPRESSURE値を掛けている）（デフォ0.8）
+    // つまりデフォではすべての成分に0.8を掛けるだけね
     clearProgram.bind();
     gl.uniform1i(clearProgram.uniforms.uTexture, pressure.read.attach(0));
     gl.uniform1f(clearProgram.uniforms.value, config.PRESSURE);
     blit(pressure.write);
     pressure.swap();
 
+    // イテレーションでpressureを求める感じのことをしてる
     pressureProgram.bind();
     gl.uniform2f(pressureProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     gl.uniform1i(pressureProgram.uniforms.uDivergence, divergence.attach(0));
@@ -1218,6 +1235,7 @@ function step (dt) {
         pressure.swap();
     }
 
+    // gradientをsubtractする（引き算）
     gradienSubtractProgram.bind();
     gl.uniform2f(gradienSubtractProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     gl.uniform1i(gradienSubtractProgram.uniforms.uPressure, pressure.read.attach(0));
@@ -1225,18 +1243,20 @@ function step (dt) {
     blit(velocity.write);
     velocity.swap();
 
+    // advectionって一番最後？？
     advectionProgram.bind();
     gl.uniform2f(advectionProgram.uniforms.texelSize, velocity.texelSizeX, velocity.texelSizeY);
     if (!ext.supportLinearFiltering)
         gl.uniform2f(advectionProgram.uniforms.dyeTexelSize, velocity.texelSizeX, velocity.texelSizeY);
-    let velocityId = velocity.read.attach(0);
+    let velocityId = velocity.read.attach(0); // read側
     gl.uniform1i(advectionProgram.uniforms.uVelocity, velocityId);
-    gl.uniform1i(advectionProgram.uniforms.uSource, velocityId);
+    gl.uniform1i(advectionProgram.uniforms.uSource, velocityId); // この2つは同じものであるようです
     gl.uniform1f(advectionProgram.uniforms.dt, dt);
     gl.uniform1f(advectionProgram.uniforms.dissipation, config.VELOCITY_DISSIPATION);
-    blit(velocity.write);
-    velocity.swap();
+    blit(velocity.write); // write側に書き込んで
+    velocity.swap(); // swap.
 
+    // こっちはストレートにvelocity使ってやってる
     if (!ext.supportLinearFiltering)
         gl.uniform2f(advectionProgram.uniforms.dyeTexelSize, dye.texelSizeX, dye.texelSizeY);
     gl.uniform1i(advectionProgram.uniforms.uVelocity, velocity.read.attach(0));
@@ -1282,11 +1302,13 @@ function drawCheckerboard (target) {
     blit(target);
 }
 
+// 最終的な色付けがここの処理ですねー
 function drawDisplay (target) {
     let width = target == null ? gl.drawingBufferWidth : target.width;
     let height = target == null ? gl.drawingBufferHeight : target.height;
 
     displayMaterial.bind();
+    // これらの処理をしない場合はいきなりblitでOK.
     if (config.SHADING)
         gl.uniform2f(displayMaterial.uniforms.texelSize, 1.0 / width, 1.0 / height);
     gl.uniform1i(displayMaterial.uniforms.uTexture, dye.read.attach(0));
@@ -1372,6 +1394,7 @@ function blur (target, temp, iterations) {
     }
 }
 
+// splatはここでも呼び出してる
 function splatPointer (pointer) {
     let dx = pointer.deltaX * config.SPLAT_FORCE;
     let dy = pointer.deltaY * config.SPLAT_FORCE;
@@ -1379,6 +1402,8 @@ function splatPointer (pointer) {
 }
 
 function multipleSplats (amount) {
+  // amountの回数だけsplatを呼び出す。
+  // splatでは
     for (let i = 0; i < amount; i++) {
         const color = generateColor();
         color.r *= 10.0;
@@ -1395,14 +1420,14 @@ function multipleSplats (amount) {
 // splatとは要するにこれのことであるようです。splat.
 function splat (x, y, dx, dy, color) {
     splatProgram.bind();
-    gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
-    gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+    gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0)); // 基本は速度の色付けということ・・かなぁ
+    gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height); // aspectはw/h
     gl.uniform2f(splatProgram.uniforms.point, x, y);
     gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
     gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
-    blit(velocity.write);
+    blit(velocity.write); // 速度場がベースで、そこにsplatの分の色を重ねる
     velocity.swap();
-
+    // 同じシェーダーでdyeっていうのに・・こっちが目当てのようです。
     gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
     gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
     blit(dye.write);
@@ -1416,6 +1441,7 @@ function correctRadius (radius) {
     return radius;
 }
 
+// マウスダウンでポインターを発生させる処理
 canvas.addEventListener('mousedown', e => {
     let posX = scaleByPixelRatio(e.offsetX);
     let posY = scaleByPixelRatio(e.offsetY);
@@ -1423,6 +1449,7 @@ canvas.addEventListener('mousedown', e => {
     if (pointer == null)
         pointer = new pointerPrototype();
     updatePointerDownData(pointer, -1, posX, posY);
+    //console.log(pointers.length); // 永久に1ですね。はい。pointersは永久に1のまま。
 });
 
 canvas.addEventListener('mousemove', e => {
@@ -1437,11 +1464,12 @@ window.addEventListener('mouseup', () => {
     updatePointerUpData(pointers[0]);
 });
 
+// スマホ用のタッチでpointerを発生させる処理
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-    const touches = e.targetTouches;
-    while (touches.length >= pointers.length)
-        pointers.push(new pointerPrototype());
+    const touches = e.targetTouches; // 複数個所タッチに対応
+    while (touches.length >= pointers.length) // この書き方いいですね・・若干codegolfだけど。要するに配列が長くなっていくわけね。
+        pointers.push(new pointerPrototype()); // pointersから排除っていつやってるの
     for (let i = 0; i < touches.length; i++) {
         let posX = scaleByPixelRatio(touches[i].pageX);
         let posY = scaleByPixelRatio(touches[i].pageY);
