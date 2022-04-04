@@ -22,13 +22,13 @@ SOFTWARE.
 // オイラー方程式かもって話が出てる（完全流体）
 
 'use strict';
-
+/*
 if (isMobile()) {
     setTimeout(() => {
         promoPopup.style.display = 'table';
     }, 20000);
 }
-
+*/
 // Simulation section
 
 const canvas = document.getElementsByTagName('canvas')[0];
@@ -36,7 +36,7 @@ resizeCanvas();
 
 let config = {
     SIM_RESOLUTION: 128, // simulateResolution. たとえば128x128なら縦横128分割。
-    DYE_RESOLUTION: 1024, // 染める場合のResolution.
+    DYE_RESOLUTION: 512, // 染める場合のResolution.
     CAPTURE_RESOLUTION: 512,
     DENSITY_DISSIPATION: 1, // 減衰要素ここか
     VELOCITY_DISSIPATION: 0.2,
@@ -82,10 +82,11 @@ let splatStack = []; // このsplatStackには数が入っているようです
 pointers.push(new pointerPrototype());
 
 const { gl, ext } = getWebGLContext(canvas);
-
+/*
 if (isMobile()) {
     config.DYE_RESOLUTION = 512;
 }
+*/
 if (!ext.supportLinearFiltering) {
   console.log("!ext.supportLinearFiltering"); // 出ないのでどうやらサポートされていますね。しかし詳細が不明だ・・・
     config.DYE_RESOLUTION = 512;
@@ -172,11 +173,13 @@ function getSupportedFormat (gl, internalFormat, format, type)
                 return null;
         }
     }
-
+    return {internalFormat:gl.RGBA, format:gl.RGBA};
+    /*
     return {
         internalFormat,
         format
     }
+    */
 }
 
 function supportRenderTextureFormat (gl, internalFormat, format, type) {
@@ -233,15 +236,16 @@ function startGUI () {
     リンク集はカット
     */
 
-    if (isMobile())
-        gui.close();
+    //if (isMobile())
+    gui.close();
 }
 
 // モバイル関連はとりあえず残しとくか
+/*
 function isMobile () {
     return /Mobi|Android/i.test(navigator.userAgent);
 }
-
+*/
 // ----------- ここからスクショ関連 ----------- //
 // ぶっちゃけ理解は後回しでいい
 
@@ -400,6 +404,9 @@ function compileShader (type, source, keywords) {
     return shader;
 };
 
+// あー－－－－－－－－
+// #defineはなくしちゃったんよね...
+// どうするかね
 function addKeywords (source, keywords) {
     if (keywords == null) return source;
     let keywordsString = '';
@@ -994,6 +1001,8 @@ function initSunraysFramebuffers () {
 }
 
 // FBOを作る
+
+// width, height, texelSizeX, texelSizeYが追加されていますね。
 function createFBO (w, h, internalFormat, format, type, param) {
     gl.activeTexture(gl.TEXTURE0);
     let texture = gl.createTexture();
@@ -1060,6 +1069,8 @@ function createDoubleFBO (w, h, internalFormat, format, type, param) {
 
 // fboのリサイズ？？
 // これはresizeDoubleFBOだけで使われる
+
+// 内容的にはもとのFBOの内容をコピーして渡す感じですかね！
 function resizeFBO (target, w, h, internalFormat, format, type, param) {
     let newFBO = createFBO(w, h, internalFormat, format, type, param);
     copyProgram.bind();
@@ -1068,6 +1079,10 @@ function resizeFBO (target, w, h, internalFormat, format, type, param) {
     return newFBO;
 }
 // resizeDoubleFBOですね～
+// readのみ元のやつを用いる・・writeは新しく作る！
+// 内容的にはreadやwriteを書き換える感じでswapとかは変更なし。
+
+// 大きさを変えたいだけなので変化がないなら同じものを返すだけ！
 function resizeDoubleFBO (target, w, h, internalFormat, format, type, param) {
     if (target.width == w && target.height == h)
         return target;
@@ -1324,6 +1339,8 @@ function drawDisplay (target) {
 }
 
 function applyBloom (source, destination) {
+  // sourceはdyeでdestinationはbloomですね
+  // applyBloomここだけなのでそういう解釈でOK
     if (bloomFramebuffers.length < 2)
         return;
 
@@ -1335,12 +1352,14 @@ function applyBloom (source, destination) {
     let curve0 = config.BLOOM_THRESHOLD - knee;
     let curve1 = knee * 2;
     let curve2 = 0.25 / knee;
+    // texelSize使わないっぽいですね...何故だろう。まあ用意しなくていいならそれでいきましょう。
     gl.uniform3f(bloomPrefilterProgram.uniforms.curve, curve0, curve1, curve2);
     gl.uniform1f(bloomPrefilterProgram.uniforms.threshold, config.BLOOM_THRESHOLD);
     gl.uniform1i(bloomPrefilterProgram.uniforms.uTexture, source.attach(0));
     blit(last);
 
     bloomBlurProgram.bind();
+    // まずbloom_0からbloom_1, bloom_1からbloom_2, ..., bloom_(N-1)からbloom_Nとやる。
     for (let i = 0; i < bloomFramebuffers.length; i++) {
         let dest = bloomFramebuffers[i];
         gl.uniform2f(bloomBlurProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
@@ -1352,6 +1371,7 @@ function applyBloom (source, destination) {
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.enable(gl.BLEND);
 
+    // 逆にbloom_Nからbloom_(N-1), ..., bloom_2からbloom_1とやる。
     for (let i = bloomFramebuffers.length - 2; i >= 0; i--) {
         let baseTex = bloomFramebuffers[i];
         gl.uniform2f(bloomBlurProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
@@ -1361,12 +1381,15 @@ function applyBloom (source, destination) {
         last = baseTex;
     }
 
+    // 最後にbloom_1からbloom_0とやっておしまい。
     gl.disable(gl.BLEND);
     bloomFinalProgram.bind();
     gl.uniform2f(bloomFinalProgram.uniforms.texelSize, last.texelSizeX, last.texelSizeY);
     gl.uniform1i(bloomFinalProgram.uniforms.uTexture, last.attach(0));
     gl.uniform1f(bloomFinalProgram.uniforms.intensity, config.BLOOM_INTENSITY);
     blit(destination);
+
+    // この辺の処理はある程度一般化できる感じなんかね...
 }
 
 function applySunrays (source, mask, destination) {
@@ -1595,13 +1618,15 @@ function wrap (value, min, max) {
     return (value - min) % range + min;
 }
 
+// たとえば640x480とかの場合に512x(512*640/480)のような計算をしている（roundで整数にしてはいるが）
 function getResolution (resolution) {
     let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
     if (aspectRatio < 1)
         aspectRatio = 1.0 / aspectRatio;
+    // aspectRatioは縦横のでかい方÷小さい方ですね！
 
-    let min = Math.round(resolution);
-    let max = Math.round(resolution * aspectRatio);
+    let min = Math.round(resolution); // 512とか1024が入る
+    let max = Math.round(resolution * aspectRatio); // これより大きい値
 
     if (gl.drawingBufferWidth > gl.drawingBufferHeight)
         return { width: max, height: min };

@@ -25,6 +25,10 @@
 // それでやってみますかね
 // それでちゃんといけばよし
 
+// step1:テクスチャを用意する
+// step2:仕様通りに記述する
+// step3:実行！
+
 'use strict';
 
 const canvas = document.getElementsByTagName('canvas')[0];
@@ -82,8 +86,10 @@ function getSupportedFormat (gl, internalFormat, format, type)
         switch (internalFormat)
         {
             case gl.R16F:
+            //console.log("R16F"); webgl1では使用不可
                 return getSupportedFormat(gl, gl.RG16F, gl.RG, type);
             case gl.RG16F:
+            //console.log("RG16F"); webgl1では使用不可
                 return getSupportedFormat(gl, gl.RGBA16F, gl.RGBA, type);
             default:
                 return null;
@@ -444,20 +450,32 @@ function initFramebuffers () {
   // このtextureWidthとtextureHeightが謎
     textureWidth = gl.drawingBufferWidth >> config.TEXTURE_DOWNSAMPLE; // よくわかんないけど200になる？
     textureHeight = gl.drawingBufferHeight >> config.TEXTURE_DOWNSAMPLE;
-    console.log(textureWidth, textureHeight); // 768, 373です。どっちも画面サイズの半分。両方半分にしてるだけ。
+    //console.log(textureWidth, textureHeight); // 768, 373です。どっちも画面サイズの半分。両方半分にしてるだけ。
     // あれ。F12押すと画面が縮むでしょ。その際に呼ばれちゃってるわけ。そういうことです。それで別の値が出ちゃうわけ。
 
-    const texType = ext.halfFloatTexType;
-    const rgba = ext.formatRGBA;
-    const rg   = ext.formatRG;
-    const r    = ext.formatR;
+    //const texType = ext.halfFloatTexType;
+    //const rgba = ext.formatRGBA;
+    //const rg   = ext.formatRG;
+    //const r    = ext.formatR;
+
+    let halfFloat = gl.getExtension('OES_texture_half_float');
 
     // densityとvelocityはLINEARだけどdivergenceとcurlとpressureはNEARESTみたいね
+    // 0,1,2,3,4,5,6,7で合計8つ。
+    // つまり居場所を先に確保しておくということか・・今までのやり方を見直さないといけないのかもしれないね。
+    // まあ単純に毎回かぶらないようにするのが面倒なだけかもだけどね。
+    density    = createDoubleFBO(2, textureWidth, textureHeight, gl.RGBA, gl.RGBA, halfFloat.HALF_FLOAT_OES, ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST);
+    velocity   = createDoubleFBO(0, textureWidth, textureHeight, gl.RGBA, gl.RGBA, halfFloat.HALF_FLOAT_OES, ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST);
+    divergence = createFBO      (4, textureWidth, textureHeight, gl.RGBA, gl.RGBA, halfFloat.HALF_FLOAT_OES, gl.NEAREST);
+    curl       = createFBO      (5, textureWidth, textureHeight, gl.RGBA, gl.RGBA, halfFloat.HALF_FLOAT_OES, gl.NEAREST);
+    pressure   = createDoubleFBO(6, textureWidth, textureHeight, gl.RGBA, gl.RGBA, halfFloat.HALF_FLOAT_OES, gl.NEAREST);
+    /*
     density    = createDoubleFBO(2, textureWidth, textureHeight, rgba.internalFormat, rgba.format, texType, ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST);
     velocity   = createDoubleFBO(0, textureWidth, textureHeight, rg.internalFormat, rg.format, texType, ext.supportLinearFiltering ? gl.LINEAR : gl.NEAREST);
     divergence = createFBO      (4, textureWidth, textureHeight, r.internalFormat, r.format, texType, gl.NEAREST);
     curl       = createFBO      (5, textureWidth, textureHeight, r.internalFormat, r.format, texType, gl.NEAREST);
     pressure   = createDoubleFBO(6, textureWidth, textureHeight, r.internalFormat, r.format, texType, gl.NEAREST);
+    */
 }
 
 // FBOの生成関数
@@ -484,7 +502,7 @@ function createFBO (texId, w, h, internalFormat, format, type, param) {
 function createDoubleFBO (texId, w, h, internalFormat, format, type, param) {
     let fbo1 = createFBO(texId    , w, h, internalFormat, format, type, param);
     let fbo2 = createFBO(texId + 1, w, h, internalFormat, format, type, param);
-
+/*
     return {
         get read () {
             return fbo1;
@@ -498,21 +516,40 @@ function createDoubleFBO (texId, w, h, internalFormat, format, type, param) {
             fbo2 = temp;
         }
     }
+*/
+    let doubleFbo = {};
+    doubleFbo.read = fbo1;
+    doubleFbo.write = fbo2;
+    doubleFbo.swap = function(){
+      let tmp = this.read;
+      this.read = this.write;
+      this.write = tmp;
+    }
+    return doubleFbo;
 }
 
 // 描画部分は共通で平たく言うと全部板ポリ芸。つまりあれ、
 // Topologyのところは全部板ポリ。
 const blit = (() => {
+    /*
+      gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 0, 2, 3]), gl.STATIC_DRAW);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    */
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, 1, 1, -1]), gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 0, 2, 3]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW); // 板ポリですね
+    //gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl.createBuffer());
+    //gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 0, 2, 3]), gl.STATIC_DRAW); // インデックス？
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
     gl.enableVertexAttribArray(0);
 
     return (destination) => {
         gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
-        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0); // STRIPで書き換えられる（あっちみたいに）
+        //gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0); // STRIPで書き換えられる（あっちみたいに）
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
 })();
 
@@ -605,10 +642,14 @@ function update () {
     pressureProgram.bind();
     gl.uniform2f(pressureProgram.uniforms.texelSize, 1.0 / textureWidth, 1.0 / textureHeight);
     gl.uniform1i(pressureProgram.uniforms.uDivergence, divergence[2]);
-    pressureTexId = pressure.read[2];
-    gl.uniform1i(pressureProgram.uniforms.uPressure, pressureTexId);
-    gl.activeTexture(gl.TEXTURE0 + pressureTexId);
+    // どっちでもいいみたい。
+    //pressureTexId = pressure.read[2];
+    //gl.uniform1i(pressureProgram.uniforms.uPressure, pressureTexId);
+    //gl.activeTexture(gl.TEXTURE0 + pressureTexId);
     for (let i = 0; i < config.PRESSURE_ITERATIONS; i++) {
+      pressureTexId = pressure.read[2];
+      gl.uniform1i(pressureProgram.uniforms.uPressure, pressureTexId);
+      gl.activeTexture(gl.TEXTURE0 + pressureTexId);
         gl.bindTexture(gl.TEXTURE_2D, pressure.read[0]);
         blit(pressure.write[1]);
         pressure.swap();
@@ -672,11 +713,13 @@ function resizeCanvas () {
     if (canvas.width != canvas.clientWidth || canvas.height != canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
-        initFramebuffers(); console.log("resize");
+        initFramebuffers(); //console.log("resize");
     }
 }
 
 // あとはinteraction関連
+
+// 具体的にはpointersの中身に関することだけですね
 
 canvas.addEventListener('mousemove', (e) => {
     pointers[0].moved = pointers[0].down;
