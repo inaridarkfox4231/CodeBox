@@ -1528,6 +1528,7 @@ window.addEventListener('keydown', e => {
     // スペースキーでもいいみたいですね。
     if (e.key === ' ')
         splatStack.push(parseInt(Math.random() * 20) + 5);
+    // セーブはSキーとかしたいですね。
 });
 
 function updatePointerDownData (pointer, id, posX, posY) {

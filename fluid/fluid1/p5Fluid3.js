@@ -89,12 +89,12 @@ SOFTWARE.
 
 /*
 順番
-0. リファクタリング
+0. リファクタリング→ひとまず。
 1. トラぺ廃止
 要らないので...ただ何かしら画像は必要。そこで、
 トラぺの場合はそれを描画しつつ、saveの際にそこが無視される機構を
 作る。
-2. リサイズ（終わったらGPUパーティクルでもやる）
+2. リサイズ（終わったらGPUパーティクルでもやる）→終了。
 3. インタラクション
 4. 速度を極座標ベースに
 5. ディザリング
@@ -121,6 +121,33 @@ SOFTWARE.
 // できました。やっぱ別にやるのがよかったみたい。単独の方も書き直すか。
 
 // atomに作業環境を移動...
+
+// あーそうか、名前に応じてviewport設定するようにすればいいんかな...
+// どうせそのときbindするframebufferにあれすることが多いわけで。
+// だったらいっそframebufferを引数に取るなんかメソッド用意するかな...
+// ていうかもういっそあれ、bindFBOの引数にframebuffer取ってサイズ取って
+// 文字列かnullかで分けて...
+// bindの際にviewport設定するのが当然になりつつあるんで、
+// よほどのことがない限りviewportってframebufferのwとhに対して0,0,w,hなんですよね。
+// だから
+// bindFBOもsetViewportも否定しないですけど
+// 新たに...
+// bindFBOにsetViewport機能持たせちゃうか。
+// 引数は名前かnullかframebufferとする
+// 名前なら従来通りsingleかdoubleで場合分けしてあれしてnullならnullで全体viewportで
+// framebufferobjectならそれに応じていろいろってする。
+
+// おけ！バグの温床、setViewportを排除しました。
+// あとはsingleのresizeが機能するかどうかだけど...
+// registで直接fboを放り込めるようにしました。これでrenameインチキはしなくてよくなるはず...
+// とはいえ検証できないのであれですが...
+// renameとdeleteやめた。まあインチキはよくない。コード汚くなるし。
+
+// 単独のresizeを検証する機会はありますね。GPGPUのパーティクル。あれに落とす際に、
+// フレームバッファを1枚増やしてそこに焼き付けたもの（blend利用）をあれする、
+// それをあれする際に使う1枚の...って思ったけど
+// よく考えたら新しくして問題ないからリサイズ要らんか。まあいいか。移植しよ。んー...使う機会なさそうね...
+// 今日はここまで！！
 
 let config = {
     SIM_RESOLUTION: 128, // simulateResolution. たとえば128x128なら縦横128分割。
@@ -790,7 +817,7 @@ function step(dt){
   const h = simRes.frameHeight;
 
   // ここら辺の処理はあっちとあんま変わんないみたいですね
-  _node.setViewport(0, 0, w, h);
+  //_node.setViewport(0, 0, w, h);
   // まずcurl shader. 書き込む先はcurl.
   _node.bindFBO('curl');
   _node.use('curl', 'board')
@@ -884,7 +911,7 @@ function step(dt){
        .swapFBO('velocity');
 
   // ここでviewportと書き込み先を変更
-  _node.setViewport(0, 0, dw, dh);
+  //_node.setViewport(0, 0, dw, dh);
   _node.bindFBO('dye')
        .setFBO('uVelocity', 'velocity')
        .setFBO('uSource', 'dye')
@@ -934,7 +961,7 @@ function applyBloom(){
   // dyeを元にしてbloomになんか焼き付ける
   gl.disable(gl.BLEND);
   let res = getResolution(config.BLOOM_RESOLUTION);
-  _node.setViewport(res.frameWidth, res.frameHeight);
+  //_node.setViewport(res.frameWidth, res.frameHeight);
 
   let knee = config.BLOOM_THRESHOLD * config.BLOOM_SOFT_KNEE + 0.0001;
   let curve0 = config.BLOOM_THRESHOLD - knee;
@@ -965,7 +992,7 @@ function applyBloom(){
     // i-1→iって感じ
     const w = (res.frameWidth >> (i-1));
     const h = (res.frameHeight >> (i-1));
-    _node.setViewport(0, 0, (res.frameWidth >> i), (res.frameHeight >> i));
+    //_node.setViewport(0, 0, (res.frameWidth >> i), (res.frameHeight >> i));
     _node.bindFBO('bloom_' + i);
     _node.setUniform('texelSize', [1/w, 1/h])
          .setFBO('bloom_' + (i-1))
@@ -979,7 +1006,7 @@ function applyBloom(){
   for(let i = config.BLOOM_ITERATIONS; i >= 2; i--){
     const w = (res.frameWidth >> i);
     const h = (res.frameHeight >> i);
-    _node.setViewport(0, 0, (res.frameWidth >> (i-1)), (res.frameHeight >> (i-1)));
+    //_node.setViewport(0, 0, (res.frameWidth >> (i-1)), (res.frameHeight >> (i-1)));
     _node.bindFBO('bloom_' + (i-1));
     _node.setUniform('texelSize', [1/w, 1/h])
          .setFBO('bloom_' + i)
@@ -992,7 +1019,7 @@ function applyBloom(){
   // 最後に1→0でおしまい
   const w1 = (res.frameWidth >> 1);
   const h1 = (res.frameHeight >> 1);
-  _node.setViewport(0, 0, res.frameWidth, res.frameHeight);
+  //_node.setViewport(0, 0, res.frameWidth, res.frameHeight);
   _node.bindFBO('bloom_0');
   _node.use('bloomFinal', 'board')
        .setAttribute()
@@ -1014,7 +1041,7 @@ function applySunrays(){
   let dyeRes = getResolution(config.DYE_RESOLUTION);
 
   // dyeのreadからdyeのwrite.
-  _node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
+  //_node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
   _node.bindFBO('dye');
   _node.use('sunraysMask', 'board')
        .setAttribute()
@@ -1023,7 +1050,7 @@ function applySunrays(){
        .clear();
 
   // dyeのwriteからsunrays.
-  _node.setViewport(0, 0, sunRes.frameWidth, sunRes.frameHeight);
+  //_node.setViewport(0, 0, sunRes.frameWidth, sunRes.frameHeight);
   _node.bindFBO('sunrays');
   _node.use('sunrays', 'board')
        .setAttribute()
@@ -1037,7 +1064,7 @@ function blurSunrays(){
   // 出てくるのはsunraysとsunraysTempだけ。
   // デフォルトが1なので1回でいいでしょ。
   let res = getResolution(config.SUNRAYS_RESOLUTION);
-  _node.setViewport(res.frameWidth, res.frameHeight);
+  //_node.setViewport(res.frameWidth, res.frameHeight);
   _node.bindFBO('sunraysTemp');
   _node.use('blur', 'board')
        .setAttribute()
@@ -1055,7 +1082,7 @@ function blurSunrays(){
 function drawColor(r, g, b){
   const w = gl.drawingBufferWidth;
   const h = gl.drawingBufferHeight;
-  _node.setViewport(0, 0, w, h);
+  //_node.setViewport(0, 0, w, h);
   _node.bindFBO(null);
 
   _node.use('color', 'board')
@@ -1073,7 +1100,7 @@ function drawDisplay(){
   // スクリーンへの描画です。
   const w = gl.drawingBufferWidth;
   const h = gl.drawingBufferHeight;
-  _node.setViewport(0, 0, w, h);
+  //_node.setViewport(0, 0, w, h);
   _node.bindFBO(null);
 
   // Ditheringは外しても割と普通に動くので後回しでいいです。
@@ -1131,14 +1158,13 @@ function splatPointer (pointer) {
 }
 
 function splat(x, y, dx, dy, col){
-  // とりあえずviewportの...あれ。情報取り出せないや。
-  // いいや。configから取っちゃえ。あれ？
-  // そうなるとframebufferに持たせる必要ない...？まあいいや。
+  // viewportについてはその都度大きさに合わせてって感じでやることにしました
+  // となると情報持たせる意味が無いですね...まあそんなもんでしょ（？）
   let simRes = getResolution(config.SIM_RESOLUTION);
   let dyeRes = getResolution(config.DYE_RESOLUTION);
   // これらの情報を元にフレームを用意
   // まずvelocityについて
-  _node.setViewport(0, 0, simRes.frameWidth, simRes.frameHeight);
+  //_node.setViewport(0, 0, simRes.frameWidth, simRes.frameHeight);
   _node.bindFBO('velocity');
   _node.use('splat', 'board')
        .setAttribute()
@@ -1150,7 +1176,7 @@ function splat(x, y, dx, dy, col){
        .drawArrays(gl.TRIANGLE_STRIP);
   _node.swapFBO('velocity');
   // 次にdyeについて
-  _node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
+  //_node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
   _node.bindFBO('dye')
        .setFBO('uTarget', 'dye')
        .setUniform('color', [col.r, col.g, col.b])
@@ -1291,22 +1317,25 @@ function create_double_fbo(name, texId, w, h, textureFormat, filterParam){
 // 新しいそれが同じ名前になる必要がある？
 // もとのそれをリネームして...とかする必要がありそう。んー－－。
 // これ単独の場合にしか使えないね...RenderNodeさんを生かすならば。
+// ちょい書き換え...新しく作ってそこに落としてそれをregist上書き。バグってるかどうかは使わないと分かりません（え？）
 function resize_fbo(target, texId, w, h, textureFormat, filterParam){
   // targetの名前をcopyにする
-  _node.renameFBO(target.name, target.name + 'copy');
+  //_node.renameFBO(target.name, target.name + 'copy');
   // targetの
   let newFBO = create_fbo(target.name, texId, w, h, textureFormat, filterParam);
   // これにtargetのtextureをコピペする感じですかね
   // viewport...
-  _node.setViewport(0, 0, w, h);
-  _node.bindFBO(target.name);
+  //_node.setViewport(0, 0, w, h);
+  //_node.bindFBO(target.name);
+  _node.bindFBO(newFBO); // これで！
   _node.use('copy', 'board')
        .setAttribute()
        .setUniform('texelSize', [1/w, 1/h])
-       .setFBO('uTexture', target.name + 'copy')
+       .setFBO('uTexture', target.name) // 'copy'は要らない！
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
-  _node.deleteFBO(target.name + 'copy');
+  _node.registFBO(newFBO); // これでいけるはず。分かんないけど。
+  //_node.deleteFBO(target.name + 'copy');
   return newFBO;
 }
 
@@ -1321,8 +1350,8 @@ function resize_double_fbo(target, texId, w, h, textureFormat, filterParam){
   // 新しいのを作ってそこに落としてからはめこむ。
   // できました。難しくなかったですね。
   let newFBO = create_fbo(target.name, texId, w, h, textureFormat, filterParam);
-  _node.setViewport(0, 0, w, h);
-  gl.bindFramebuffer(gl.FRAMEBUFFER, newFBO.f); // 無理やり。
+  // 新しいbindFBOにより、直接fboを入れられるようになった。
+  _node.bindFBO(newFBO);
   _node.use('copy', 'board')
        .setAttribute()
        .setUniform('texelSize', [1/w, 1/h])
@@ -1706,54 +1735,64 @@ class RenderNode{
     this.useTopology(topologyName);
     return this;
   }
-  existFBO(FBOName){
-    // あるかどうかチェックする関数
-    return this.framebufferObjects[FBOName] !== undefined;
-  }
-  registFBO(FBOName, texId, w, h, textureFormat, filterParam){
-    // fboをセット(同じ名前の場合は新しく作って上書き)
-    let fbo = create_fbo(FBOName, texId, w, h, textureFormat, filterParam);
-    this.framebufferObjects[FBOName] = fbo;
-    return this;
-  }
-  renameFBO(oldName, newName){
-    // こっちで名前を変えたうえで、元の名前のところに移して、
-    let fbo = this.framebufferObjects[oldName];
-    this.framebufferObjects[newName] = fbo;
-    this.framebufferObjects[oldName] = undefined;
-  }
-  deleteFBO(name){
-    // これを使って名前を変えた方を削除する。
-    this.framebufferObjects[name] = undefined;
-  }
-  registDoubleFBO(FBOName, texId, w, h, textureFormat, filterParam){
-    //doubleFBOをセット(同じ名前の場合は新しく作って上書き)
-    let fbo = create_double_fbo(FBOName, texId, w, h, textureFormat, filterParam);
-    this.framebufferObjects[FBOName] = fbo;
-    return this;
-  }
-  resizeFBO(FBOName, texId, w, h, textureFormat, filterParam){
-    // resizeもメソッド化しないと...
-    let fbo = this.framebufferObjects[FBOName];
-    this.framebufferObjects[FBOName] = resize_fbo(fbo, texId, w, h, textureFormat, filterParam);
-  }
-  resizeDoubleFBO(FBOName, texId, w, h, textureFormat, filterParam){
-    // リサイズダブル。これらはreturn thisしなくていいでしょうね
-    let fbo = this.framebufferObjects[FBOName];
-    this.framebufferObjects[FBOName] = resize_double_fbo(fbo, texId, w, h, textureFormat, filterParam);
-  }
-  bindFBO(FBOName){
-    // FBOをbindもしくはnullで初期化。ダブルの場合はwriteをセット。
-    if(FBOName == null){
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null); return this;
+  existFBO(target){
+    // あるかどうかチェックする関数. targetがfboの場合はそれが持つnameで見る。
+    if(typeof(target) == 'string'){
+      return this.framebufferObjects[target] !== undefined;
     }
-    let fbo = this.framebufferObjects[FBOName];
-    if(!fbo){ return this; }
-    if(fbo.write){
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f);
+    return this.framebufferObjects[target.name] !== undefined;
+  }
+  registFBO(target, texId, w, h, textureFormat, filterParam){
+    // fboをセット(同じ名前の場合は新しく作って上書き)
+    // targetがstringの場合はcreate_fboするけど
+    // fbo自身の場合にはそれをはめこんで終了って感じにする
+    if(typeof(target) == 'string'){
+      let fbo = create_fbo(target, texId, w, h, textureFormat, filterParam);
+      this.framebufferObjects[target] = fbo;
       return this;
     }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.f);
+    // targetがfboの場合。名前はtargetが持ってるはず。直接放り込む。
+    this.framebufferObjects[target.name] = target;
+    return this;
+  }
+  registDoubleFBO(targetName, texId, w, h, textureFormat, filterParam){
+    //doubleFBOをセット(同じ名前の場合は新しく作って上書き)
+    let fbo = create_double_fbo(targetName, texId, w, h, textureFormat, filterParam);
+    this.framebufferObjects[targetName] = fbo;
+    return this;
+  }
+  resizeFBO(targetName, texId, w, h, textureFormat, filterParam){
+    // resizeもメソッド化しないと...
+    let fbo = this.framebufferObjects[targetName];
+    this.framebufferObjects[targetName] = resize_fbo(fbo, texId, w, h, textureFormat, filterParam);
+  }
+  resizeDoubleFBO(targetName, texId, w, h, textureFormat, filterParam){
+    // リサイズダブル。これらはreturn thisしなくていいでしょうね
+    let fbo = this.framebufferObjects[targetName];
+    this.framebufferObjects[targetName] = resize_double_fbo(fbo, texId, w, h, textureFormat, filterParam);
+  }
+  bindFBO(target){
+    // FBOをbindもしくはnullで初期化。ダブルの場合はwriteをセット。viewport設定機能を追加。
+    if(typeof(target) == 'string'){
+      let fbo = this.framebufferObjects[target];
+      if(!fbo){ return this; }
+      if(fbo.write){
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f);
+        gl.viewport(0, 0, fbo.frameWidth, fbo.frameHeight);
+        return this;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.f);
+      gl.viewport(0, 0, fbo.frameWidth, fbo.frameHeight);
+      return this;
+    }
+    if(target == null){
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); // nullの場合は全体
+      return this;
+    }
+    // targetがfboそのものの場合。
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.f);
+    gl.viewport(0, 0, target.frameWidth, target.frameHeight);
     return this;
   }
   clearFBO(){
