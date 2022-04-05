@@ -1,3 +1,26 @@
+// pavelさんの流体シミュレーションをp5.jsでやる試み
+// reference: https://github.com/PavelDoGreat/WebGL-Fluid-Simulation
+
+/*
+MIT License
+Copyright (c) 2017 Pavel Dobryakov
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 // とりあえずあとstepとrender書けば動く、はず。
 
 // configですね～
@@ -15,6 +38,89 @@
 // viewとvierの誤植
 // とりあえずエラーは消えたが真っ黒
 // さてどうするかな
+
+// background(255)が必要な理由が分からないけど
+// まあとりあえず動きましたね
+// お疲れさまでした
+// インタラクションとかはまた今度でいいや
+
+// あーだめだめ
+// bloomとsunraysをfalseにすると真っ白になっちゃう
+// だめです
+
+// え？？？？
+// background(255)をやめてbloomとsunraysをfalseにしたら
+// 挙動が一致した
+// つまり...
+// bloomとsunraysがうまくいってないせいで
+// 流体が消えてしまうようです
+// そこに問題がある...
+// background(255)でその厄介なのが消えちゃうのが奏功してる
+// とはいえ困るので何とかしないとですね
+
+// bloomがtrueでも動きますね。sunraysがfalseのとき失敗してる
+// sunraysが問題です
+// さて特定できたので頑張って解消しましょうそうしましょう
+
+// どうもsunraysの出力が0になってる
+// 原因判明しました
+// setViewportの0,0,w,hがw,hになってましたね
+// なんか引数少ないと勝手に省略されるみたいで
+// 困ったもんだ
+
+// TODO
+// トラぺ関連のシェーダーとか要らないですね
+// まあ必要ならなんか画像用意するけど...
+// 素材として使う分には要らないと思う
+// particleの方も透過で使えるようにしましょうかね
+// 次にDithering
+// これは自分のあれに保存しちゃってそこから取り出すかな...
+// resize関連も重要ね
+// インタラクション（かなり後回し）
+// gui各種
+// そんなところか
+
+// あーあと
+// 速度を極座標ベースでばらすのもよろしく
+// 今そうなってないから
+// それと配色があれなのであっちの講座参考にして
+// satとbltをいい感じにばらすように
+// まあそれは最後の最後でいいよ今はどうでもいい
+
+/*
+順番
+0. リファクタリング
+1. トラぺ廃止
+要らないので...ただ何かしら画像は必要。そこで、
+トラぺの場合はそれを描画しつつ、saveの際にそこが無視される機構を
+作る。
+2. リサイズ（終わったらGPUパーティクルでもやる）
+3. インタラクション
+4. 速度を極座標ベースに
+5. ディザリング
+6. 色がけばけばしいので何とかして
+7. dat各種
+*/
+
+// ポリシーとしてswapとか終わった後で必ず、
+// shader使い終わったら必ずclearするのと、
+// 一番最後はflushするのをしました
+
+// あ...
+// そうか。やばいな、これ。
+// 普通に考えたら
+// だから結局doubleってこれ別々に登録しないとやばいね...
+// doubleだからってまとめてやっちゃうのまずいね...
+// たとえば今の状況だとvelocityってdoubleですから
+// でもあのリサイズ処理だとそのvelocityに一時的に
+// 単独のvelocityが入っちゃうわけで
+// でもそれ入っちゃまずいのでおかしなことになると
+// じゃああれだ
+// doubleのリサイズにsingleのリサイズを使わなければいい
+// はず...
+// できました。やっぱ別にやるのがよかったみたい。単独の方も書き直すか。
+
+// atomに作業環境を移動...
 
 let config = {
     SIM_RESOLUTION: 128, // simulateResolution. たとえば128x128なら縦横128分割。
@@ -34,7 +140,7 @@ let config = {
     BACK_COLOR: { r: 0, g: 0, b: 0 },
     TRANSPARENT: false,
     BLOOM: true,
-    BLOOM_ITERATIONS: 8,
+    BLOOM_ITERATIONS: 6, // 特に意味ないけど8→6.
     BLOOM_RESOLUTION: 256,
     BLOOM_INTENSITY: 0.8,
     BLOOM_THRESHOLD: 0.6,
@@ -70,6 +176,7 @@ let ext = {}; // extをグローバルにする実験
 let textureWidth;
 let textureHeight;
 
+// リサイズ用のメモ
 let canvasWidth;
 let canvasHeight;
 
@@ -500,6 +607,7 @@ const gradientSubtractShader =
 
 function setup() {
   _gl = createCanvas(windowWidth, windowHeight, WEBGL);
+  // ここで登録しといてサイズ変更の際にリサイズ処理に使う
   canvasWidth = width;
   canvasHeight = height;
   gl = _gl.GL;
@@ -636,9 +744,9 @@ function draw(){
   const dt = calcDeltaTime();
 
   // 後回し
-  //if(resize()){
-  //  initFramebuffers();
-  //}
+  if(resizeCheck()){
+    initFramebuffers();
+  }
 
   updateColors(dt); // 後回し
   applyInputs(); // これはやらないとだね。
@@ -647,6 +755,17 @@ function draw(){
   }
   render();
   // 以上です！
+}
+
+// リサイズするべきか否かのチェック（リサイズするならtrueを返す）
+function resizeCheck(){
+  if(canvasWidth !== windowWidth || canvasHeight !== windowHeight){
+    canvasWidth = windowWidth;
+    canvasHeight = windowHeight;
+    resizeCanvas(canvasWidth, canvasHeight);
+    return true;
+  }
+  return false;
 }
 
 function updateColors(dt){
@@ -691,8 +810,8 @@ function step(dt){
        .setUniform('curl', config.CURL)
        .setUniform('dt', dt)
        .drawArrays(gl.TRIANGLE_STRIP)
+       .swapFBO('velocity')
        .clear();
-  _node.swapFBO('velocity');
 
   // divergence shader. 書き込む先はdivergence.
   _node.bindFBO('divergence');
@@ -710,8 +829,8 @@ function step(dt){
        .setFBO('uPressure', 'pressure')
        .setUniform('value', config.PRESSURE)
        .drawArrays(gl.TRIANGLE_STRIP)
+       .swapFBO('pressure')
        .clear();
-  _node.swapFBO('pressure');
 
   // pressure shader.
   // イテレーションでpressureを求めるパート
@@ -735,8 +854,8 @@ function step(dt){
        .setFBO('uVelocity', 'velocity')
        .setUniform('texelSize', [1/w, 1/h])
        .drawArrays(gl.TRIANGLE_STRIP)
+       .swapFBO('velocity')
        .clear();
-  _node.swapFBO('velocity');
 
   // 最後に移流項（advection）やってる。ここ順番が逆なのよね。
   // 洗練させた結果こうなったとみるしかない。作者でないので
@@ -775,8 +894,8 @@ function step(dt){
          .setUniform('dyeTexelSize', [1/dw, 1/dh]);
   }
   _node.drawArrays(gl.TRIANGLE_STRIP)
-       .swapFBO('dye');
-  _node.clear();
+       .swapFBO('dye')
+       .clear();
 
   // お疲れさまでした。
 }
@@ -784,7 +903,7 @@ function step(dt){
 function render(){
   // 引数はnullでいいと思う。saveの仕組みを考えたらそれでいける、はず。
   // まあp5.jsだし多分大丈夫のはず...
-  // bloom.
+  // 検証しました。いけます。p5.jsすごい！
 
   if(config.BLOOM){
     applyBloom();
@@ -793,6 +912,7 @@ function render(){
     applySunrays();
     blurSunrays();
   }
+  // background(255)要らないです。ようやくできた。sunraysで失敗してた。
   if(!config.TRANSPARENT){
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.enable(gl.BLEND);
@@ -800,12 +920,11 @@ function render(){
     // 後回し
   }
   if(!config.TRANSPARENT){
-    background(0);
-    //drawColor(normalizeColor(config.BACK_COLOR)); // 全部255で割る
+    const col = config.BACK_COLOR;
+    drawColor(col.r/255, col.g/255, col.b/255); // 全部255で割る
   }
   if(config.TRANSPARENT){
     // 後回し
-    clear(); // 多分これでいい？
   }
 
   drawDisplay(); // 仕上げ！！！
@@ -830,7 +949,10 @@ function applyBloom(){
        .setFBO('uTexture', 'dye')
        .setUniform('curve', [curve0, curve1, curve2])
        .setUniform('threshold', config.BLOOM_THRESHOLD)
-       .drawArrays(gl.TRIANGLE_STRIP);
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear(); // ここclear必須っぽいな
+
+  // まあ本来はシェーダー切り替えるたびにclear必要だけどね...
 
   // bloomやっぱ通し番号にするか...0,1,2,...,8みたいに。
   // その方が良さそう。
@@ -864,6 +986,7 @@ function applyBloom(){
          .drawArrays(gl.TRIANGLE_STRIP);
   }
 
+  _node.clear();
   gl.disable(gl.BLEND);
 
   // 最後に1→0でおしまい
@@ -891,15 +1014,16 @@ function applySunrays(){
   let dyeRes = getResolution(config.DYE_RESOLUTION);
 
   // dyeのreadからdyeのwrite.
-  _node.setViewport(dyeRes.frameWidth, dyeRes.frameHeight);
+  _node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
   _node.bindFBO('dye');
   _node.use('sunraysMask', 'board')
        .setAttribute()
        .setFBO('uTexture', 'dye')
-       .drawArrays(gl.TRIANGLE_STRIP);
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear();
 
   // dyeのwriteからsunrays.
-  _node.setViewport(sunRes.frameWidth, sunRes.frameHeight);
+  _node.setViewport(0, 0, sunRes.frameWidth, sunRes.frameHeight);
   _node.bindFBO('sunrays');
   _node.use('sunrays', 'board')
        .setAttribute()
@@ -924,9 +1048,24 @@ function blurSunrays(){
   _node.bindFBO('sunrays');
   _node.setUniform('texelSize', [0, 1/res.frameHeight])
        .setFBO('uTexture', 'sunraysTemp')
-       .drawArrays(gl.TRIANGLE_STRIP);
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear();
+}
 
-  _node.clear();
+function drawColor(r, g, b){
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+  _node.setViewport(0, 0, w, h);
+  _node.bindFBO(null);
+
+  _node.use('color', 'board')
+       .setAttribute()
+       .setUniform('color', [r, g, b, 1])
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear();
+
+  // clear(); // トラぺ要らないかも。ここclearにしてsaveでよさげ。
+  // 多分あっちのパーティクルもそうなんじゃないか...
 }
 
 function drawDisplay(){
@@ -943,21 +1082,27 @@ function drawDisplay(){
   _node.use('display', 'board')
        .setAttribute()
        .setFBO('uTexture', 'dye');
+
   if(config.SHADING){
     _node.setUniform('uShadingFlag', true);
     _node.setUniform('texelSize', [1/w, 1/h]);
   }
+
+  // コメントアウト外しても大丈夫になった！
   if(config.BLOOM){
     _node.setUniform('uBloomFlag', true);
     _node.setFBO('uBloom', 'bloom_0');
     // ditheringは後回し
   }
+
   if(config.SUNRAYS){
     _node.setUniform('uSunraysFlag', true);
     _node.setFBO('uSunrays', 'sunrays');
   }
-  _node.drawArrays(gl.TRIANGLE_STRIP);
-  _node.clear();
+
+  _node.drawArrays(gl.TRIANGLE_STRIP)
+       .clear()
+       .flush();
   // これでうごくはず...
 }
 
@@ -1010,8 +1155,8 @@ function splat(x, y, dx, dy, col){
        .setFBO('uTarget', 'dye')
        .setUniform('color', [col.r, col.g, col.b])
        .drawArrays(gl.TRIANGLE_STRIP)
+       .swapFBO('dye')
        .clear();
-  _node.swapFBO('dye');
   // おしまい
 }
 
@@ -1145,15 +1290,19 @@ function create_double_fbo(name, texId, w, h, textureFormat, filterParam){
 // リサイズ～
 // 新しいそれが同じ名前になる必要がある？
 // もとのそれをリネームして...とかする必要がありそう。んー－－。
+// これ単独の場合にしか使えないね...RenderNodeさんを生かすならば。
 function resize_fbo(target, texId, w, h, textureFormat, filterParam){
   // targetの名前をcopyにする
   _node.renameFBO(target.name, target.name + 'copy');
   // targetの
   let newFBO = create_fbo(target.name, texId, w, h, textureFormat, filterParam);
   // これにtargetのtextureをコピペする感じですかね
+  // viewport...
+  _node.setViewport(0, 0, w, h);
   _node.bindFBO(target.name);
   _node.use('copy', 'board')
        .setAttribute()
+       .setUniform('texelSize', [1/w, 1/h])
        .setFBO('uTexture', target.name + 'copy')
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
@@ -1167,10 +1316,22 @@ function resize_double_fbo(target, texId, w, h, textureFormat, filterParam){
   if(target.frameWidth == w && target.frameHeight == h){
     return target;
   }
-  // targetのreadはresizeする。writeは新しく作ってしまえばいい。
-  target.read = resize_fbo(target.read, texId, w, h, textureFormat, filterParam);
-  // この操作で名前は変更なしなので問題ないです
-  // というか名前は変える必要ないのです
+  // targetのreadはresizeする。
+  // 単独のあれは使えないので...どうしよ。
+  // 新しいのを作ってそこに落としてからはめこむ。
+  // できました。難しくなかったですね。
+  let newFBO = create_fbo(target.name, texId, w, h, textureFormat, filterParam);
+  _node.setViewport(0, 0, w, h);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, newFBO.f); // 無理やり。
+  _node.use('copy', 'board')
+       .setAttribute()
+       .setUniform('texelSize', [1/w, 1/h])
+       .setFBO('uTexture', target.name)
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear();
+  target.read = newFBO;
+  //target.read = resize_fbo(target.read, texId, w, h, textureFormat, filterParam);
+  // writeは普通に新しく作る。
   target.write = create_fbo(target.name, texId + 1, w, h, textureFormat, filterParam);
   target.frameWidth = w;
   target.frameHeight = h;
@@ -1189,18 +1350,20 @@ function initFramebuffers(){
 
   gl.disable(gl.BLEND);
 
+  // dyeを0にしてvelocityを2にしたらうまくいったので順番大事らしい
+
   // dyeについて必要ならresize処理
   if(!_node.existFBO("dye")){
-    _node.registDoubleFBO("dye", 2, dyeRes.frameWidth, dyeRes.frameHeight, halfFloat, linearFilterParam);
+    _node.registDoubleFBO("dye", 0, dyeRes.frameWidth, dyeRes.frameHeight, halfFloat, linearFilterParam);
   }else{
-    _node.resizeDoubleFBO("dye", 2, dyeRes.frameWidth, dyeRes.frameHeight, halfFloat, linearFilterParam);
+    _node.resizeDoubleFBO("dye", 0, dyeRes.frameWidth, dyeRes.frameHeight, halfFloat, linearFilterParam);
   }
 
   // velocityについて必要ならresize処理
   if(!_node.existFBO("velocity")){
-    _node.registDoubleFBO("velocity", 0, simRes.frameWidth, simRes.frameHeight, halfFloat, linearFilterParam);
+    _node.registDoubleFBO("velocity", 2, simRes.frameWidth, simRes.frameHeight, halfFloat, linearFilterParam);
   }else{
-    _node.resizeDoubleFBO("velocity", 0, simRes.frameWidth, simRes.frameHeight, halfFloat, linearFilterParam);
+    _node.resizeDoubleFBO("velocity", 2, simRes.frameWidth, simRes.frameHeight, halfFloat, linearFilterParam);
   }
 
   // 0,1がvelocityで2,3がdyeで4がdivergenceで5がcurlで6,7がpressureです
@@ -1587,7 +1750,8 @@ class RenderNode{
     let fbo = this.framebufferObjects[FBOName];
     if(!fbo){ return this; }
     if(fbo.write){
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f); return this;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f);
+      return this;
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.f);
     return this;
