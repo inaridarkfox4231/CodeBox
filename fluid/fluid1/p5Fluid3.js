@@ -21,133 +21,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// とりあえずあとstepとrender書けば動く、はず。
-
-// configですね～
-
-// 20220404
-// とりあえずshader読み込みはOK
-// まだ何も始まってませんが...
-
-// 真っ暗
-// GPGPU調べ始めたころと一緒なので特に驚きはないです。
-// さてどうしよう
-
-// 引数の不具合
-// nとmの誤植
-// viewとvierの誤植
-// とりあえずエラーは消えたが真っ黒
-// さてどうするかな
-
-// background(255)が必要な理由が分からないけど
-// まあとりあえず動きましたね
-// お疲れさまでした
-// インタラクションとかはまた今度でいいや
-
-// あーだめだめ
-// bloomとsunraysをfalseにすると真っ白になっちゃう
-// だめです
-
-// え？？？？
-// background(255)をやめてbloomとsunraysをfalseにしたら
-// 挙動が一致した
-// つまり...
-// bloomとsunraysがうまくいってないせいで
-// 流体が消えてしまうようです
-// そこに問題がある...
-// background(255)でその厄介なのが消えちゃうのが奏功してる
-// とはいえ困るので何とかしないとですね
-
-// bloomがtrueでも動きますね。sunraysがfalseのとき失敗してる
-// sunraysが問題です
-// さて特定できたので頑張って解消しましょうそうしましょう
-
-// どうもsunraysの出力が0になってる
-// 原因判明しました
-// setViewportの0,0,w,hがw,hになってましたね
-// なんか引数少ないと勝手に省略されるみたいで
-// 困ったもんだ
-
-// TODO
-// トラぺ関連のシェーダーとか要らないですね
-// まあ必要ならなんか画像用意するけど...
-// 素材として使う分には要らないと思う
-// particleの方も透過で使えるようにしましょうかね
-// 次にDithering
-// これは自分のあれに保存しちゃってそこから取り出すかな...
-// resize関連も重要ね
-// インタラクション（かなり後回し）
-// gui各種
-// そんなところか
-
-// あーあと
-// 速度を極座標ベースでばらすのもよろしく
-// 今そうなってないから
-// それと配色があれなのであっちの講座参考にして
-// satとbltをいい感じにばらすように
-// まあそれは最後の最後でいいよ今はどうでもいい
-
-/*
-順番
-0. リファクタリング→ひとまず。
-1. トラぺ廃止
-要らないので...ただ何かしら画像は必要。そこで、
-トラぺの場合はそれを描画しつつ、saveの際にそこが無視される機構を
-作る。
-2. リサイズ（終わったらGPUパーティクルでもやる）→終了。
-3. インタラクション
-4. 速度を極座標ベースに
-5. ディザリング
-6. 色がけばけばしいので何とかして
-7. dat各種
-*/
-
-// ポリシーとしてswapとか終わった後で必ず、
-// shader使い終わったら必ずclearするのと、
-// 一番最後はflushするのをしました
-
-// あ...
-// そうか。やばいな、これ。
-// 普通に考えたら
-// だから結局doubleってこれ別々に登録しないとやばいね...
-// doubleだからってまとめてやっちゃうのまずいね...
-// たとえば今の状況だとvelocityってdoubleですから
-// でもあのリサイズ処理だとそのvelocityに一時的に
-// 単独のvelocityが入っちゃうわけで
-// でもそれ入っちゃまずいのでおかしなことになると
-// じゃああれだ
-// doubleのリサイズにsingleのリサイズを使わなければいい
-// はず...
-// できました。やっぱ別にやるのがよかったみたい。単独の方も書き直すか。
-
-// atomに作業環境を移動...
-
-// あーそうか、名前に応じてviewport設定するようにすればいいんかな...
-// どうせそのときbindするframebufferにあれすることが多いわけで。
-// だったらいっそframebufferを引数に取るなんかメソッド用意するかな...
-// ていうかもういっそあれ、bindFBOの引数にframebuffer取ってサイズ取って
-// 文字列かnullかで分けて...
-// bindの際にviewport設定するのが当然になりつつあるんで、
-// よほどのことがない限りviewportってframebufferのwとhに対して0,0,w,hなんですよね。
-// だから
-// bindFBOもsetViewportも否定しないですけど
-// 新たに...
-// bindFBOにsetViewport機能持たせちゃうか。
-// 引数は名前かnullかframebufferとする
-// 名前なら従来通りsingleかdoubleで場合分けしてあれしてnullならnullで全体viewportで
-// framebufferobjectならそれに応じていろいろってする。
-
-// おけ！バグの温床、setViewportを排除しました。
-// あとはsingleのresizeが機能するかどうかだけど...
-// registで直接fboを放り込めるようにしました。これでrenameインチキはしなくてよくなるはず...
-// とはいえ検証できないのであれですが...
-// renameとdeleteやめた。まあインチキはよくない。コード汚くなるし。
-
-// 単独のresizeを検証する機会はありますね。GPGPUのパーティクル。あれに落とす際に、
-// フレームバッファを1枚増やしてそこに焼き付けたもの（blend利用）をあれする、
-// それをあれする際に使う1枚の...って思ったけど
-// よく考えたら新しくして問題ないからリサイズ要らんか。まあいいか。移植しよ。んー...使う機会なさそうね...
-// 今日はここまで！！
+// この辺が限界ですね
+// まあそろそろ離れるつもりだったし
+// 最後にいい思い出ができた
+// おけー
+// 結論：p5.jsはここまで。
 
 let config = {
     SIM_RESOLUTION: 128, // simulateResolution. たとえば128x128なら縦横128分割。
@@ -167,7 +45,7 @@ let config = {
     BACK_COLOR: { r: 0, g: 0, b: 0 },
     TRANSPARENT: false,
     BLOOM: true,
-    BLOOM_ITERATIONS: 6, // 特に意味ないけど8→6.
+    BLOOM_ITERATIONS: 8,
     BLOOM_RESOLUTION: 256,
     BLOOM_INTENSITY: 0.8,
     BLOOM_THRESHOLD: 0.6,
@@ -177,6 +55,7 @@ let config = {
     SUNRAYS_WEIGHT: 1.0,
 }
 
+// prototypeのidが-1なのでこれが入ってそれで終わりみたいな感じなんかね
 class pointerPrototype{
   constructor(){
     this.id = -1;
@@ -232,6 +111,20 @@ const baseVertexShader =
 "  gl_Position = vec4(aPosition, 0.0, 1.0);" +
 "}";
 
+// simple vertex shader.
+// vLやら何やらを使ってない場合はこっちを使いましょう。copyとか使ってないはず。
+// vUvは使おう。これ-1～1を0～1にするやつだから。copyとかで使ってる。
+// あ、texelSize使ってる場合はだめ。だからそれは...あー、いいや。
+// vertexで使ってないならsimpleでいい。texelSizeだけ使うからinputする。それで。OK!
+const simpleVertexShader =
+"precision highp float;" +
+"attribute vec2 aPosition;" +
+"varying vec2 vUv;" +
+"void main () {" +
+"  vUv = aPosition * 0.5 + 0.5;" +
+"  gl_Position = vec4(aPosition, 0.0, 1.0);" +
+"}";
+
 // 基本ブラーシェーダ
 const blurVertexShader =
 "precision highp float;" +
@@ -264,6 +157,9 @@ const blurShader =
 "}";
 
 // リサイズに使うコピー用シェーダ
+// これsimpleにしようね
+// これ考えられてるな...バーテックスから0～1を渡せばそのままテクスチャの内容コピーできるんだ。
+// これRenderNodeの御用達シェーダにして使い回すか。resizeでも使うし。
 const copyShader =
 "precision mediump float;" +
 "precision mediump sampler2D;" +
@@ -274,6 +170,7 @@ const copyShader =
 "}";
 
 // クリアシェーダ
+// これsimpleにしようね
 const clearShader =
 "precision mediump float;" +
 "precision mediump sampler2D;" +
@@ -285,6 +182,7 @@ const clearShader =
 "}";
 
 // カラーシェーダ
+// これsimpleにしようね
 const colorShader =
 "precision mediump float;" +
 "uniform vec4 color;" +
@@ -293,11 +191,12 @@ const colorShader =
 "}";
 
 // チェッカーボード。透明の時に使うやつ。
+// これsimpleにしようね
 const checkerboardShader =
 "precision highp float;" +
 "precision highp sampler2D;" +
 "varying vec2 vUv;" +
-"uniform sampler2D uTexture;" +
+//"uniform sampler2D uTexture;" +
 "uniform float aspectRatio;" +
 "const float SCALE = 25.0;" + // セミコロン抜け！
 "void main () {" +
@@ -369,6 +268,7 @@ const displayShaderSource =
 "}";
 
 // bloomの事前準備
+// これsimpleにしようね
 const bloomPrefilterShader =
 "precision mediump float;" +
 "precision mediump sampler2D;" +
@@ -425,6 +325,7 @@ const bloomFinalShader =
 "}";
 
 // sunrayのシェーダが始まりました
+// これsimpleにしようね
 const sunraysMaskShader =
 "precision highp float;" +
 "precision highp sampler2D;" +
@@ -438,6 +339,7 @@ const sunraysMaskShader =
 "}";
 
 // sunrayメインシェーダ
+// これsimpleにしようね
 const sunraysShader =
 "precision highp float;" +
 "precision highp sampler2D;" +
@@ -465,6 +367,7 @@ const sunraysShader =
 "}";
 
 // splat用のフラグメントシェーダはこっちですね
+// これsimpleにしようね
 const splatShader =
 "precision highp float;" +
 "precision highp sampler2D;" +
@@ -482,6 +385,7 @@ const splatShader =
 "  gl_FragColor = vec4(base + splat, 1.0);" +
 "}";
 
+// これsimpleにしようね. ただtexelSizeは使うのでよろしくね。
 const advectionShader =
 "precision highp float;" +
 "precision highp sampler2D;" +
@@ -656,24 +560,24 @@ function setup() {
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
-  sh = createShader(baseVertexShader, copyShader);
-  _node.regist('copy', sh, 'board')
+  sh = createShader(simpleVertexShader, copyShader);
+  _node.regist('copy', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
-  sh = createShader(baseVertexShader, clearShader);
-  _node.regist('clear', sh, 'board')
+  sh = createShader(simpleVertexShader, clearShader);
+  _node.regist('clear', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
-  sh = createShader(baseVertexShader, colorShader);
-  _node.regist('color', sh, 'board')
+  sh = createShader(simpleVertexShader, colorShader);
+  _node.regist('color', sh, 'simple')
        .registAttribute('aPosition', positions, 2);
 
-  sh = createShader(baseVertexShader, checkerboardShader);
-  _node.regist('checkerboard', sh, 'board')
-       .registAttribute('aPosition', positions, 2)
-       .registUniformLocation('uTexture');
+  sh = createShader(simpleVertexShader, checkerboardShader);
+  _node.regist('checkerboard', sh, 'simple')
+       .registAttribute('aPosition', positions, 2);
+       //.registUniformLocation('uTexture'); // 使ってないので。
 
   // displayがあれこれめんどくさいことになってるのは
   // #defineを使ってるから。ただこれははっきりいってインチキなので、
@@ -692,8 +596,8 @@ function setup() {
        .registUniformLocation('uSunrays')
        .registUniformLocation('uDithering');
 
-  sh = createShader(baseVertexShader, bloomPrefilterShader);
-  _node.regist('bloomPrefilter', sh, 'board')
+  sh = createShader(simpleVertexShader, bloomPrefilterShader);
+  _node.regist('bloomPrefilter', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
@@ -707,26 +611,26 @@ function setup() {
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
-  sh = createShader(baseVertexShader, sunraysMaskShader);
-  _node.regist('sunraysMask', sh, 'board')
+  sh = createShader(simpleVertexShader, sunraysMaskShader);
+  _node.regist('sunraysMask', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
-  sh = createShader(baseVertexShader, sunraysShader);
-  _node.regist('sunrays', sh, 'board')
+  sh = createShader(simpleVertexShader, sunraysShader);
+  _node.regist('sunrays', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture');
 
   // ここから先は以前と同じはずです
   // ただ明らかに見た目が違うのでどういう処理をしているのでしょうか...
 
-  sh = createShader(baseVertexShader, splatShader);
-  _node.regist('splat', sh, 'board')
+  sh = createShader(simpleVertexShader, splatShader);
+  _node.regist('splat', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTarget');
 
-  sh = createShader(baseVertexShader, advectionShader);
-  _node.regist('advection', sh, 'board')
+  sh = createShader(simpleVertexShader, advectionShader);
+  _node.regist('advection', sh, 'simple')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uVelocity')
        .registUniformLocation('uSource');
@@ -764,6 +668,12 @@ function setup() {
   multipleSplats(floor(Math.random() * 20) + 5);
   lastUpdateTime = Date.now();
   colorUpdateTimer = 0.0;
+
+  // じゃあとりあえずマウスだけ移すね
+  const canvas = document.getElementsByTagName('canvas')[0];
+  canvas.addEventListener('mousedown', mouseDownAction);
+  canvas.addEventListener('mousemove', mouseMoveAction);
+  window.addEventListener('mouseup', mouseUpAction);
 }
 
 function draw(){
@@ -778,7 +688,7 @@ function draw(){
   updateColors(dt); // 後回し
   applyInputs(); // これはやらないとだね。
   if(!config.PAUSED){
-    step(dt);
+    step(dt); // Pキーで止められるようにする感じね
   }
   render();
   // 以上です！
@@ -801,7 +711,7 @@ function updateColors(dt){
   if (colorUpdateTimer >= 1) {
     colorUpdateTimer = wrap(colorUpdateTimer, 0, 1);
     pointers.forEach(p => {
-      p.color = generateColor();
+      p.color = generateColor(Math.random());
     });
   }
 }
@@ -851,7 +761,7 @@ function step(dt){
 
   // clear shader. 書き込む先はpressureで、書き込んだらswapする。
   _node.bindFBO('pressure');
-  _node.use('clear', 'board')
+  _node.use('clear', 'simple')
        .setAttribute()
        .setFBO('uPressure', 'pressure')
        .setUniform('value', config.PRESSURE)
@@ -896,7 +806,7 @@ function step(dt){
   // dyeの方viewport変えるっぽいね
   // そこだけ注意してください（多分変えるだけでいいはず...）
   _node.bindFBO('velocity');
-  _node.use('advection', 'board')
+  _node.use('advection', 'simple')
        .setAttribute()
        .setFBO('uVelocity', 'velocity')
        .setFBO('uSource', 'velocity')
@@ -940,18 +850,19 @@ function render(){
     blurSunrays();
   }
   // background(255)要らないです。ようやくできた。sunraysで失敗してた。
-  if(!config.TRANSPARENT){
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.BLEND);
-  }else{
-    // 後回し
-  }
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.BLEND);
+  // こうですね
+  // あっちでは透明バージョンでsaveする場合に特殊なことをしているのでああなってただけなんです。
+  // 今回それはやらないので普通にこの形式でOKです。そういうこと。
+
   if(!config.TRANSPARENT){
     const col = config.BACK_COLOR;
     drawColor(col.r/255, col.g/255, col.b/255); // 全部255で割る
   }
   if(config.TRANSPARENT){
-    // 後回し
+    // saveFlagが立ってる場合は描画しないでclear()だけして抜ける。
+    drawCheckerboard();
   }
 
   drawDisplay(); // 仕上げ！！！
@@ -971,7 +882,7 @@ function applyBloom(){
   // まあ使わなくていいならそれでいいのか...？よくわからないね。
   // texelSizeにデタラメ入れてもバグんなかったから。
   _node.bindFBO('bloom_0');
-  _node.use('bloomPrefilter', 'board')
+  _node.use('bloomPrefilter', 'simple')
        .setAttribute()
        .setFBO('uTexture', 'dye')
        .setUniform('curve', [curve0, curve1, curve2])
@@ -1043,7 +954,7 @@ function applySunrays(){
   // dyeのreadからdyeのwrite.
   //_node.setViewport(0, 0, dyeRes.frameWidth, dyeRes.frameHeight);
   _node.bindFBO('dye');
-  _node.use('sunraysMask', 'board')
+  _node.use('sunraysMask', 'simple')
        .setAttribute()
        .setFBO('uTexture', 'dye')
        .drawArrays(gl.TRIANGLE_STRIP)
@@ -1052,7 +963,7 @@ function applySunrays(){
   // dyeのwriteからsunrays.
   //_node.setViewport(0, 0, sunRes.frameWidth, sunRes.frameHeight);
   _node.bindFBO('sunrays');
-  _node.use('sunrays', 'board')
+  _node.use('sunrays', 'simple')
        .setAttribute()
        .setFBO('uTexture', 'dye', true) // writeをアタッチする
        .setUniform('weight', config.SUNRAYS_WEIGHT)
@@ -1080,12 +991,12 @@ function blurSunrays(){
 }
 
 function drawColor(r, g, b){
-  const w = gl.drawingBufferWidth;
-  const h = gl.drawingBufferHeight;
+  //const w = gl.drawingBufferWidth;
+  //const h = gl.drawingBufferHeight;
   //_node.setViewport(0, 0, w, h);
   _node.bindFBO(null);
 
-  _node.use('color', 'board')
+  _node.use('color', 'simple')
        .setAttribute()
        .setUniform('color', [r, g, b, 1])
        .drawArrays(gl.TRIANGLE_STRIP)
@@ -1095,12 +1006,18 @@ function drawColor(r, g, b){
   // 多分あっちのパーティクルもそうなんじゃないか...
 }
 
+function drawCheckerboard(){
+  _node.bindFBO(null);
+
+  _node.use('checkerboard', 'simple')
+       .setAttribute()
+       .setUniform('aspectRatio', width/height)
+       .drawArrays(gl.TRIANGLE_STRIP)
+       .clear();
+}
+
 function drawDisplay(){
-  // っしゃ！！！！！！ここおわらせるぞ！！！！！！！
-  // スクリーンへの描画です。
-  const w = gl.drawingBufferWidth;
-  const h = gl.drawingBufferHeight;
-  //_node.setViewport(0, 0, w, h);
+  // スクリーンへの描画
   _node.bindFBO(null);
 
   // Ditheringは外しても割と普通に動くので後回しでいいです。
@@ -1112,7 +1029,7 @@ function drawDisplay(){
 
   if(config.SHADING){
     _node.setUniform('uShadingFlag', true);
-    _node.setUniform('texelSize', [1/w, 1/h]);
+    _node.setUniform('texelSize', [1/width, 1/height]);
   }
 
   // コメントアウト外しても大丈夫になった！
@@ -1139,18 +1056,22 @@ function multipleSplats(amount){
   // amountの回数だけsplatを呼び出す。
   // splatでは
   for (let i = 0; i < amount; i++) {
-    let col = generateColor();
+    let col = generateColor(Math.random());
     col.r *= 10.0;
     col.g *= 10.0;
     col.b *= 10.0;
+    // 花火の原理考えたらちょっと速度はいじった方がいいかも（まあめんどくさいしいいか）
     const x = Math.random();
     const y = Math.random();
-    const dx = 1000 * (Math.random() - 0.5);
-    const dy = 1000 * (Math.random() - 0.5);
-    splat(x, y, dx, dy, col);
+    const velocity = 500 * Math.random();
+    const direction = Math.PI * 2.0 * Math.random();
+    splat(x, y, velocity * Math.cos(direction), velocity * Math.sin(direction), col);
   }
 }
 
+// splatPointerではdeltaXとdeltaYの値により方向を割り出すので、
+// テクスチャ座標の変位にアスペクト比を考慮して掛け算することで、
+// きちんとした方向になるよう修正しないといけないわけです。
 function splatPointer (pointer) {
   let dx = pointer.deltaX * config.SPLAT_FORCE;
   let dy = pointer.deltaY * config.SPLAT_FORCE;
@@ -1166,7 +1087,7 @@ function splat(x, y, dx, dy, col){
   // まずvelocityについて
   //_node.setViewport(0, 0, simRes.frameWidth, simRes.frameHeight);
   _node.bindFBO('velocity');
-  _node.use('splat', 'board')
+  _node.use('splat', 'simple')
        .setAttribute()
        .setFBO('uTarget', 'velocity')
        .setUniform('aspectRatio', width/height)
@@ -1190,6 +1111,7 @@ function applyInputs(){
   if(splatStack.length > 0){
     multipleSplats(splatStack.pop());
   }
+  // ここですね。pointersのpointerがmovedの場合にそれを、フラグを折りつつ、splatを実行する。
   pointers.forEach(p => {
     if (p.moved){
       p.moved = false;
@@ -1328,9 +1250,9 @@ function resize_fbo(target, texId, w, h, textureFormat, filterParam){
   //_node.setViewport(0, 0, w, h);
   //_node.bindFBO(target.name);
   _node.bindFBO(newFBO); // これで！
-  _node.use('copy', 'board')
+  _node.use('copy', 'simple')
        .setAttribute()
-       .setUniform('texelSize', [1/w, 1/h])
+       //.setUniform('texelSize', [1/w, 1/h])
        .setFBO('uTexture', target.name) // 'copy'は要らない！
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
@@ -1352,9 +1274,9 @@ function resize_double_fbo(target, texId, w, h, textureFormat, filterParam){
   let newFBO = create_fbo(target.name, texId, w, h, textureFormat, filterParam);
   // 新しいbindFBOにより、直接fboを入れられるようになった。
   _node.bindFBO(newFBO);
-  _node.use('copy', 'board')
+  _node.use('copy', 'simple')
        .setAttribute()
-       .setUniform('texelSize', [1/w, 1/h])
+       //.setUniform('texelSize', [1/w, 1/h])
        .setFBO('uTexture', target.name)
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
@@ -1513,9 +1435,9 @@ function _HSV(h, s, v){
 }
 
 // _HSVの結果を0.15倍してるだけなんだけどどうも使い回してるようで。
-// そんな感じですかね。
-function generateColor(){
-  let _rgb = _HSV(Math.random(), 1.0, 1.0);
+// そんな感じですかね。hueを引数にした方が良いね。
+function generateColor(_hue){
+  let _rgb = _HSV(_hue, 1.0, 1.0);
   return {r:_rgb.r * 0.15, g:_rgb.g * 0.15, b:_rgb.b * 0.15};
 }
 
@@ -1545,13 +1467,14 @@ function calcDet(a,b,c,d,e,f,g,h,i){
 // ちょっとした工夫
 // 2べきに合わせるということらしい
 function getResolution(resolution){
-  let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
+  let aspectRatio = width / height;
+  //let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
   if(aspectRatio < 1){ aspectRatio = 1.0 / aspectRatio; }
   // 要するに縦横のでかい方÷小さい方
   let _min = Math.round(resolution);
   let _max = Math.round(resolution * aspectRatio);
 
-  if(gl.drawingBufferWidth > gl.drawingBufferHeight){
+  if(width > height){
     return {frameWidth: _max, frameHeight: _min};
   }
   return {frameWidth: _min, frameHeight: _max};
@@ -1567,6 +1490,76 @@ function wrap (value, min, max) {
     let range = max - min;
     if (range == 0) return min;
     return (value - min) % range + min;
+}
+
+// --------------------------------------------------------------- //
+// interaction.
+// 帰ったらやる！！
+// pointerはあれ、タッチだと複数出るんだけど、マウスだと1個までなのよ。
+
+function mouseDownAction(e){
+  let pointer = pointers.find(p => p.id == -1); // idが-1のpointerを探してあったらそれを取る
+  // 無い場合は新しく生成する
+  if(pointer == null){
+    pointer = new pointerPrototype();
+  }
+  updatePointerDownData(pointer, -1, e.offsetX, e.offsetY);
+}
+
+function mouseMoveAction(e){
+  let pointer = pointers[0];
+  if(!pointer.down){ return; }
+  updatePointerMoveData(pointer, e.offsetX, e.offsetY);
+}
+
+function mouseUpAction(){
+  updatePointerUpData(pointers[0]);
+}
+
+// pointerの初期設定ですね～色はランダムのようです。
+function updatePointerDownData(pointer, id, posX, posY){
+  pointer.id = id;
+  pointer.down = true;
+  pointer.moved = false;
+  // どうも位置情報を左下(0,0)で(0,0)～(1,1)に正規化しているみたいです
+  pointer.texcoordX = posX / width;
+  pointer.texcoordY = 1.0 - posY / height;
+  pointer.prevTexcoordX = pointer.texcoordX;
+  pointer.prevTexcoordY = pointer.texcoordY;
+  pointer.deltaX = 0;
+  pointer.deltaY = 0;
+  pointer.color = generateColor(Math.random());
+}
+
+// posX,posYはそのときのマウス位置で、pointerが持ってるのと比較して移動判定する。
+// 移動が認識されたら
+function updatePointerMoveData(pointer, posX, posY){
+  pointer.prevTexcoordX = pointer.texcoordX;
+  pointer.prevTexcoordY = pointer.texcoordY;
+  pointer.texcoordX = posX / width;
+  pointer.texcoordY = 1.0 - posY / height;
+  pointer.deltaX = correctDeltaX(pointer.texcoordX - pointer.prevTexcoordX);
+  pointer.deltaY = correctDeltaY(pointer.texcoordY - pointer.prevTexcoordY);
+  pointer.moved = Math.abs(pointer.deltaX) > 0 || Math.abs(pointer.deltaY) > 0;
+}
+
+// 簡単なメソッドでもこうして、ね。
+function updatePointerUpData(pointer){
+  pointer.down = false;
+}
+
+// 元になるのはテクスチャ座標ベースでの変位なのでたとえば縦長ならDeltaXで横方向縮小し
+function correctDeltaX(delta){
+  let aspectRatio = canvas.width / canvas.height;
+  if (aspectRatio < 1){ delta *= aspectRatio; }
+  return delta;
+}
+
+// 横長ならDeltaYで縦方向縮小する（必ず縮小する流れ）
+function correctDeltaY(delta){
+  let aspectRatio = canvas.width / canvas.height;
+  if (aspectRatio > 1){ delta /= aspectRatio; }
+  return delta;
 }
 
 // --------------------------------------------------------------- //
@@ -1787,7 +1780,7 @@ class RenderNode{
     }
     if(target == null){
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight); // nullの場合は全体
+      gl.viewport(0, 0, width, height); // nullの場合は全体
       return this;
     }
     // targetがfboそのものの場合。

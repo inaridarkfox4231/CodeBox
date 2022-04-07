@@ -1,6 +1,6 @@
 // 参考：codePenのこれ
 // https://codepen.io/PavelDoGreat/pen/zdWzEL
-// pavelさんの流体シミュレーション。
+// pavel(@PavelDoGreat)さんの流体シミュレーション。
 
 // こっちにも貼っておかないとね。
 
@@ -24,25 +24,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-// 小さな一歩を踏み出した感
-// まあ内容理解できてないんですが
-// 自分のコードで表現できたのは大きいね
-
-// RenderSystemとtopologyは分けない
-// んなことよりfboまわり整理したので反映させます
-// 書き換え開始
-
-// ああー、resizeの際に書き換えできないか。やばいね。
-// 同じ名前の場合は上書きされるように修正するしかないわね。
-// 特に問題ないでしょう。問題は全部書き換えないといけないこと（面倒）
-
-// はぁ、終わった...
-// インタラクション移しちゃいましょう
-// あっちはresizeFBOやってるんです。内容的には前のそれをコピーする形。
-// だから普通に実装しちゃえばいいと思う。シェーダーも含めて。
-// もしくはそれもシェーダーの一種にしてグローバルでやるかどっちか。
-// 備え付けでもいいけれど。どうするかね。
-
 // --------------------------------------------------------- //
 // config.
 
@@ -52,8 +33,11 @@ let config = {
   VELOCITY_DISSIPATION: 0.99,
   PRESSURE_DISSIPATION: 0.8,
   PRESSURE_ITERATIONS: 25,
+  VISCOSITY_ITERATIONS: 25,
   CURL: 30,
-  SPLAT_RADIUS: 0.005
+  SPLAT_RADIUS: 0.005,
+  SPEED_FACTOR: 10.0,
+  VISCOSITY: 500.0
 }
 
 let pointers = [];
@@ -67,16 +51,11 @@ let ext = {}; // extをグローバルにする実験
 let textureWidth;
 let textureHeight;
 
-// 使用するフレームバッファ、ダブルフレームバッファ群
-
-// fbo関連（今からノングローバルにする）
-//let density;
-//let velocity;
-//let divergence;
-//let curl;
-//let pressure;
+// fboはノングローバルにしました。
 
 let lastTime; // 最後に記録した時間
+
+let bg;
 
 // ---------------------------------------------------------- //
 // pointer.
@@ -92,7 +71,29 @@ class pointerPrototype{
     this.moved = false;
     this.color = [30, 0, 300];
   }
+  setId(newId){
+    this.id = newId;
+  }
+  activate(){
+    this.down = true;
+  }
+  inActivate(){
+    this.down = false;
+  }
+  fire(){
+    this.moved = this.down;
+  }
+  fireOff(){
+    this.moved = false;
+  }
+  update(x, y){
+    this.dx = (x - this.x) * SPEED_FACTOR;
+    this.dy = (y - this.y) * SPEED_FACTOR;
+    this.x = x;
+    this.y = y;
+  }
 }
+
 
 // --------------------------------------------------------- //
 // shader.
@@ -141,6 +142,11 @@ const displayShader =
   "gl_FragColor = texture2D(uTexture, vUv);" +
 "}";
 
+// 速度に関しては
+// https://mofu-dev.com/blog/stable-fluids/における
+// externalForceと同じ(ような)処理と思われる
+// length(p)のところを別の距離関数にしたら面白そう
+// あるいはdxdyの情報使ってなんかやってもいいかも
 const splatShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
@@ -153,9 +159,12 @@ const splatShader =
 "uniform float radius;" +
 
 "void main () {" +
-  "vec2 p = vUv - point.xy;" +
+  "vec2 q = vUv;" +
+  "vec2 p = q - point.xy;" +
   "p.x *= aspectRatio;" +
-  "vec3 splat = exp(-dot(p, p) / radius) * color;" +
+  "float d = length(p);" +
+  //"d = max(abs(p.x), abs(p.y));" + // 正方形とか
+  "vec3 splat = exp(-pow(d, 2.0) / radius) * color;" +
   "vec3 base = texture2D(uTarget, vUv).xyz;" +
   "gl_FragColor = vec4(base + splat, 1.0);" +
 "}";
@@ -207,6 +216,12 @@ const advectionShader =
   "gl_FragColor.a = 1.0;" +
 "}";
 
+// https://mofu-dev.com/blog/stable-fluids
+// の方では最後にdtで割っていますがこちらでは割っていません
+// そこら辺が差異のようです
+
+// 線形近似？？
+// 間隔を半分にすればこれの2倍とかそういう感じの・・んー。
 const divergenceShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
@@ -233,10 +248,10 @@ const divergenceShader =
   "float T = sampleVelocity(vT).y;" +
   "float B = sampleVelocity(vB).y;" +
   "float div = 0.5 * (R - L + T - B);" + // 普通に各点での速度のdivergenceを取っているみたい。
-  "gl_FragColor = vec4(div, 0.0, 0.0, 1.0);" +
+  "gl_FragColor = vec4(div, 0.0, 0.0, 1.0);" + // dtで割ってない
 "}";
 
-let curlShader =
+const curlShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
 
@@ -256,7 +271,7 @@ let curlShader =
   "gl_FragColor = vec4(vorticity, 0.0, 0.0, 1.0);" +
 "}";
 
-let vorticityShader =
+const vorticityShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
 
@@ -278,7 +293,44 @@ let vorticityShader =
   "gl_FragColor = vec4(vel + force * dt, 0.0, 1.0);" + // 外力項？
 "}";
 
-let pressureShader =
+// 粘性～
+// よくわからん！必要なのか？？これ。まあいいか・・
+const viscosityShader =
+"precision highp float;" +
+"precision mediump sampler2D;" +
+
+"varying vec2 vUv;" +
+"varying vec2 vL;" +
+"varying vec2 vR;" +
+"varying vec2 vT;" +
+"varying vec2 vB;" +
+"uniform sampler2D uVelocity;" +
+"uniform float viscosity;" +
+"uniform float dt;" +
+
+"vec2 boundary (in vec2 uv) {" +
+  "uv = min(max(uv, 0.0), 1.0);" +
+  "return uv;" +
+"}" +
+
+"void main () {" +
+  "vec2 L = texture2D(uVelocity, boundary(vL)).xy;" +
+  "vec2 R = texture2D(uVelocity, boundary(vR)).xy;" +
+  "vec2 T = texture2D(uVelocity, boundary(vT)).xy;" +
+  "vec2 B = texture2D(uVelocity, boundary(vB)).xy;" +
+  "vec2 C = texture2D(uVelocity, vUv).xy;" +
+  "vec2 velocity = ((L + R + B + T) * viscosity * dt + C) / (1.0 + 4.0 * viscosity * dt);" +
+  "gl_FragColor = vec4(velocity, 0.0, 1.0);" +
+"}";
+
+// あっちとどう違うのかっていう。
+// まずあっちと違って2の差分でやってるんですよ。
+// でも1だろうと2だろうとそんな差はないはずでね。
+
+// とりあえずここに関してはhttps://www2.akita-nct.ac.jp/libra/report/47/47062.pdfの中心差分のやり方で計算しているとみて
+// 間違いなさそう。で、dtで割ってないけど、そのあとdt掛けたものを引いてる
+// から問題ないわね。
+const pressureShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
 
@@ -300,12 +352,20 @@ let pressureShader =
   "float R = texture2D(uPressure, boundary(vR)).x;" +
   "float T = texture2D(uPressure, boundary(vT)).x;" +
   "float B = texture2D(uPressure, boundary(vB)).x;" +
-  "float C = texture2D(uPressure, vUv).x;" +
+  //"float C = texture2D(uPressure, vUv).x;" + // 使ってない
   "float divergence = texture2D(uDivergence, vUv).x;" +
   "float pressure = (L + R + B + T - divergence) * 0.25;" +
   "gl_FragColor = vec4(pressure, 0.0, 0.0, 1.0);" +
 "}";
 
+// dtで割らない理由は何となくわかった
+// 最終的にあっちでは圧力勾配のdt倍を引いてるのですよ。
+// 同次性により例の反復計算の方程式で両辺にdtを掛けても結果は同じ
+// したがって圧力のdt倍をそのまま出してそれを引けばいいわけね
+// そういった理由からそもそもdtで割っていないのでしょう。
+
+// さらにあっちで0.5倍してるけどこっちではしてないので
+// 0.5dt倍のPを出してることになる。。
 const gradientSubtractShader =
 "precision highp float;" +
 "precision mediump sampler2D;" +
@@ -395,6 +455,13 @@ function setup() {
        .registUniformLocation('uVelocity')
        .registUniformLocation('uCurl');
 
+  // 粘性項の計算用
+  sh = createShader(baseVertexShader, viscosityShader);
+  _node.regist('viscosity', sh, 'board')
+       .registAttribute('aPosition', positions, 2)
+       .registUniformLocation('uVelocity');
+
+  // 圧力項の計算用
   sh = createShader(baseVertexShader, pressureShader);
   _node.regist('pressure', sh, 'board')
   //_node.use('pressure', 'pressure')
@@ -414,15 +481,28 @@ function setup() {
   // splats関連の最初の処理
   multipleSplats(floor(Math.random() * 20) + 5);
 
-  /*
-    "uniform sampler2D uPressure;" +
-    "uniform sampler2D uVelocity;" +
-  */
+  // インタラクションはこの形式で登録するのがいいらしい
+  // _glにイベント関数を放り込む形式でもできたんだけど
+  // (_gl.mousePressed(関数) みたいにする)
+  // とりあえず本家に合わせることにしました
+  const canvas = document.getElementsByTagName('canvas')[0];
+  canvas.addEventListener('mousedown', mouseDownAction);
+  canvas.addEventListener('mousemove', mouseMoveAction);
+  window.addEventListener('mouseup', mouseUpAction);
+  canvas.addEventListener('touchstart', touchStartAction);
+  // falseを指定すると特定のケースでpreventDefaultが
+  // 不発に終わるのを防げるらしい
+  canvas.addEventListener('touchmove', touchMoveAction, false);
+  window.addEventListener('touchend', touchEndAction);
+
+  // 簡単に文字
+  bg = new BackgroundManager(8);
+  bg.setLayer(0).draw("textAlign", [CENTER, CENTER]).draw("noStroke")
+    .draw("textSize", [24]).draw("fill", [255]);
 }
 
 // あとはメインループ内での処理と
 // インタラクションですかね
-// インタラクションは後回しかなぁ
 function draw() {
   resize();
   // メインループをここに記述
@@ -435,88 +515,112 @@ function draw() {
   }
 
   // 計算ここから
-  //gl.viewport(0, 0, textureWidth, textureHeight);
   _node.setViewport(0, 0, textureWidth, textureHeight);
 
-  // dissipation:散逸すること
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, velocity.write.f);
+  // 移流項パート
+
+  // dissipation:散逸すること. advection:移流。
+  // 速度の方は、該当するマスの速度を、その速度だけ逆方向にずらした
+  // 位置の速度に適当な(0.99)係数をかけたもので置き換える形。
   _node.bindFBO('velocity');
   _node.use('advection', 'board')
        .setAttribute()
        .setFBO('uVelocity', 'velocity')
        .setFBO('uSource', 'velocity')
-       //.setTexture('uVelocity', velocity.read.t, velocity.read.id)
-       //.setTexture('uSource', velocity.read.t, velocity.read.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight])
        .setUniform('dt', dt)
        .setUniform('dissipation', config.VELOCITY_DISSIPATION)
        .drawArrays(gl.TRIANGLE_STRIP);
-  //velocity.swap();
   _node.swapFBO('velocity');
-  _node.bindFBO('density');
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, density.write.f);
-  //_node.setTexture('uVelocity', velocity.read.t, velocity.read.id)
-  //     .setTexture('uSource', density.read.t, density.read.id)
-  _node.setFBO('uVelocity', 'velocity')
+
+  // じゃあdensityの方は？uSourceがdensityになってる。bindもdensity.
+  // つまりその位置のdensityを速度だけ（速度は更新済み）戻したところの
+  // densityで置き換える処理。これにより、速度によってdensityが、
+  // というか色が流されてくるのを表現しているようです。わかったかも。
+  // 係数も0.98と変えている。んー。
+  _node.bindFBO('density')
+       .setFBO('uVelocity', 'velocity')
        .setFBO('uSource', 'density')
        .setUniform('dissipation', config.DENSITY_DISSIPATION)
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
   _node.swapFBO('density');
-  //density.swap();
+
+  // splat. ここでもvelocityとdensityに処理を加えているようです。
 
   for(let i = 0; i < pointers.length; i++) {
     const pointer = pointers[i];
-    if(pointer.down){ console.log("down, 0"); }
-    if(pointer.moved){ console.log("moved, 1"); }
     if (pointer.moved) {
-      //console.log("fire");
       splat(pointer.x, pointer.y, pointer.dx, pointer.dy, pointer.color);
-      pointer.moved = false;
+      pointer.moved = false; // ここ必要ですね。
+      // これがないと動かして出した後でとどまってるときに出続けちゃう
+      // みたいです。
     }
   }
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, curl.f);
+  // というわけでこっからgradientSubtractまでが微分方程式に従って
+  // 速度をいじっていくパートとなります。その結果速度が変化するので、
+  // それによりadvectionで速度をアップデートするということらしいです。
+  // 微分方程式によりその地点での次の瞬間の速度が分かっても
+  // そこにある粒子はもうそこにはいないので、そこら辺の補正を行うのが
+  // 移流(advection)ということらしいです。
+
+  // 渦パート(オプション)
+
+  // curlは渦度を各地点で速度により計算してるっぽい
+  // 渦パート外すとあっちのthree.jsでほにゃららっぽくなる
+  // ここは作者さんのオリジナルの処理っぽい。渦度により調整してるのかも。
   _node.bindFBO('curl')
   _node.use('curl', 'board')
        .setAttribute()
        .setFBO('uVelocity', 'velocity')
-       //.setTexture('uVelocity', velocity.read.t, velocity.read.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight])
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, velocity.write.f);
+
+  // 渦度により速度に処理を加えているっぽい
   _node.bindFBO('velocity')
   _node.use('vorticity', 'board')
        .setAttribute()
        .setFBO('uVelocity', 'velocity')
        .setFBO('uCurl', 'curl')
-       //.setTexture('uVelocity', velocity.read.t, velocity.read.id)
-       //.setTexture('uCurl', curl.t, curl.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight])
        .setUniform('curl', config.CURL)
        .setUniform('dt', dt)
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
   _node.swapFBO('velocity');
-  //velocity.swap();
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, divergence.f);
+  // 粘性を入れるならここ。
+  // 入れたけど違いがよくわからん。。。
+  _node.use('viscosity', 'board')
+       .setAttribute()
+       .setUniform('viscosity', config.VISCOSITY)
+       .setUniform('dt', dt);
+  for(let i = 0; i < config.VISCOSITY_ITERATIONS; i++){
+    _node.bindFBO('velocity')
+         .setFBO('uVelocity', 'velocity')
+         .drawArrays(gl.TRIANGLE_STRIP);
+    _node.swapFBO('velocity');
+  }
+  _node.clear();
+  // あの人のデモもなんか違い分かりにくかったから
+  // そういうものなんじゃないですかね（雑）
+
+  // 圧力計算パート
+
   _node.bindFBO('divergence');
   _node.use('divergence', 'board')
        .setAttribute()
        .setFBO('uVelocity', 'velocity')
-       //.setTexture('uVelocity', velocity.read.t, velocity.read.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight])
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, pressure.write.f);
   _node.bindFBO('pressure');
   _node.use('clear', 'board')
        .setAttribute()
        .setFBO('uPressure', 'pressure')
-       //.setTexture('uPressure', pressure.read.t, pressure.read.id)
        .setUniform('value', config.PRESSURE_DISSIPATION)
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
@@ -526,46 +630,41 @@ function draw() {
   _node.use('pressure', 'board')
        .setAttribute()
        .setFBO('uDivergence', 'divergence')
-       //.setTexture('uDivergence', divergence.t, divergence.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight]);
   for(let i = 0; i < config.PRESSURE_ITERATIONS; i++){
-    //gl.bindFramebuffer(gl.FRAMEBUFFER, pressure.write.f);
-    _node.bindFBO('pressure');
-    //_node.setTexture('uPressure', pressure.read.t, pressure.read.id)
-    _node.setFBO('uPressure', 'pressure')
+    _node.bindFBO('pressure')
+         .setFBO('uPressure', 'pressure')
          .drawArrays(gl.TRIANGLE_STRIP);
     _node.swapFBO('pressure');
-    //pressure.swap();
   }
   _node.clear();
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, velocity.write.f);
+  // 仕上げパート
+
   _node.bindFBO('velocity');
   _node.use('gradientSubtract', 'board')
        .setAttribute()
        .setFBO('uPressure', 'pressure')
        .setFBO('uVelocity', 'velocity')
-       //.setTexture('uPressure', pressure.read.t, pressure.read.id)
-       //.setTexture('uVelocity', velocity.read.t, velocity.read.id)
        .setUniform('texelSize', [1.0 / textureWidth, 1.0 / textureHeight])
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
   _node.swapFBO('velocity');
-  //velocity.swap();
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-  //gl.viewport(0, 0, width, height);
+  // 描画パート
+
+  // displayはdensityの中身を描画してるだけ。
   _node.bindFBO(null);
   _node.setViewport(0, 0, width, height);
   _node.use('display', 'board')
        .setAttribute()
        .setFBO('uTexture', 'density')
-       //.setTexture('uTexture', density.read.t, density.read.id)
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
 
-  // 多分おわり。あとはインタラクション。
-  // 何も起こらなかった。（え。。）
+  // 簡単に文字。お疲れさまでした。
+  bg.setLayer(0).draw("clear").draw("text", ["FLUID_TEST", width*0.5, height*0.5]);
+  bg.display();
 }
 
 // フレームバッファ群（サイズ変更の際にリセットされる感じ）
@@ -582,53 +681,63 @@ function initFramebuffers(){
   _node.registFBO('divergence', 4, w, h, halfFloat, gl.NEAREST);
   _node.registFBO('curl', 5, w, h, halfFloat, gl.NEAREST);
   _node.registDoubleFBO('pressure', 6, w, h, halfFloat, gl.NEAREST);
-
-  //density = create_double_fbo(2, textureWidth, textureHeight, halfFloat, (ext.textureHalfFloatLinear ? gl.LINEAR : gl.NEAREST));
-  //velocity = create_double_fbo(0, textureWidth, textureHeight, halfFloat, (ext.textureHalfFloatLinear ? gl.LINEAR : gl.NEAREST));
-  //divergence = create_fbo(4, textureWidth, textureHeight, halfFloat, gl.NEAREST);
-  //curl = create_fbo(5, textureWidth, textureHeight, halfFloat, gl.NEAREST);
-  //pressure = create_double_fbo(6, textureWidth, textureHeight, halfFloat, gl.NEAREST);
 }
 
 // multipleSplats.
 function multipleSplats(amount) {
   for (let i = 0; i < amount; i++) {
-    const col = {r:Math.random() * 10, g:Math.random() * 10, b:Math.random() * 10};
+    const col = [Math.random() * 10, Math.random() * 10, Math.random() * 10];
     const x = width * Math.random();
     const y = height * Math.random();
-    const dx = 1000 * (Math.random() - 0.5);
-    const dy = 1000 * (Math.random() - 0.5);
+    // 極座標で書き換え
+    const speed = Math.sqrt(Math.random()) * 500;
+    const direction = Math.random() * TAU;
+    const dx = speed * Math.cos(direction);
+    const dy = speed * Math.sin(direction);
     splat(x, y, dx, dy, col);
   }
 }
 
 // splat関数
 // 今気づいたけどここでは描画してない？
+// colorとは別にdx, -dyの情報を送ってそれを描画の方でも使う
+// みたいな感じですかね
 function splat (x, y, dx, dy, col) {
   // もろもろ準備してから書き直しですね
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, velocity.write.f);
-  //gl.viewport(0, 0, textureWidth, textureHeight);
+  // 先にvelocityについての処理
+  // おそらく初期条件に当たる・・これを微分方程式でいじる感じですかね
+  // colorは色であって色ではない・・ですね。
+
+  // velocityでやっていること。おそらく...
+  // デルタ関数的なサムシングだと思う。dx, -dyがキャンバス内での
+  // 速度、最初は全部0なわけだけど。pointerのところにその速度の
+  // それを加えているみたいです。で、動かない（dx=dy=0）場合は
+  // 何も加わらないというわけですね。
+  // 反射するボールとか用意したら面白そう
+  // 大きさの情報はconfigの定数で、あくまで位置と速度だけで決まる
+  // もっとも個別に半径指定することもできそうではあるけれど。
   _node.setViewport(0, 0, textureWidth, textureHeight);
   _node.bindFBO('velocity');
   _node.use('splat', 'board')
        .setAttribute()
        .setFBO('uTarget', 'velocity')
-       //.setTexture('uTarget', velocity.read.t, velocity.read.id)
        .setUniform('aspectRatio', width/height)
        .setUniform('point', [x/width, 1 - y/height])
        .setUniform('color', [dx, -dy, 1.0])
        .setUniform('radius', config.SPLAT_RADIUS)
        .drawArrays(gl.TRIANGLE_STRIP);
   _node.swapFBO('velocity');
-  //velocity.swap();
 
-  //gl.bindFramebuffer(gl.FRAMEBUFFER, density.write.f);
-  //gl.viewport(0, 0, textureWidth, textureHeight);
-  _node.bindFBO('density');
-  _node.setFBO('uTarget', 'density')
-  //_node.setTexture('uTarget', density.read.t, density.read.id)
-       .setUniform('color', [col.r * 0.3, col.g * 0.3, col.b * 0.3])
+  // こちらはdensityの処理
+  // 色を足してるみたい。で、その色が速度により流れる。
+  // さっきのデルタのそれによって流れるわけね。よくできてる。
+  // そういう認識でいいのかな・・・
+  // で、速度は微分方程式により変化していく、それにより色も、
+  // 流れていく。
+  _node.bindFBO('density')
+       .setFBO('uTarget', 'density')
+       .setUniform('color', [col[0] * 0.3, col[1] * 0.3, col[2] * 0.3])
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
   _node.swapFBO('density');
@@ -638,6 +747,7 @@ function splat (x, y, dx, dy, col) {
 function resize() {
   if (width != windowWidth || height != windowHeight) {
     resizeCanvas(windowWidth, windowHeight);
+    bg.resizeDestroy(windowWidth, windowHeight);
     //canvas.width = canvas.clientWidth;
     //canvas.height = canvas.clientHeight;
     initFramebuffers(); //console.log("resize");
@@ -672,23 +782,7 @@ function confirmExtensions(){
     alert('Your web browser does not support the WebGL Extension OES_element_index_uint.');
   }
 }
-/*
-let ext;
-ext = gl.getExtension('OES_texture_float') || gl.getExtension('OES_texture_half_float');
-if(ext == null){
-  alert('float texture not supported');
-  return;
-}
-*/
 
-// Uint32Arrayが使えるかどうかチェック
-/*
-function Uint32ArrayCheck(){
-  if (!gl.getExtension('OES_element_index_uint')) {
-    throw new Error('Unable to render a 3d model with > 65535 triangles. Your web browser does not support the WebGL Extension OES_element_index_uint.');
-  }
-}
-*/
 // --------------------------------------------------------------- //
 // global functions.
 
@@ -1353,7 +1447,7 @@ class BackgroundManager{
     // 余裕があればポストエフェクト（・・・）
     let _shader = this.getBGShader();
     _node.regist(this.name, _shader, 'plane')
-         .registAttribute('aPosition', [-1,1,0,1,1,0,-1,-1,0,1,-1,0], 3)
+         .registAttribute('aPosition', [-1,1,1,1,-1,-1,1,-1], 2)
          .registUniformLocation('uTex');
     this.texture = new p5.Texture(_gl, this.layers[0]);
   }
@@ -1361,9 +1455,9 @@ class BackgroundManager{
     // bgShader. 背景を描画する。
     const bgVert=
     "precision mediump float;" +
-    "attribute vec3 aPosition;" +
+    "attribute vec2 aPosition;" +
     "void main(){" +
-    "  gl_Position = vec4(aPosition, 1.0);" +
+    "  gl_Position = vec4(aPosition, 0.0, 1.0);" +
     "}";
     const bgFrag=
     "precision mediump float;" +
@@ -1398,6 +1492,14 @@ class BackgroundManager{
     this.layers[this.currentLayerId][command](...args);
     return this;
   }
+  resizeDestroy(w, h){
+    // すべてのlayerを新しいサイズで置き換える
+    for(let layer of this.layers){
+      layer.resizeCanvas(w, h); // resizeじゃないですよ。
+      layer.clear();
+    }
+    // こんだけ。
+  }
   display(){
     // 0おいて1おいて・・
     gl.disable(gl.DEPTH_TEST);
@@ -1423,26 +1525,79 @@ BackgroundManager.id = 0; // 識別子
 
 // ----------------------------------------------------------- //
 // interaction.
+// とりあえず関数だけ書きます
+// 引数としてeventを取ることができます
 
-function mouseMoved(e){
-  if(!pointers[0]){ return; }
-  //if(!pointers[0].down){ return; }
+// ここら辺はpointerPrototypeのクラスとしてのメソッドとかいろいろ
+// 定義すればマシになるはず
+
+function mouseDownAction(){
+  pointers[0].down = true;
+  pointers[0].color = [Math.random() + 0.2, Math.random() + 0.2, Math.random() + 0.2];
+}
+
+// たとえば4つまで増やして、マウスの進行方向に対して4つの
+// 90°ずつずらした方向に移動するとかさせたら面白そう
+// んで壁で反射するとか
+// もしくは飛んでいくとかでも。マウスタッチのたびにとんでいく？んー。
+function mouseMoveAction(e){
   pointers[0].moved = pointers[0].down;
-  console.log(pointers[0].down);
-  pointers[0].dx = (e.offsetX - pointers[0].x) * 10.0;
-  pointers[0].dy = (e.offsetY - pointers[0].y) * 10.0;
+  pointers[0].dx = (e.offsetX - pointers[0].x) * config.SPEED_FACTOR;
+  pointers[0].dy = (e.offsetY - pointers[0].y) * config.SPEED_FACTOR;
   pointers[0].x = e.offsetX;
   pointers[0].y = e.offsetY;
 }
 
-function mousePressed(){
-  if(!pointers[0]){ return; }
-  pointers[0].down = true;
-  console.log(pointers[0].down);
-  pointers[0].color = [Math.random() + 0.2, Math.random() + 0.2, Math.random() + 0.2];
+function mouseUpAction(){
+  pointers[0].down = false;
 }
 
-function mouseReleased(){
-  if(!pointers[0]){ return; }
-  pointers[0].down = false;
+// preventDefaultを使うと、
+// マウス操作時の挙動がスマホ操作時に起きるのを防げるらしい！
+
+// pointersの追加についての挙動はおいおい詳しく見ていきましょう
+// 多分そんな難しくないはず
+function touchStartAction(e){
+  e.preventDefault();
+  const touches = e.targetTouches; // touchオブジェクトの配列
+  for (let i = 0; i < touches.length; i++) {
+    if (i >= pointers.length){
+      pointers.push(new pointerPrototype());
+    }
+    pointers[i].id = touches[i].identifier; // オブジェクトの識別子
+    pointers[i].down = true;
+    pointers[i].x = touches[i].pageX; // 要するにmouseX的なやつ
+    pointers[i].y = touches[i].pageY; // 要するにmouseY的なやつ
+    pointers[i].color = [Math.random() + 0.2, Math.random() + 0.2, Math.random() + 0.2];
+  }
+}
+
+// preventDefaultを使うと、
+// マウス操作時の挙動がスマホ操作時に起きるのを防げるらしい！
+function touchMoveAction(e){
+  e.preventDefault();
+  const touches = e.targetTouches;
+  for (let i = 0; i < touches.length; i++) {
+    let pointer = pointers[i];
+    pointer.moved = pointer.down;
+    pointer.dx = (touches[i].pageX - pointer.x) * config.SPEED_FACTOR;
+    pointer.dy = (touches[i].pageY - pointer.y) * config.SPEED_FACTOR;
+    pointer.x = touches[i].pageX;
+    pointer.y = touches[i].pageY;
+  }
+}
+
+// 複数あるので全部まとめて切り離すわけにはいかないんですね
+// 多分そういうことかと
+// idを利用してオフになったポインターを割り出しているようです
+// changedTouchesは接触状態が変化したすべてのタッチオブジェクトです。
+function touchEndAction(e){
+  const touches = e.changedTouches;
+  for (let i = 0; i < touches.length; i++){
+    for (let j = 0; j < pointers.length; j++){
+      if (touches[i].identifier == pointers[j].id){
+        pointers[j].down = false;
+      }
+    }
+  }
 }
