@@ -1,6 +1,9 @@
 // shadertoy2021展示作品
 // https://www.shadertoy.com/view/7dyXWC#
 // author:rockhard
+// 海ですね
+// 作りました（多分）
+// 仕組みを理解するのは大変そうです
 
 float wavedx(vec2 position, vec2 direction, float time, float freq){
     float x = dot(direction, position) * freq + time;
