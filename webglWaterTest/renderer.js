@@ -102,12 +102,19 @@ var helperFunctions = '\
   }\
 ';
 
-function Renderer() {
-  this.tileTexture = GL.Texture.fromImage(document.getElementById('tiles'), {
+
+
+//let _tileTex = createTextureAsync("https://inaridarkfox4231.github.io/assets/webglWaterImgs/tiles.jpg");
+
+function Renderer(tile) {
+  /*
+  this.tileTexture = GL.Texture.fromURL("https://inaridarkfox4231.github.io/assets/webglWaterImgs/tiles.jpg", {
     minFilter: gl.LINEAR_MIPMAP_LINEAR,
     wrap: gl.REPEAT,
     format: gl.RGB
   });
+  */
+  this.tileTexture = tile;
   this.lightDir = new GL.Vector(2.0, 2.0, -1.0).unit();
   this.causticTex = new GL.Texture(1024, 1024);
   this.waterMesh = GL.Mesh.plane({ detail: 200 });
@@ -304,7 +311,8 @@ Renderer.prototype.updateCaustics = function(water) {
 Renderer.prototype.renderWater = function(water, sky) {
   var tracer = new GL.Raytracer();
   water.textureA.bind(0);
-  this.tileTexture.bind(1);
+  //this.tileTexture.bind(1);
+  this.tileTexture.attach(1);
   sky.bind(2);
   this.causticTex.bind(3);
   gl.enable(gl.CULL_FACE);
@@ -339,7 +347,8 @@ Renderer.prototype.renderSphere = function() {
 Renderer.prototype.renderCube = function() {
   gl.enable(gl.CULL_FACE);
   water.textureA.bind(0);
-  this.tileTexture.bind(1);
+  //this.tileTexture.bind(1);
+  this.tileTexture.attach(1);
   this.causticTex.bind(2);
   this.cubeShader.uniforms({
     light: this.lightDir,

@@ -11,6 +11,9 @@ var GL = (function() {
 // The internal `gl` variable holds the current WebGL context.
 var gl;
 
+// つまり
+// GLの中にクラスを詰め込んでおいて、外から利用可能にしてるのね。以前やったやつだ。
+
 var GL = {
   // ### Initialization
   //
@@ -371,6 +374,8 @@ on(document, 'keyup', function(e) {
     GL.keys[e.keyCode] = false;
   }
 });
+
+// glに独自関数を定義してるみたいですね
 
 function addOtherMethods() {
   // ### Multiple contexts
@@ -1763,6 +1768,7 @@ Texture.prototype = {
   // ### .bind([unit])
   //
   // Bind this texture to the given texture unit (0-7, defaults to 0).
+  // これあっちのattachと同じ処理
   bind: function(unit) {
     gl.activeTexture(gl.TEXTURE0 + (unit || 0));
     gl.bindTexture(gl.TEXTURE_2D, this.id);
@@ -1868,6 +1874,7 @@ Texture.fromImage = function(image, options) {
 //
 // Returns a checkerboard texture that will switch to the correct texture when
 // it loads.
+
 Texture.fromURL = function(url, options) {
   checkerboardCanvas = checkerboardCanvas || (function() {
     var c = document.createElement('canvas').getContext('2d');
@@ -1890,6 +1897,7 @@ Texture.fromURL = function(url, options) {
   image.src = url;
   return texture;
 };
+
 
 // ### GL.Texture.canUseFloatingPointTextures()
 //
