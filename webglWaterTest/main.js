@@ -123,6 +123,7 @@ window.onload = function() {
     function(callback) { setTimeout(callback, 0); };
 
   var prevTime = new Date().getTime();
+  // ここがメインコード
   function animate() {
     var nextTime = new Date().getTime();
     if (!paused) {

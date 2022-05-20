@@ -1,0 +1,2479 @@
+<!-- セガさんのゲーム（レイトレ：https://techblog.sega.jp/entry/2017/06/26/100000） -->
+<!DOCTYPE html>
+<html
+  lang="ja"
+
+data-admin-domain="//blog.hatena.ne.jp"
+data-admin-origin="https://blog.hatena.ne.jp"
+data-author="sgtech"
+data-avail-langs="ja en"
+data-blog="sgtech.hateblo.jp"
+data-blog-comments-top-is-new="1"
+data-blog-host="sgtech.hateblo.jp"
+data-blog-is-public="1"
+data-blog-name="SEGA TECH Blog"
+data-blog-owner="sgtech"
+data-blog-uri="https://techblog.sega.jp/"
+data-blog-uuid="6653812171404886549"
+data-blogs-uri-base="https://techblog.sega.jp"
+data-brand="pro"
+data-data-layer="{&quot;hatenablog&quot;:{&quot;pro&quot;:&quot;pro&quot;,&quot;router_type&quot;:&quot;blogs&quot;,&quot;page_id&quot;:&quot;entry&quot;,&quot;brand&quot;:&quot;pro&quot;,&quot;analytics&quot;:{&quot;brand_property_id&quot;:&quot;&quot;,&quot;separated_property_id&quot;:&quot;UA-29716941-20&quot;,&quot;measurement_id&quot;:&quot;&quot;,&quot;property_id&quot;:&quot;UA-81139529-1&quot;,&quot;non_sampling_property_id&quot;:&quot;&quot;},&quot;blog&quot;:{&quot;enable_ads&quot;:&quot;false&quot;,&quot;lang&quot;:&quot;ja&quot;,&quot;is_responsive_view&quot;:&quot;false&quot;,&quot;disable_ads&quot;:&quot;pro&quot;,&quot;name&quot;:&quot;SEGA TECH Blog&quot;,&quot;is_sleeping&quot;:&quot;false&quot;,&quot;is_public&quot;:&quot;true&quot;,&quot;content_seems_japanese&quot;:&quot;true&quot;,&quot;enable_keyword_link&quot;:&quot;false&quot;,&quot;entry_show_footer_related_entries&quot;:&quot;true&quot;,&quot;owner_name&quot;:&quot;sgtech&quot;,&quot;blog_id&quot;:&quot;6653812171404886549&quot;,&quot;uri&quot;:&quot;https://techblog.sega.jp/&quot;,&quot;force_pc_view&quot;:&quot;false&quot;},&quot;admin&quot;:{},&quot;permalink_entry&quot;:{&quot;hour&quot;:&quot;10&quot;,&quot;date&quot;:&quot;2017-06-26&quot;,&quot;title&quot;:&quot;WebGL\u3067\u30ec\u30a4\u30c8\u30ec\u3057\u3066\u30b2\u30fc\u30e0\u3092\u4f5c\u3063\u3066\u307f\u305f&quot;,&quot;entry_id&quot;:&quot;13355765958055421056&quot;,&quot;categories&quot;:&quot;SEGA\tShader\tWebGL\t\u30ec\u30a4\u30c8\u30ec\u30fc\u30b9\t\u30ec\u30a4\u30c8\u30ec\u30fc\u30b7\u30f3\u30b0\tRay Tracing&quot;,&quot;author_name&quot;:&quot;sgtech&quot;,&quot;uri&quot;:&quot;https://techblog.sega.jp/entry/2017/06/26/100000&quot;}}}"
+data-device="pc"
+data-dont-recommend-pro="false"
+data-global-domain="https://hatenablog.com"
+data-globalheader-color="b"
+data-globalheader-type="pc"
+data-has-touch-view="1"
+data-help-url="https://help.hatenablog.com"
+data-hide-header="1"
+data-page="entry"
+data-parts-domain="https://hatenablog-parts.com"
+data-plus-available="1"
+data-pro="true"
+data-router-type="blogs"
+data-sentry-dsn="https://03a33e4781a24cf2885099fed222b56d@sentry.io/1195218"
+data-sentry-environment="production"
+data-sentry-sample-rate="0.1"
+data-static-domain="https://cdn.blog.st-hatena.com"
+data-version="c6c826d821d219e344d1a15f342c86"
+
+
+
+
+  data-initial-state="{}"
+
+  >
+  <head prefix="og: http://ogp.me/ns# fb: http://ogp.me/ns/fb# article: http://ogp.me/ns/article#">
+
+
+
+
+
+
+
+
+  <meta name="robots" content="max-image-preview:large" />
+
+
+  <meta charset="utf-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=7; IE=9; IE=10; IE=11" />
+  <title>WebGLでレイトレしてゲームを作ってみた - SEGA TECH Blog</title>
+
+
+  <link rel="canonical" href="https://techblog.sega.jp/entry/2017/06/26/100000"/>
+
+
+
+
+
+
+<meta itemprop="name" content="WebGLでレイトレしてゲームを作ってみた - SEGA TECH Blog"/>
+
+  <meta itemprop="image" content="https://cdn-ak.f.st-hatena.com/images/fotolife/r/ryosuke_tochigi/20170411/20170411133821.png"/>
+
+
+  <meta property="og:title" content="WebGLでレイトレしてゲームを作ってみた - SEGA TECH Blog"/>
+<meta property="og:type" content="article"/>
+  <meta property="og:url" content="https://techblog.sega.jp/entry/2017/06/26/100000"/>
+
+  <meta property="og:image" content="https://cdn-ak.f.st-hatena.com/images/fotolife/r/ryosuke_tochigi/20170411/20170411133821.png"/>
+
+<meta property="og:image:alt" content="WebGLでレイトレしてゲームを作ってみた - SEGA TECH Blog"/>
+    <meta property="og:description" content="// 0; --i ) { _map[i][y] = _map[i-1][y]; } _map[0][y] = tmp; } function moveUp( x, y ) { var tmp = _map[x][0]; for( var i = 0; i 0; --i ) { _map[x][i] = _map[x][i-1]; } _map[x][0] = tmp; } // クリアチェック function checkErase( doerase ) { var BORDER_TOP = 1 0 ) check( x-1, y, color, info ); if( x 0 ) chec…" />
+<meta property="og:site_name" content="SEGA TECH Blog"/>
+
+  <meta property="article:published_time" content="1498438800" />
+
+    <meta property="article:tag" content="SEGA" />
+    <meta property="article:tag" content="Shader" />
+    <meta property="article:tag" content="WebGL" />
+    <meta property="article:tag" content="レイトレース" />
+    <meta property="article:tag" content="レイトレーシング" />
+    <meta property="article:tag" content="Ray Tracing" />
+      <meta name="twitter:card"  content="summary_large_image" />
+    <meta name="twitter:image" content="https://cdn-ak.f.st-hatena.com/images/fotolife/r/ryosuke_tochigi/20170411/20170411133821.png" />  <meta name="twitter:title" content="WebGLでレイトレしてゲームを作ってみた - SEGA TECH Blog" />    <meta name="twitter:description" content="// 0; --i ) { _map[i][y] = _map[i-1][y]; } _map[0][y] = tmp; } function moveUp( x, y ) { var tmp = _map[x][0]; for( var i = 0; i 0; --i ) { _map[x][i] = _map[x]…" />  <meta name="twitter:app:name:iphone" content="はてなブログアプリ" />
+  <meta name="twitter:app:id:iphone" content="583299321" />
+  <meta name="twitter:app:url:iphone" content="hatenablog:///open?uri=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" />
+
+    <meta name="description" content="// 0; --i ) { _map[i][y] = _map[i-1][y]; } _map[0][y] = tmp; } function moveUp( x, y ) { var tmp = _map[x][0]; for( var i = 0; i 0; --i ) { _map[x][i] = _map[x][i-1]; } _map[x][0] = tmp; } // クリアチェック function checkErase( doerase ) { var BORDER_TOP = 1 0 ) check( x-1, y, color, info ); if( x 0 ) chec…" />
+
+
+
+<script
+  id="embed-gtm-data-layer-loader"
+  data-data-layer-page-specific="{&quot;hatenablog&quot;:{&quot;blogs_permalink&quot;:{&quot;brand_hide_afc&quot;:&quot;false&quot;,&quot;is_author_pro&quot;:&quot;true&quot;,&quot;has_related_entries_with_elasticsearch&quot;:&quot;true&quot;,&quot;blog_struct_hide_afc&quot;:&quot;true&quot;,&quot;blog_hide_afc_func&quot;:&quot;true&quot;,&quot;entry_afc_issued&quot;:&quot;false&quot;,&quot;blog_afc_issued&quot;:&quot;false&quot;,&quot;blog_hide_afc_field&quot;:&quot;false&quot;,&quot;is_blog_sleeping&quot;:&quot;false&quot;}}}"
+>
+(function() {
+  function loadDataLayer(elem, attrName) {
+    if (!elem) { return {}; }
+    var json = elem.getAttribute(attrName);
+    if (!json) { return {}; }
+    return JSON.parse(json);
+  }
+
+  var globalVariables = loadDataLayer(
+    document.documentElement,
+    'data-data-layer'
+  );
+  var pageSpecificVariables = loadDataLayer(
+    document.getElementById('embed-gtm-data-layer-loader'),
+    'data-data-layer-page-specific'
+  );
+
+  var variables = [globalVariables, pageSpecificVariables];
+
+  if (!window.dataLayer) {
+    window.dataLayer = [];
+  }
+
+  for (var i = 0; i < variables.length; i++) {
+    window.dataLayer.push(variables[i]);
+  }
+})();
+</script>
+
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-P4CXTW');</script>
+<!-- End Google Tag Manager -->
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TFTTLVV');</script>
+<!-- End Google Tag Manager -->
+
+
+
+  <link rel="shortcut icon" href="https://techblog.sega.jp/icon/favicon">
+<link rel="apple-touch-icon" href="https://techblog.sega.jp/icon/touch">
+<link rel="icon" sizes="192x192" href="https://techblog.sega.jp/icon/link">
+
+
+
+<link rel="alternate" type="application/atom+xml" title="Atom" href="https://techblog.sega.jp/feed"/>
+<link rel="alternate" type="application/rss+xml" title="RSS2.0" href="https://techblog.sega.jp/rss"/>
+
+  <link rel="alternate" type="application/json+oembed" href="https://hatenablog.com/oembed?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000&amp;format=json" title="oEmbed Profile of WebGLでレイトレしてゲームを作ってみた"/>
+<link rel="alternate" type="text/xml+oembed" href="https://hatenablog.com/oembed?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000&amp;format=xml" title="oEmbed Profile of WebGLでレイトレしてゲームを作ってみた"/>
+
+  <link rel="author" href="http://www.hatena.ne.jp/sgtech/">
+
+
+
+
+
+    <link rel="stylesheet" type="text/css" href="https://cdn.blog.st-hatena.com/css/blog.css?version=c6c826d821d219e344d1a15f342c86"/>
+
+
+  <link rel="stylesheet" type="text/css" href="https://usercss.blog.st-hatena.com/blog_style/6653812171404886549/fe8fec9914d704690b3ed44b348b65d8bc375c8f"/>
+
+
+
+
+
+
+<script> </script>
+
+
+<style>
+  div#google_afc_user,
+  div.google-afc-user-container,
+  div.google_afc_image,
+  div.google_afc_blocklink {
+      display: block !important;
+  }
+</style>
+
+
+
+
+
+    <script type="application/ld+json">{"@context":"http://schema.org","@type":"Article","dateModified":"2017-06-27T15:01:33+09:00","datePublished":"2017-06-26T10:00:00+09:00","headline":"WebGLでレイトレしてゲームを作ってみた","image":["https://cdn-ak.f.st-hatena.com/images/fotolife/r/ryosuke_tochigi/20170411/20170411133821.png"]}</script>
+
+
+
+
+</head>
+
+  <body class="page-entry header-image-only enable-bottom-editarea customized-background-image category-SEGA category-Shader category-WebGL category-レイトレース category-レイトレーシング category-Ray-Tracing globalheader-off">
+
+
+
+
+
+
+
+    <div id="globalheader-container"
+  data-brand="hatenablog"
+  style="display: none"
+
+
+  >
+  <iframe id="globalheader" height="37" frameborder="0" allowTransparency="true"></iframe>
+</div>
+
+
+    <div id="container">
+      <div id="container-inner">
+        <header id="blog-title" data-brand="hatenablog">
+  <div id="blog-title-inner" style="background-image: url('https://cdn-ak.f.st-hatena.com/images/fotolife/s/sgtech/20170920/20170920004851.jpg'); background-position: center 0px;">
+    <div id="blog-title-content">
+      <h1 id="title"><a href="https://techblog.sega.jp/">SEGA TECH Blog</a></h1>
+
+    </div>
+  </div>
+</header>
+
+
+
+
+
+
+
+
+
+<div id="content" class="hfeed"
+
+  >
+  <div id="content-inner">
+    <div id="wrapper">
+      <div id="main">
+        <div id="main-inner">
+
+
+
+
+
+  <!-- google_ad_section_start -->
+  <!-- rakuten_ad_target_begin -->
+
+
+
+
+
+
+
+
+
+        <article class="entry hentry test-hentry js-entry-article date-first autopagerize_page_element chars-12000 words-1400 mode-html entry-odd" id="entry-13355765958055421056" data-keyword-campaign="" data-uuid="13355765958055421056" data-publication-type="entry">
+  <div class="entry-inner">
+    <header class="entry-header">
+
+    <div class="date entry-date first">
+    <a href="https://techblog.sega.jp/archive/2017/06/26" rel="nofollow">
+      <time datetime="2017-06-26T01:00:00Z" title="2017-06-26T01:00:00Z">
+        <span class="date-year">2017</span><span class="hyphen">-</span><span class="date-month">06</span><span class="hyphen">-</span><span class="date-day">26</span>
+      </time>
+    </a>
+  </div>
+  <h1 class="entry-title">
+  <a href="https://techblog.sega.jp/entry/2017/06/26/100000" class="entry-title-link bookmark">WebGLでレイトレしてゲームを作ってみた</a>
+</h1>
+
+
+
+
+  <div class="entry-categories categories">
+
+    <a href="https://techblog.sega.jp/archive/category/SEGA" class="entry-category-link category-SEGA">SEGA</a>
+
+    <a href="https://techblog.sega.jp/archive/category/Shader" class="entry-category-link category-Shader">Shader</a>
+
+    <a href="https://techblog.sega.jp/archive/category/WebGL" class="entry-category-link category-WebGL">WebGL</a>
+
+    <a href="https://techblog.sega.jp/archive/category/%E3%83%AC%E3%82%A4%E3%83%88%E3%83%AC%E3%83%BC%E3%82%B9" class="entry-category-link category-レイトレース">レイトレース</a>
+
+    <a href="https://techblog.sega.jp/archive/category/%E3%83%AC%E3%82%A4%E3%83%88%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0" class="entry-category-link category-レイトレーシング">レイトレーシング</a>
+
+    <a href="https://techblog.sega.jp/archive/category/Ray%20Tracing" class="entry-category-link category-Ray-Tracing">Ray Tracing</a>
+
+  </div>
+
+
+
+  <div class="customized-header">
+    <div class="entry-header-html"><script type="text/javascript" src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+<!--シェア数の数字-->
+<script>
+//Facebookのシェア数を取得
+function get_social_count_facebook(url, selcter) {
+  jQuery.ajax({
+    url:'https://graph.facebook.com/',
+    dataType:'jsonp',
+    data:{
+      id:url
+    },
+    success:function(res){
+      jQuery( selcter ).text( res.share.share_count || 0 );
+    },
+    error:function(){
+      jQuery( selcter ).text('0');
+    }
+  });
+}
+//はてなブックマークではてブ数を取得
+function get_social_count_hatebu(url, selcter) {
+  jQuery.ajax({
+    url:'http://api.b.st-hatena.com/entry.count?callback=?',
+    dataType:'jsonp',
+    data:{
+      url:url
+    },
+    success:function(res){
+      jQuery( selcter ).text( res || 0 );
+    },
+    error:function(){
+      jQuery( selcter ).text('0');
+    }
+  });
+}
+jQuery(function(){
+  get_social_count_facebook('https://techblog.sega.jp/entry/2017/06/26/100000', '.facebook-count');
+  get_social_count_hatebu('https://techblog.sega.jp/entry/2017/06/26/100000', '.hatebu-count');
+});
+</script>
+
+<!--シェアボタン-->
+<div class="share-flat">
+<span style="font-size: 8px"></span>
+<div class="share-flat-inner">
+<!--はてブ-->
+<a href="http://b.hatena.ne.jp/entry/https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="hatena-bookmark-button" target="_blank" data-hatena-bookmark-title="WebGLでレイトレしてゲームを作ってみた" data-hatena-bookmark-layout="simple" title="このエントリーをはてなブックマークに追加"><i class="blogicon-bookmark lg"></i><br> <span class="hatebu-count small-text"><i class="fa fa-spinner fa-spin"></i></span></a>
+<!--Facebook-->
+<a href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="facebook-button" onclick="window.open(this.href, 'FBwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;" ><i class="blogicon-facebook lg"></i><br><span class="facebook-count small-text"><i class="fa fa-spinner fa-spin"></i></span></a>
+<!--Twitter-->
+<a href="http://twitter.com/intent/tweet?text=WebGLでレイトレしてゲームを作ってみた https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000&button_hashtag=SEGATECHBLOG" class="twitter-button" target="_blank"><i class="blogicon-twitter lg"></i><br><span class="small-text">Twitter</span></a>
+<!--Googleプラス-->
+<a href="https://plus.google.com/share?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" onclick="window.open(this.href, 'Gwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;" class="googleplus-button"><i class="fa fa-google-plus"></i><br><span class="small-text">Google+</span></a>
+<!--Pocket-->
+<a href="http://getpocket.com/edit?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="pocket-button" target="_blank"><i class="fa fa-get-pocket"></i><br><span class="small-text">Pocket</span></a>
+</div>
+</div></div>
+  </div>
+
+
+
+
+<div class="social-buttons">
+
+
+
+
+
+
+
+</div>
+
+
+
+</header>
+
+
+
+
+    <div class="entry-content">
+
+    <p>
+<script src="https://rrrq.github.io/rqgl/rqgl.js" type="text/javascript"></script>
+</p>
+<style type="text/css"><!--
+#wmpcanvases
+{
+    position:relative;
+    width:512px;
+    height:512px;
+}
+#wmpcanvas3D
+{
+    position:absolute;
+    top:0px;
+    left:0px;
+}
+#wmpcanvas2D
+{
+    position:absolute;
+    top:0px;
+    left:0px;
+}
+#wmptweet
+{
+    display:none;
+    position:absolute;
+    background-color:#66AAFF;
+    width:150px;
+    text-align:center;
+    padding:10px;
+    box-sizing:border-box;
+    border: solid 1px #FFFFFF;
+    top:390px;
+    left:80px;
+    cursor:pointer;
+}
+#wmpreturn
+{
+    display:none;
+    position:absolute;
+    background-color:#555555;
+    color:#FFFFFF;
+    width:150px;
+    text-align:center;
+    padding:10px;
+    box-sizing:border-box;
+    border: solid 1px #FFFFFF;
+    top:390px;
+    left:282px;
+    cursor:pointer;
+}
+--></style>
+<p>
+<script type="text/javascript">// <![CDATA[
+// ステート定数（雑）
+var STATE_TITLE = 0;
+var STATE_COUNT = 1;
+var STATE_IDLE  = 2;
+var STATE_MOVE  = 3;
+var STATE_ERASE = 4;
+var STATE_POP   = 5;
+var STATE_TIMEISUP = 6;
+
+// 移動方向定数
+var MOVE_UP = 0;
+var MOVE_DOWN = 1;
+var MOVE_LEFT = 2;
+var MOVE_RIGHT = 3;
+
+// ステート
+var _state = STATE_IDLE;
+
+// 移動座標
+var _movex, _movey;
+// 移動方向
+var _moveway;
+// 移動ダーティフラグ
+var _movedirty;
+
+// 移動カウンタ
+var _movecount;
+// エミッションアニメ
+var _emitcount;
+// 消えカウンタ
+var _erasecount;
+// タイトル用カウンタ
+var _titlecount;
+// カウントダウン用カウンタ
+var _countcount;
+// ゲームオーバーカウンタ
+var _overcount;
+
+// 描画用変数
+var _rqgl;
+var _c2d;
+
+var _batch;
+var _basecolors;
+
+// ゲーム用変数
+var _map;
+var _balls;
+var _score;
+var _percent;
+var _hiscore;
+var _timer;
+var _level;
+
+// キャンバスのスケール
+var _canvasscale;
+var _canvaselem;
+
+// ボール
+function Ball()
+{
+    this.x = 0;
+    this.y = 0;
+    this.z = 0;
+    this.size = 0.5;
+    this.color = 0;
+    this.vz = 0;
+    this.ischecked = false;
+    this.iserased = false;
+    this.ismatched = false;
+}
+
+// ベクトル便利関数
+function setVec3( v, x, y, z )
+{
+    v[0] = x; v[1] = y; v[2] = z;
+}
+function normalize( v )
+{
+    var l = Math.sqrt( v[0]*v[0]+v[1]*v[1]+v[2]*v[2] );
+    v[0] /= l;
+    v[1] /= l;
+    v[2] /= l;
+}
+
+// スコア取得
+function getScore()
+{
+    return _score + Math.floor(_percent*100);
+}
+
+// マップ操作
+function moveLeft( x, y )
+{
+    var tmp = _map[0][y];
+    for( var i = 0; i < 3; ++i )
+    {
+        _map[i][y] = _map[i+1][y];
+    }
+    _map[3][y] = tmp;
+}
+function moveRight( x, y )
+{
+    var tmp = _map[3][y];
+    for( var i = 3; i > 0; --i )
+    {
+        _map[i][y] = _map[i-1][y];
+    }
+    _map[0][y] = tmp;
+}
+function moveUp( x, y )
+{
+    var tmp = _map[x][0];
+    for( var i = 0; i < 3; ++i )
+    {
+        _map[x][i] = _map[x][i+1];
+    }
+    _map[x][3] = tmp;
+}
+function moveDown( x, y )
+{
+    var tmp = _map[x][3];
+    for( var i = 3; i > 0; --i )
+    {
+        _map[x][i] = _map[x][i-1];
+    }
+    _map[x][0] = tmp;
+}
+
+// クリアチェック
+function checkErase( doerase )
+{
+    var BORDER_TOP    = 1 << 0;
+    var BORDER_BOTTOM = 1 << 1;
+    var BORDER_LEFT   = 1 << 2;
+    var BORDER_RIGHT  = 1 << 3;
+
+    function check( x, y, color, info )
+    {
+        var idx = _map[x][y];
+        if( _balls[idx].color != color ) return;
+        if( _balls[idx].ischecked ) return;
+        _balls[idx].ischecked = true;
+        info.count++;
+
+        if( x > 0 ) check( x-1, y, color, info );
+        if( x < 3 ) check( x+1, y, color, info );
+        if( y > 0 ) check( x, y-1, color, info );
+        if( y < 3 ) check( x, y+1, color, info );
+    }
+    function erase( x, y, color )
+    {
+        var idx = _map[x][y];
+        if( _balls[idx].color != color ) return;
+        if( _balls[idx].iserased ) return;
+        _balls[idx].iserased = true;
+
+        if( x > 0 ) erase( x-1, y, color );
+        if( x < 3 ) erase( x+1, y, color );
+        if( y > 0 ) erase( x, y-1, color );
+        if( y < 3 ) erase( x, y+1, color );
+    }
+
+    for( var ii = 0; ii < 16; ++ii )
+    {
+        _balls[ii].ismatched = false;
+    }
+
+    var iserased = true;
+    _percent = 0;
+    for( var i = 0; i < 4; ++i )
+    {
+        for( var j = 0; j < 4; ++j )
+        {
+            var idx = _map[j][i];
+            var col = _balls[idx].color;
+            var info = {count:0};
+
+            check( j, i, col, info );
+
+            var ok = true;
+            for( var ii = 0; ii < 4; ++ii )
+            {
+                for( var jj = 0; jj < 4; ++jj )
+                {
+                    var idx = _map[jj][ii];
+                    if( _balls[idx].color == col && _balls[idx].ischecked == false )
+                    {
+                        ok = false;
+                        _balls[idx].ischecked = true;
+                    }
+                }
+            }
+            if( ok )
+            {
+                _percent += info.count;
+
+                if( info.count > 0 )
+                {
+                    for( var ii = 0; ii < 16; ++ii )
+                    {
+                        if( _balls[ii].color == col )
+                            _balls[ii].ismatched = true;
+                    }
+                }
+            }
+            else
+            {
+                iserased = false;
+            }
+        }
+    }
+    _percent /= 16.0;
+
+    if( iserased )
+    {
+        _score += 100;
+        _percent = 0;
+        for( var i = 0; i < 16; ++i )
+        {
+            _balls[i].iserased = true;
+        }
+    }
+
+    // クリア
+    for( var i = 0; i < 4; ++i )
+    {
+        for( var j = 0; j < 4; ++j )
+        {
+            var idx = _map[j][i];
+            _balls[idx].ischecked = false;
+        }
+    }
+
+    return iserased;
+}
+
+
+// 入力系
+function initializeInput()
+{
+    var elem2d = document.getElementById( "wmpcanvas2D" );
+
+    var down = false;
+    var sx = 0;
+    var sy = 0;
+    var mx = 0;
+    var my = 0;
+    window.onmouseup = function()
+    {
+        down = false;
+    }
+    function mousedownevent( e )
+    {
+        if( "offsetX" in e )
+        {
+            sx = e.offsetX;
+            sy = e.offsetY;
+        }
+        else
+        {
+            var rect = _canvaselem.getBoundingClientRect() ;
+            sx = e.changedTouches[0].pageX - (rect.left + window.pageXOffset);
+            sy = e.changedTouches[0].pageY - (rect.top + window.pageYOffset);
+        }
+
+        if( _state == STATE_TITLE && _titlecount >= 60 &&
+            sx >= 0 && sx < 512*_canvasscale && sy >= 0 && sy < 512*_canvasscale )
+        {
+            _state = STATE_COUNT;
+            _titlecount = 0;
+            _overcount = 0;
+            _movedirty = false;
+            _timer = 60*60*2; // 2min
+        }
+
+        if( _state != STATE_IDLE && _state != STATE_MOVE ) return;
+
+        if( sx >= 100*_canvasscale && sy >= 100*_canvasscale && sx < (512-100)*_canvasscale && sy < (512-100)*_canvasscale )
+        {
+            down = true;
+            mx = Math.floor( (sx - 100*_canvasscale) / ((512-200)*_canvasscale) * 4 );
+            my = Math.floor( (sy - 100*_canvasscale) / ((512-200)*_canvasscale) * 4 );
+        }
+    }
+    if( "ontouchstart" in window )
+        window.ontouchstart = mousedownevent;
+    else
+        elem2d.onmousedown = mousedownevent;
+
+    function mousemoveevent( e )
+    {
+        var ex,ey;
+        if( e.offsetX !== undefined )
+        {
+            ex = e.offsetX;
+            ey = e.offsetY;
+        }
+        else
+        {
+            var rect = _canvaselem.getBoundingClientRect() ;
+            ex = e.changedTouches[0].pageX - (rect.left + window.pageXOffset);
+            ey = e.changedTouches[0].pageY - (rect.top + window.pageYOffset);
+        }
+
+        if( down )
+        {
+            var dx = ex - sx;
+            var dy = ey - sy;
+            var len = dx*dx+dy*dy;
+            if( len > 256*_canvasscale )
+            {
+                down = false;
+                _movex = mx;
+                _movey = my;
+                if( Math.abs(dx) > Math.abs(dy) )
+                {
+                    if( dx > 0 )
+                    {
+                        _moveway = MOVE_RIGHT;
+                    }
+                    else
+                    {
+                        _moveway = MOVE_LEFT;
+                    }
+                }
+                else
+                {
+                    if( dy > 0 )
+                    {
+                        _moveway = MOVE_DOWN;
+                    }
+                    else
+                    {
+                        _moveway = MOVE_UP;
+                    }
+                }
+                _movedirty = true;
+            }
+        }
+        e.preventDefault();
+    }
+    elem2d.onmousemove = mousemoveevent;
+    elem2d.ontouchmove = mousemoveevent;
+    var elemtweet = document.getElementById("wmptweet");
+    elemtweet.onclick = function()
+    {
+        var here = window.location.href;
+        var text = encodeURIComponent( "WHOLE MATCH PUZZLEで"+getScore()+"点とりました。" );
+        var hashtag = "WHOLEMATCHPAZZLE";
+        if( here.indexOf("techblog.sega.jp") < 0 )
+        {
+            alert("社内公開時はツイートを制限しています。");
+            here = "";
+            text = "";
+            hashtag = "";
+        }
+        here = encodeURIComponent(here);
+
+        var url = "https://twitter.com/intent/tweet?hashtags="+hashtag+"&url="+ here +"&text=" + text + "&related=SEGA_OFFICIAL";
+
+        window.open( url, "_blank", 'width=640,height=400' );
+    };
+
+    var elemreturn = document.getElementById("wmpreturn");
+    elemreturn.onclick = function()
+    {
+        elemtweet.style.display = "none";
+        elemreturn.style.display = "none";
+        _state = STATE_TITLE;
+        // 各種初期化
+        _score = 0;
+        _percent = 0;
+        _level = 0;
+        popBalls( true );
+    };
+}
+
+// バッチ生成
+function initializeBatch()
+{
+    // シェーダー作成
+    var vs = _rqgl.compileVertexShaderById( "vs" );
+    var fs = _rqgl.compileFragmentShaderById( "fs" );
+    var shader = _rqgl.createShaderProgram( vs, fs );
+
+    // シェーダー定数宣言
+    shader.addUniform( "spheres", _rqgl.UNIFORMTYPE_FLOAT4_ARRAY, 16 );
+    shader.addUniform( "colors", _rqgl.UNIFORMTYPE_FLOAT3_ARRAY, 16 );
+    shader.addUniform( "emit", _rqgl.UNIFORMTYPE_FLOAT1_ARRAY, 16 );
+    shader.addUniform( "planes", _rqgl.UNIFORMTYPE_FLOAT4_ARRAY, 6 );
+    shader.addUniform( "pcolors", _rqgl.UNIFORMTYPE_FLOAT3_ARRAY, 6 );
+    shader.addUniform( "pemits", _rqgl.UNIFORMTYPE_FLOAT3_ARRAY, 6 );
+    shader.addUniform( "posz", _rqgl.UNIFORMTYPE_FLOAT1 );
+    shader.addUniform( "emitanim", _rqgl.UNIFORMTYPE_FLOAT1 );
+    shader.addUniform( "dlight", _rqgl.UNIFORMTYPE_FLOAT3 );
+    shader.addUniform( "dlightintensity", _rqgl.UNIFORMTYPE_FLOAT1 );
+
+    // 頂点バッファ作成
+    var vertexdata = [ -1.0, 1.0,0.0,
+                        1.0, 1.0,0.0,
+                       -1.0,-1.0,0.0,
+                        1.0,-1.0,0.0 ];
+    var vb = _rqgl.createVertexBuffer( vertexdata );
+
+    // 印でクスバッファ作成
+    var indexdata = [ 0, 1, 2, 3 ];
+    var ib = _rqgl.createIndexBuffer( indexdata );
+
+    // 頂点宣言作成
+    var il = _rqgl.createInputLayout();
+    il.addElement( _rqgl.ELEM_POSITION, _rqgl.TYPE_FLOAT, 3 );
+
+    // バッチ作成
+    _batch = _rqgl.createBatch( _rqgl.PRIMITIVETYPE_TRIANGLE_STRIP, vb, ib, shader, il, 4 );
+
+    // 各種シェーダー定数作成
+    _batch.Uniform.spheres = new Array(16);
+    _batch.Uniform.colors = new Array(16);
+    _batch.Uniform.emit = new Array(16);
+    for( var i = 0; i < 16; ++i )
+    {
+        _batch.Uniform.spheres[i] = new Array(4);
+
+        var x = (i % 4);
+        var y = Math.floor(i / 4);
+        _batch.Uniform.spheres[i][0] = x-1.5;
+        _batch.Uniform.spheres[i][1] = 1.5 - y;
+        _batch.Uniform.spheres[i][2] = 0.0;
+        _batch.Uniform.spheres[i][3] = 0.5;
+
+        var rnd = Math.floor( Math.random() * 4 );
+        _batch.Uniform.colors[i] = new Array(3);
+        setVec3( _batch.Uniform.colors[i], 0, 0, 0 );
+        _batch.Uniform.emit[i] = 0.0;
+    }
+    _batch.Uniform.planes = new Array(6);
+    _batch.Uniform.pcolors = new Array(6);
+    _batch.Uniform.pemits = new Array(6);
+    for( var i = 0; i < 6; ++i )
+    {
+        _batch.Uniform.planes[i] = new Array(4);
+        _batch.Uniform.planes[i][3] = 2.0;
+
+        _batch.Uniform.pcolors[i] = new Array(3);
+        _batch.Uniform.pemits[i] = new Array(3);
+    }
+    setVec3( _batch.Uniform.planes[0],  1,  0,  0 );
+    setVec3( _batch.Uniform.planes[1], -1,  0,  0 );
+    setVec3( _batch.Uniform.planes[2],  0,  1,  0 );
+    setVec3( _batch.Uniform.planes[3],  0, -1,  0 );
+    setVec3( _batch.Uniform.planes[4],  0,  0, -1 );
+    _batch.Uniform.planes[4][3] = 0.5;
+    setVec3( _batch.Uniform.planes[5],  0,  0,  1 );
+    _batch.Uniform.planes[5][3] = 5;
+
+    setVec3( _batch.Uniform.pcolors[0], 1.0, 0.2, 0.2 );
+    setVec3( _batch.Uniform.pcolors[1], 1.0, 0.2, 0.2 );
+    setVec3( _batch.Uniform.pcolors[2], 0.2, 0.2, 1.0 );
+    setVec3( _batch.Uniform.pcolors[3], 0.2, 0.2, 1.0 );
+    setVec3( _batch.Uniform.pcolors[4], 0.2, 0.2, 0.2 );
+    setVec3( _batch.Uniform.pcolors[5], 1.0, 1.0, 1.0 );
+
+    setVec3( _batch.Uniform.pemits[0], 0.1, 0.0, 0.0 );
+    setVec3( _batch.Uniform.pemits[1], 0.1, 0.0, 0.0 );
+    setVec3( _batch.Uniform.pemits[2], 0.0, 0.0, 0.1 );
+    setVec3( _batch.Uniform.pemits[3], 0.0, 0.0, 0.1 );
+    setVec3( _batch.Uniform.pemits[4], 0.0, 0.0, 0.0 );
+    setVec3( _batch.Uniform.pemits[5], 100.0, 100.0, 100.0 );
+
+    _batch.Uniform.posz = -8.0;
+    _batch.Uniform.emitanim = 1.0;
+
+    _batch.Uniform.dlight = new Array(3);
+    setVec3( _batch.Uniform.dlight, -1,-1, 2 );
+    normalize( _batch.Uniform.dlight );
+    _batch.Uniform.dlightintensity = 0.0;
+
+    // 球のベースカラー
+    _basecolors = new Array(6);
+    for( var i = 0; i < 6; ++i )
+    {
+        _basecolors[i] = new Array(3);
+    }
+    setVec3( _basecolors[0], 0.90, 0.05, 0.05 );
+    setVec3( _basecolors[1], 0.05, 0.05, 1.00 );
+    setVec3( _basecolors[2], 0.05, 0.50, 0.05 );
+    setVec3( _basecolors[3], 1.00, 0.50, 0.00 );
+    setVec3( _basecolors[4], 0.80, 0.00, 1.00 );
+    setVec3( _basecolors[5], 0.50, 0.50, 0.50 );
+}
+
+// ボール配置
+function popBalls( init )
+{
+    var maxcolor = _level + 2;
+    if( maxcolor > 5 ) maxcolor = 5;
+
+    while( true )
+    {
+        for( var i = 0; i < 16; ++i )
+        {
+            if( _balls[i].iserased || init )
+            {
+                _balls[i].color = Math.floor( Math.random() * maxcolor );
+            }
+        }
+        var ret = checkErase( false );
+        if( ret === false )
+        {
+            for( var i = 0; i < 16; ++i )
+            {
+                if( _balls[i].iserased || init )
+                {
+                    _balls[i].iserased = false;
+                    _balls[i].size = 0.5;
+                    if( init )
+                        _batch.Uniform.spheres[i][2] = 0;
+                    else
+                        _batch.Uniform.spheres[i][2] = -3.5 - Math.random() * 5;
+                    _balls[i].vz = 0.0;
+                }
+            }
+            break;
+        }
+    }
+}
+
+// 初期化
+function initialize()
+{
+    _canvaselem = document.getElementById("wmpcanvases");
+
+    // てきとうな小さな画面対応
+    _canvasscale = 1.0;
+    if( document.body.clientWidth < 800 )
+    {
+        _canvasscale = 320/512.0;
+        var size=Math.floor(512*_canvasscale);
+        _canvaselem.style.width = size+"px";
+        _canvaselem.style.height = size+"px";
+        var elem = document.getElementById( "wmpcanvas3D" );
+        elem.width = size;
+        elem.height = size;
+        elem = document.getElementById( "wmpcanvas2D" );
+        elem.width = size;
+        elem.height = size;
+
+        var elemtweet = document.getElementById("wmptweet");
+        var elemreturn = document.getElementById("wmpreturn");
+        size = Math.floor(150*_canvasscale);
+        var top = Math.floor(390*_canvasscale);
+        var fsize = Math.floor(16*_canvasscale);
+        elemtweet.style.width= size+"px";
+        elemtweet.style.top = top+"px"
+        elemtweet.style.left = Math.floor(256*_canvasscale-176*_canvasscale)+"px"
+        elemtweet.style.fontSize = fsize+"px";
+        elemreturn.style.width= size+"px";
+        elemreturn.style.top = top+"px"
+        elemreturn.style.left = Math.floor(256*_canvasscale+32*_canvasscale)+"px"
+        elemreturn.style.fontSize = fsize+"px";
+    }
+
+    _rqgl = new rqGL( "wmpcanvas3D" );
+    var elem2d = document.getElementById( "wmpcanvas2D" );
+    _c2d = elem2d.getContext( "2d" );
+
+    // 入力初期化
+    initializeInput();
+
+    // バッチ生成
+    initializeBatch();
+
+    // マップ初期化
+    _map = new Array(4);
+    for( var i = 0; i < 4; ++i )
+    {
+        _map[i] = new Array(4);
+        for( var j = 0; j < 4; ++j )
+        {
+            _map[i][j] = j * 4 + i;
+        }
+    }
+
+    // ゲーム初期化
+    _level = 0;
+    _score = 0;
+    _percent = 0;
+    _hiscore = 0;
+    _movedirty = false;
+    _movecount = 0;
+    _emitcount = 0;
+    _erasecount = 0;
+    _titlecount = 0;
+    _countcount = 0;
+    _overcount = 0;
+
+    // ハイスコア読み込み
+    if( "wmpHiscore" in localStorage )
+    {
+        _hiscore = localStorage.wmpHiscore;
+    }
+
+    // ボールオブジェクト初期化
+    _balls = new Array(16);
+    for( var i = 0; i < 16; ++i )
+    {
+        _balls[i] = new Ball();
+        _balls[i].x = (i%4) - 1.5;
+        _balls[i].y = Math.floor(i/4) - 1.5;
+        _balls[i].z = 0;
+        _balls[i].color = Math.floor(Math.random() * 5);
+        _balls[i].iserased = true;
+    }
+    popBalls( true );
+
+    // 開始ステート
+    _state = STATE_TITLE;
+
+    // メインループ
+    requestAnimationFrame( main );
+}
+window.addEventListener( "load", initialize );
+
+// 更新
+function update()
+{
+    // ライトの目標明るさ
+    var dlightintensitytarget = 5.0;
+
+    // ゲームのステート更新
+    switch( _state )
+    {
+    default:
+    case STATE_TITLE:
+        var tcnt = _titlecount;
+        if( tcnt > 60 ) tcnt = 60;
+        _batch.Uniform.posz = -8.0 - ((Math.cos( tcnt / 60.0 * 3.1415926 ) * 0.5 + 0.5) * 8);
+        _titlecount++;
+        if( _titlecount >= 120 )
+        {
+            _titlecount = 60;
+        }
+        dlightintensitytarget = 0.1;
+        break;
+    case STATE_COUNT:
+        _countcount++;
+        if( _countcount == 60*3 )
+        {
+            _state = STATE_IDLE;
+            _countcount = 0;
+        }
+        break;
+    case STATE_IDLE:
+        if( _movedirty )
+        {
+            _movedirty = false;
+            switch( _moveway )
+            {
+            case MOVE_UP:
+                moveUp( _movex, _movey );
+                break;
+            case MOVE_DOWN:
+                moveDown( _movex, _movey );
+                break;
+            case MOVE_LEFT:
+                moveLeft( _movex, _movey );
+                break;
+            case MOVE_RIGHT:
+                moveRight( _movex, _movey );
+                break;
+            }
+            _state = STATE_MOVE;
+        }
+        break;
+    case STATE_MOVE:
+        {
+            _movecount++;
+            if( _movecount == 15 )
+            {
+                _movecount = 0;
+
+                var ret = checkErase( true );
+                if( ret === true )
+                {
+                    _state = STATE_ERASE;
+                }
+                else
+                {
+                    _state = STATE_IDLE;
+                }
+            }
+        }
+        break;
+    case STATE_ERASE:
+        {
+            for( var i = 0; i < 16; ++i )
+            {
+                if( _balls[i].iserased )
+                {
+                    _balls[i].size = Math.cos( _erasecount/30.0*3.1415926*0.5 ) * 0.5; //0.5 - 0.5 * (_erasecount/30.0);
+                }
+            }
+            _erasecount++;
+            if( _erasecount == 30 )
+            {
+                _erasecount = 0;
+                _level++;
+                popBalls( false );
+                _state = STATE_POP;
+            }
+            break;
+        }
+    case STATE_POP:
+        {
+            _movecount++;
+            if( _movecount == 10 )
+            {
+                _movecount = 0;
+
+                _state = STATE_IDLE;
+            }
+        }
+        break;
+    case STATE_TIMEISUP:
+        dlightintensitytarget = 0.1;
+        break;
+    }
+
+    // ゲーム中のタイムカウンタ更新
+    if( _state >= STATE_IDLE && _state < STATE_POP )
+    {
+        _timer--;
+        if ( _timer == 0 )
+        {
+            _state = STATE_TIMEISUP;
+            _overcount = 0;
+            var result = getScore();
+            if( _hiscore < result )
+            {
+                _hiscore = result;
+                // localStorageに保存
+                localStorage.wmpHiscore = _hiscore;
+            }
+        }
+    }
+
+    // ライトの明るさアニメーション
+    _batch.Uniform.dlightintensity += (dlightintensitytarget - _batch.Uniform.dlightintensity)*0.05;
+
+    // 球の移動アニメーションなど
+    for( var i = 0; i < 4; ++i )
+    {
+        for( var j = 0; j < 4; ++j )
+        {
+            var idx = _map[j][i];
+            _batch.Uniform.colors[idx] = _basecolors[_balls[idx].color];
+            var x = _batch.Uniform.spheres[idx][0];
+            var y = _batch.Uniform.spheres[idx][1];
+            var z = _batch.Uniform.spheres[idx][2];
+            var tgtx = j - 1.5;
+            var tgty = 1.5 - i;
+            var vx = (tgtx - x);
+            var vy = (tgty - y);
+            x += vx * 0.25;
+            y += vy * 0.25;
+            if( (Math.abs( vx ) > 2.0 || Math.abs( vy ) > 2.0) && _balls[idx].vz === 0.0 )
+            {
+                _balls[idx].vz = -0.5;
+            }
+            z += _balls[idx].vz;
+            _balls[idx].vz += 0.10;
+            if( z > 0.0 )
+            {
+                z = 0.0;
+                _balls[idx].vz = -_balls[idx].vz * 0.2;
+                if( _balls[idx].vz > -0.1 ) _balls[idx].vz = 0.0;
+            }
+            _batch.Uniform.spheres[idx][0] = x;
+            _batch.Uniform.spheres[idx][1] = y;
+            _batch.Uniform.spheres[idx][2] = z;
+            _batch.Uniform.spheres[idx][3] = _balls[idx].size;
+
+            if( _balls[idx].ismatched === true )
+            {
+                _batch.Uniform.emit[idx] = 6.0;
+            }
+            else
+            {
+                _batch.Uniform.emit[idx] = 0.0;
+            }
+        }
+    }
+
+    // エミッションのアニメーション
+    _batch.Uniform.emitanim = Math.cos( _emitcount * 3.1415926 / 30 ) * 0.5 + 0.5;
+    _emitcount = (_emitcount+1) % 60;
+}
+
+// 2D描画
+function draw2D()
+{
+    _c2d.clearRect( 0,0,512,512 );
+
+    switch( _state )
+    {
+    default:
+    case STATE_TITLE:
+        // タイトル
+        _c2d.fillStyle = "rgba(0,0,0,0.4)";
+        _c2d.fillRect(0,256*_canvasscale-48*_canvasscale,512*_canvasscale,96*_canvasscale);
+
+        _c2d.font = 16*_canvasscale + "px 'Meiryo'";
+        _c2d.textAlign = "center";
+        _c2d.textBaseline = "middle";
+        _c2d.fillStyle = "rgba(255,255,255,1.0)";
+        _c2d.fillText( "すべての色をつなげよう", 256*_canvasscale, 235*_canvasscale, 512*_canvasscale );
+
+        _c2d.font = "bold "+32*_canvasscale+"px 'Meiryo'";
+        _c2d.textAlign = "center";
+        _c2d.fillText( "WHOLE MATCH PUZZLE", 256*_canvasscale, 270*_canvasscale, 512*_canvasscale );
+
+        _c2d.fillStyle = "rgba(255,255,255,1.0)";
+        _c2d.font = 16*_canvasscale+"px 'Meiryo'";
+        if( (_titlecount % 60) < 30 )
+            _c2d.fillText( "Touch to start", 256*_canvasscale, 320*_canvasscale, 512*_canvasscale );
+        _c2d.fillText( "(C)SEGA", 256 *_canvasscale, (512-10)*_canvasscale, 512*_canvasscale );
+        if( _hiscore > 0 )
+        {
+            _c2d.font = 20*_canvasscale+"px 'Meiryo'";
+            _c2d.textBaseline = "top";
+            _c2d.fillText( "HIGH SCORE "+_hiscore, 256*_canvasscale, 8*_canvasscale, 512*_canvasscale );
+        }
+        break;
+
+    case STATE_COUNT:
+        // カウントダウン
+        _c2d.font = "bold " + 100*_canvasscale+ "px 'Meiryo'";
+        _c2d.textAlign = "center";
+        _c2d.textBaseline = "middle";
+        _c2d.fillStyle = "rgba(255,255,255,1.0)";
+
+        _c2d.fillText( ""+(3-Math.floor(_countcount / 60)), 256*_canvasscale, 256*_canvasscale, 512*_canvasscale );
+
+        // break; // score と time も表示したいのでbreakしない。
+    case STATE_IDLE:
+    case STATE_MOVE:
+    case STATE_ERASE:
+    case STATE_POP:
+    case STATE_TIMEISUP:
+        // スコア・タイムなど
+        var overanim = Math.sin(_overcount*3.1415926/40);
+        var fsize = Math.floor( (20 + overanim*16) *_canvasscale );
+        _c2d.fillStyle = "rgba(255,255,255,1.0)";
+        _c2d.font = fsize + "px 'Meiryo'";
+        _c2d.textAlign = "center";
+        _c2d.textBaseline = "top";
+        var score = getScore();
+        _c2d.fillText( "SCORE " + score, 256*_canvasscale, (8+overanim*40)*_canvasscale, 512*_canvasscale );
+        if( score && score == _hiscore && _state == STATE_TIMEISUP )
+        {
+            _c2d.font = 16*_canvasscale+"px 'Meiryo'";
+            _c2d.fillText( "You got a high score.", 256*_canvasscale, 100*_canvasscale, 512*_canvasscale );
+        }
+        _c2d.font = 20*_canvasscale+"px 'Meiryo'";
+        var min = Math.floor( _timer / 3600 );
+        var sec = Math.floor( (_timer % 3600) / 60 );
+        var csec = Math.floor( ((_timer % 3600) % 60) * 100 / 60 );
+        _c2d.fillText( "TIME " + min + "'" + ("0"+sec).slice(-2) + "'" + ("0"+csec).slice(-2) , 256*_canvasscale, 512*_canvasscale-32*_canvasscale, 512*_canvasscale );
+
+        if( _state == STATE_TIMEISUP )
+        {
+            if( _overcount < 20)
+            {
+                _overcount++;
+                if( _overcount == 20 )
+                {
+                    var elem = document.getElementById("wmptweet");
+                    elem.style.display = "block";
+                    elem = document.getElementById("wmpreturn");
+                    elem.style.display = "block";
+                }
+            }
+            _c2d.font = "bold "+60*_canvasscale+"px 'Meiryo'";
+            _c2d.textAlign = "center";
+            _c2d.textBaseline = "middle";
+            _c2d.fillStyle = "rgba(255,255,255,1.0)";
+            _c2d.fillText( "TIME IS UP", 256*_canvasscale, 256*_canvasscale, 512*_canvasscale );
+        }
+        break;
+    }
+}
+
+// メインループ
+function main()
+{
+    // 更新
+    update();
+
+    // 3D描画
+    _rqgl.setClearColor( 1,0,0,1 );
+    _rqgl.clear();
+
+    _rqgl.draw( _batch );
+
+    // 2D描画
+    draw2D();
+
+    // ループ
+    requestAnimationFrame( main );
+}
+// ]]></script>
+
+<script id="vs" type="x-shader/x-vertex">// <![CDATA[
+// 入力
+attribute vec3 position;
+
+// 出力
+varying vec3 v_ray;
+
+// 頂点シェーダーメイン
+void main(void)
+{
+    gl_Position = vec4(position, 1.0);
+    v_ray = vec3( position.xy*0.4, 1.0 ); // ポジションから適当にレイを生成（ほんと適当）
+}
+// ]]></script>
+
+<script id="fs" type="x-shader/x-fragment">// <![CDATA[
+precision mediump float;
+
+// 頂点シェーダーからの入力
+varying vec3 v_ray;
+
+// シェーダー定数
+uniform vec4 spheres[16];
+uniform vec3 colors[16];
+uniform float emit[16];
+uniform vec4 planes[6];
+uniform vec3 pcolors[6];
+uniform vec3 pemits[6];
+uniform float posz;
+uniform float emitanim;
+uniform vec3 dlight;
+uniform float dlightintensity;
+
+// 一部マテリアル設定はハードコード
+#define REFLECTIONRATE 0.03
+#define ROUGH 0.07
+#define WALLREFLECTIONRATE 0.03
+
+// 平行光への遮蔽を取得
+float getShadow( vec3 ray, vec3 pos )
+{
+    float depth = 1000.0;
+    for( int i = 0; i < 16; ++i )
+    {
+        vec3 v = spheres[i].xyz - pos;
+        float d = dot( v, ray );
+        if( d > 0.0 )
+        {
+            vec3 p = ray * d + pos;
+            v = spheres[i].xyz - p;
+            float len = length( v );
+
+            if( len < spheres[i].w )
+            {
+                depth = 0.0; // いろいろと省略
+            }
+        }
+    }
+    return ( depth < 1000.0 )?0.0:1.0;
+}
+
+// レイのヒットした結果
+struct HitResult
+{
+    vec3 nrm;
+    vec3 col;
+    vec3 pos;
+    vec3 emi;
+    float depth;
+};
+
+// レイと球の衝突
+HitResult castRayToSpheres( vec3 ray, vec3 pos )
+{
+    HitResult res;
+    res.depth = 1000.0;
+
+    for( int i = 0; i < 16; ++i )
+    {
+        vec3 v = spheres[i].xyz - pos;
+        float d = dot( v, ray );
+        if( d > 0.0 )
+        {
+            vec3 p = ray * d + pos;
+            v = spheres[i].xyz - p;
+            float len = length( v );
+
+            if( len < spheres[i].w )
+            {
+                len = len / spheres[i].w;
+                d = sqrt(-len*len + 1.0*1.0) * spheres[i].w;
+                p = p - ray * d;
+                len = dot( p, ray );
+                if( len < res.depth )
+                {
+                    res.pos = p;
+                    res.depth = len;
+                    res.nrm = normalize( p - spheres[i].xyz );
+                    res.col = colors[i];
+                    res.emi = colors[i] * emit[i] * emitanim;
+                }
+            }
+        }
+    }
+    return res;
+}
+
+// レイと無限平面の衝突
+HitResult castRayToPlanes( vec3 ray, vec3 pos )
+{
+    HitResult res;
+    res.depth = 1000.0;
+
+    for( int i = 0; i < 5; ++i ) // 天井はいいや
+    {
+        float cost = dot( -planes[i].xyz, ray );
+        if( cost > 0.0 )
+        {
+            vec3 pcenter = (-planes[i].xyz * planes[i].w);
+
+            vec3 v0 = pcenter - pos;
+            float d = dot( v0, -planes[i].xyz );
+
+            float sect = 1.0 / cost;
+            float l = sect * d;
+
+            vec3 p = pos + ray * l;
+            if( l < res.depth )
+            {
+                res.depth = l;
+                res.pos = p;
+                res.nrm = planes[i].xyz;
+                res.col = pcolors[i];
+                res.emi = pemits[i];
+            }
+        }
+    }
+    return res;
+}
+
+// 球をシェーディング
+vec3 shadeSphere( vec3 ray, HitResult res, vec3 refcol )
+{
+    vec3 ret;
+
+    vec3 halfv = normalize( dlight + ray );
+    float shadow = getShadow( -dlight ,res.pos );
+    float dn = max( dot( -res.nrm, dlight ), 0.0 );
+    float fresnel = REFLECTIONRATE + (1.0 - REFLECTIONRATE) * exp( -6.0 * dot( -res.nrm, ray ) );
+    float dh = dot( -res.nrm, halfv );
+    ret = max( dn, 0.0 ) / 3.1415926 * res.col * (1.0 - REFLECTIONRATE) * dlightintensity * shadow;
+    float cs = max( dh*dh, 0.001 );
+    float ts = (1.0-cs)/cs;
+    float tmp = ROUGH/(cs*(ROUGH*ROUGH+ts));
+    ret += (1.0/3.1415926) * tmp*tmp * REFLECTIONRATE * dlightintensity * shadow;
+    ret += refcol * fresnel;
+    ret += res.emi;
+
+    return ret;
+}
+
+// 平面をシェーディング
+vec3 shadePlane( vec3 ray, HitResult res, vec3 refcol )
+{
+    vec3 ret;
+
+    vec3 halfv = normalize( dlight + ray );
+    float dn = dot( -res.nrm, dlight );
+    float shadow = getShadow( -dlight ,res.pos );
+    float dh = max( dot( -res.nrm, halfv ), 0.0 );
+    float fresnel = WALLREFLECTIONRATE + (1.0 - WALLREFLECTIONRATE) * exp( -6.0 * dot( -res.nrm, ray ) );
+    ret = max( dn, 0.0 ) / 3.1415926 * res.col * (1.0 - WALLREFLECTIONRATE) * dlightintensity * shadow;
+    ret += refcol * fresnel;
+    ret += res.emi;
+    return ret;
+}
+
+// 三次反射
+vec3 ray3( vec3 ray, vec3 pos )
+{
+    HitResult res = castRayToSpheres( ray, pos );
+
+    vec3 ret = vec3( 0.0, 0.0, 0.0 );
+
+    if( res.depth < 1000.0 )
+    {
+        ret = shadeSphere( ray, res, vec3(0.0,0.0,0.0) );
+    }
+    else
+    {
+        res = castRayToPlanes( ray, pos );
+
+        ret = shadePlane( ray, res, vec3(0.0,0.0,0.0) );
+    }
+
+    return ret;
+}
+
+// 二次反射
+vec3 ray2( vec3 ray, vec3 pos )
+{
+    HitResult res = castRayToSpheres( ray, pos );
+
+    vec3 ret = vec3( 0.0, 0.0, 0.0 );
+
+    if( res.depth < 1000.0 )
+    {
+        vec3 refray = reflect( ray, res.nrm );
+        vec3 refcol = ray3( refray, res.pos );
+        ret = shadeSphere( ray, res, refcol );
+    }
+    else
+    {
+        res = castRayToPlanes( ray, pos );
+
+        vec3 refray = reflect( ray, res.nrm );
+        vec3 refcol = ray3( refray, res.pos );
+        ret = shadePlane( ray, res, refcol );
+    }
+    return ret;
+}
+
+// 一次反射
+vec3 ray1( vec3 ray, vec3 pos )
+{
+    HitResult res = castRayToSpheres( ray, pos );
+
+    vec3 ret = vec3( 0.0, 0.0, 0.0 );
+
+    if( res.depth < 1000.0 )
+    {
+        vec3 refray = reflect( ray, res.nrm );
+        vec3 refcol = ray2( refray, res.pos );
+        ret = shadeSphere( ray, res, refcol );
+    }
+    else
+    {
+        res = castRayToPlanes( ray, pos );
+
+        vec3 refray = reflect( ray, res.nrm );
+        vec3 refcol = ray2( refray, res.pos );
+        ret = shadePlane( ray, res, refcol );
+    }
+
+    return ret;
+}
+
+// ピクセルシェーダーメイン
+void main(void)
+{
+    vec3 ray = v_ray;
+
+    // 魚眼化（魚眼じゃなくていいならnormalize(v_ray)でよい）
+    ray.xy = v_ray.xy;
+    ray.z = sqrt( 1.0-v_ray.x*v_ray.x-v_ray.y*v_ray.y );
+
+    // レイトレース
+    vec3 ret = ray1( ray, vec3( 0.0, 0.0, posz ) );
+
+    // ポストエフェクト的処理
+    // トーンマップ
+    ret = 1.0 - exp( -0.8 * ret );
+
+    // 色調補正&ガンマ補正
+    ret += vec3(0.0,0.0,0.1);
+    ret = pow( ret, vec3(0.8/2.2,1.0/2.2,1.4/2.2));
+
+    // 出力
+    gl_FragColor.xyz = ret;
+    gl_FragColor.w = 1.0;
+}
+// ]]></script>
+</p>
+<h3>すべての色をつなげよう WHOLE MATCH PUZZLE</h3>
+<h4>操作方法</h4>
+<p>　マウスのドラッグ（タッチパネルの場合はスライド）で玉を一列横か縦にスライドさせることが出来ます。</p>
+<h4>ルール</h4>
+<p>　同じ色同士ですべての玉をつなげると一面クリアです。そのとき100点が加算されます。</p>
+<div style="text-align: center;"><img class="hatena-fotolife" title="20170620164101" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164101.png" alt="20170620164101" /><br /><span style="font-size: 80%;">ひとつの解答例。赤は赤同士、青は青同士、上下左右どこかでつながっていればよい。</span></div>
+<p>　クリアするたびに色が増えていき最大で５色まで難易度が上がります。<br /> 　パズルの完成度（パーセント）がスコアの下２桁になります。<br /> 　2分の制限時間内で可能な限り玉を消して高得点を狙ってください。<br /> 　目指せ1000点！<br /><br /><span style="color: #d32f2f; font-size: 80%;">※最新のfirefoxとchromeで動作を確認しています。<br />　また、一部のスマホでも動作を確認しています。</span></p>
+<div style="text-align: center;">
+<div id="wmpcanvases" style="user-select: none; margin: 0 auto; background-color: #000;"><canvas id="wmpcanvas3D" width="512" height="512"></canvas> <canvas id="wmpcanvas2D" width="512" height="512"></canvas>
+<div id="wmptweet" class="button">結果をツイート</div>
+<div id="wmpreturn" class="button">タイトルに戻る</div>
+</div>
+</div>
+<h3>はじめに</h3>
+<p>　ドーモ、セガゲームスは開発技術部所属の栃木と申します。<br /> 　業務ではライブラリの制作や絵周りのことでコードを書いていることが多いです。<br /> 　今回は、タイトルの通り、WebGLでレイトレをしてゲームを作ってみました。</p>
+<h3>目次</h3>
+<ul>
+<li>WebGLとは</li>
+<li>レイトレとは（CG初心者対象）</li>
+<li>ゲームを作ってみた（ゲームを作ってみたい人対象）</li>
+</ul>
+<h3>WebGLとは</h3>
+<p><img class="hatena-fotolife" style="float: right;" title="20170620164051" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164051.png" alt="20170620164051" width="200" /> ブラウザ上で動作するOpenGLのことです。このブログを読むような方は見聞きしたことがあるのではないでしょうか。<br /> 　今回はWebGLをつかうことでレイトレをGPUで高速に動作させています。<span style="clear: both;"> </span></p>
+<h3>レイトレとは</h3>
+<p>　Ray Tracing（レイトレーシング）の略です。レイトレーシングとはレイ（光線）を投げて当たったところの色を取ることでCGをレンダリングする手法です。<br /> 　レイトレはひたすらレイを投げて当たり判定を取るだけでそれっぽい絵が出来るので、CG入門としてはおすすめな手法です。透視変換行列を必要としませんし、シャドウマップも必要もありませんし、環境マップも必要ありません。すべてレイを投げることで解決します。<br /> 　ただどういうふうにレイを投げるかで出来上がってくる絵が変わってきます。<br /> 　「CGを学びたい」けど「DirectXやOpenGLがよくわからない」、けど「Unityまでいくといじれる所が少ない（どこをいじっていいかわからない）」と感じる人は、いっそそういったグラフィクスライブラリやゲームエンジンを使用せずに、CPUでレイトレーシングを書くと幸せになれるかもしれません。<br /> 　レイトレースの第一歩はライティングされていない単色の球を１個書いてみるところからです。<br /> 　まず目とスクリーンと球を規定します。球はスクリーンに収まるように配置しましょう。スクリーンはあらかじめ適当な色でクリアーしておきましょう。<br /> 　そして、目からスクリーンのピクセルの位置に対してレイ（直線）を投げます。あとはその直線と球の当たり判定をとって、当たっていたら球の色を描きます。これをすべてのピクセルで繰り返します。レイトレースの完成です。あとはこれをいろいろと拡張していくだけでいいのです。</p>
+<div style="text-align: center;"><img class="hatena-fotolife" title="20170620164057" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164057.png" alt="20170620164057" /> <br /><span style="font-size: 80%;">目からスクリーンにレイを飛ばしまくる。</span></div>
+<p>　ね？簡単でしょ？<br /><br /> 　以下のサンプルコードは、レイトレースをLambertのライティングまで拡張したものになります。ボタンを押すと結果が描画されます。（このサンプルコードではCPUのみでレイトレースしています。）</p>
+<pre><code>function raytrace()
+{
+    // 各種便利関数
+    function setVec3( v, x, y, z )
+    {
+        v[0] = x; v[1] = y; v[2] = z;
+    }
+    function minus( a, b )
+    {
+        var ret = new Array(3);
+        ret[0] = a[0] - b[0];
+        ret[1] = a[1] - b[1];
+        ret[2] = a[2] - b[2];
+        return ret;
+    }
+    function dot( a, b )
+    {
+        return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    }
+    function mad( a, m, b )
+    {
+        var ret = new Array(3);
+        ret[0] = a[0] * m + b[0];
+        ret[1] = a[1] * m + b[1];
+        ret[2] = a[2] * m + b[2];
+        return ret;
+    }
+    function length( v )
+    {
+        return Math.sqrt( dot(v,v) );
+    }
+    function normalize( v )
+    {
+        var len = length( v );
+        v[0] /= len;
+        v[1] /= len;
+        v[2] /= len;
+    }
+
+    // キャンバス取得
+    var elem = document.getElementById("raytracesample");
+    var canvas = elem.getContext( "2d" );
+
+    // クリア
+    canvas.fillStyle = "rgb(64,160,255)";
+    canvas.fillRect(0,0,256,256);
+
+    // 目の場所は( 0, 0, 128 )
+    var eye = new Array(3);
+    setVec3( eye, 0, 0, 128 );
+
+    // 球の場所は( 0, 0, -64 )、大きさは32
+    var sphere = new Array(3);
+    setVec3( sphere, 0, 0, -64 );
+    var spheresize = 32;
+
+    // 平行光
+    var dlight = new Array(3);
+    setVec3( dlight, 1, 2, 2 );
+    normalize( dlight );
+
+    // ピクセル数レイを飛ばす
+    var ray = new Array(3);
+    var screen = new Array(3);
+    for( var y = 0; y &lt; 256; ++y )
+    {
+        for( var x = 0; x &lt; 256; ++x )
+        {
+            // スクリーンは(-31.5,-31.5,0)-(+31.5,+31.5,0)のXY平面
+            setVec3( screen, x*0.25 - 31.5, 31.5 - y*0.25, 0 ); // ピクセルに対するスクリーン位置
+
+            // 目からスクリーンへのベクトルをレイとする
+            ray = minus( screen, eye );
+            normalize( ray ); // 正規化
+
+            // レイと球の当たり判定
+            var v = minus( sphere, eye );
+            var d = dot( v, ray );
+            if( d &gt; 0.0 )
+            {
+                var p = mad( ray, d, eye );
+                v = minus( sphere, p );
+                var len = length( v );
+                if( len &lt; spheresize )
+                {
+                    // 球に当たったので各種情報を求める
+                    len = len / spheresize;
+                    d = Math.sqrt(-len*len + 1.0*1.0) * spheresize;
+                    // 衝突座標
+                    p = mad( ray ,-d, p );
+                    // 法線
+                    var nrm = minus( p, sphere );
+                    normalize( nrm );
+
+                    // ライティング
+                    d = Math.max( dot( nrm,　dlight ), 0 );
+
+                    // 結果を描画
+                    var col = Math.floor(255*d);
+                    canvas.fillStyle = "rgb("+col+","+col+","+col+")";
+                    canvas.fillRect( x, y, 1, 1 ); // 点を打つ機能がないのでfillRectで代用
+                }
+            }
+        }
+    }
+}</code></pre>
+<div style="text-align: center;"><button id="samplebtn">レイトレースのサンプルを実行</button><br /><canvas id="raytracesample" style="background-color: #000000;" width="256" height="256"></canvas><br /><span id="dedenn" style="font-size: 80%;"></span></div>
+<p>
+<script type="text/javascript">// <![CDATA[
+function raytrace()
+{
+    // 各種便利関数
+    function setVec3( v, x, y, z )
+    {
+        v[0] = x; v[1] = y; v[2] = z;
+    }
+    function minus( a, b )
+    {
+        var ret = new Array(3);
+        ret[0] = a[0] - b[0];
+        ret[1] = a[1] - b[1];
+        ret[2] = a[2] - b[2];
+        return ret;
+    }
+    function dot( a, b )
+    {
+        return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+    }
+    function mad( a, m, b )
+    {
+        var ret = new Array(3);
+        ret[0] = a[0] * m + b[0];
+        ret[1] = a[1] * m + b[1];
+        ret[2] = a[2] * m + b[2];
+        return ret;
+    }
+    function length( v )
+    {
+        return Math.sqrt( dot(v,v) );
+    }
+    function normalize( v )
+    {
+        var len = length( v );
+        v[0] /= len;
+        v[1] /= len;
+        v[2] /= len;
+    }
+
+    // キャンバス取得
+    var elem = document.getElementById("raytracesample");
+    var canvas = elem.getContext( "2d" );
+
+    // クリア
+    canvas.fillStyle = "rgb(64,160,255)";
+    canvas.fillRect(0,0,256,256);
+
+    // 目の場所は( 0, 0, 128 )
+    var eye = new Array(3);
+    setVec3( eye, 0, 0, 128 );
+
+    // 球の場所は( 0, 0, -64 )、大きさは32
+    var sphere = new Array(3);
+    setVec3( sphere, 0, 0, -64 );
+    var spheresize = 32;
+
+    // 平行光
+    var dlight = new Array(3);
+    setVec3( dlight, 1, 2, 2 );
+    normalize( dlight );
+
+    // ピクセル数レイを飛ばす
+    var ray = new Array(3);
+    var screen = new Array(3);
+    for( var y = 0; y < 256; ++y )
+    {
+        for( var x = 0; x < 256; ++x )
+        {
+            // スクリーンは(-31.5,-31.5,0)-(+31.5,+31.5,0)のXY平面
+            setVec3( screen, x*0.25 - 31.5, 31.5 - y*0.25, 0 ); // ピクセルに対するスクリーン位置
+
+            // 目からスクリーンへのベクトルをレイとする
+            ray = minus( screen, eye );
+            normalize( ray ); // 正規化
+
+            // レイと球の当たり判定
+            var v = minus( sphere, eye );
+            var d = dot( v, ray );
+            if( d > 0.0 )
+            {
+                var p = mad( ray, d, eye );
+                v = minus( sphere, p );
+                var len = length( v );
+                if( len < spheresize )
+                {
+                    // 球に当たったので各種情報を求める
+                    len = len / spheresize;
+                    d = Math.sqrt(-len*len + 1.0*1.0) * spheresize;
+                    // 衝突座標
+                    p = mad( ray ,-d, p );
+                    // 法線
+                    var nrm = minus( p, sphere );
+                    normalize( nrm );
+
+                    // ライティング
+                    d = Math.max( dot( nrm,　dlight ), 0 );
+
+                    // 結果を描画
+                    var col = Math.floor(255*d);
+                    canvas.fillStyle = "rgb("+col+","+col+","+col+")";
+                    canvas.fillRect( x, y, 1, 1 ); // 点を打つ機能がないのでfillRectで代用
+                }
+            }
+        }
+    }
+    elem = document.getElementById("dedenn");
+    elem.innerHTML = "＼デデーン／";
+}
+var btn=document.getElementById("samplebtn");
+btn.onclick = raytrace;
+// ]]></script>
+</p>
+<p>　この程度の短いコードから始められるのがレイトレのいいところです。<br /> 　ちなみに、今回のゲームのレイトレでは、球16個、無限平面5面、魚眼、直接光(LambertとGGX、および直接光への遮蔽（影）)、鏡面反射、自己発光、まで拡張したものをGPUで動作するようシェーダーで実装しています。<br /><img class="hatena-fotolife" style="float: right;" title="20170620164046" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164046.png" alt="20170620164046" width="200" />興味がある方は、このページを右クリックしてソースを表示でコードを確認できますので覗いてみてください。<br /> 　頂点入力から頂点シェーダー（とフラグメントシェーダーの先頭）でレイを作成し、フラグメントシェーダーで当たり判定をとりシェーディングをしています。<span style="clear: both;"> </span></p>
+<h3>ゲームを作ってみた</h3>
+<p>　今回のゲームを作っていった過程を交えてゲームの作り方を紹介していこうと思います。<br /> 　一介のプログラマーの作り方の紹介なので、こういう作り方の人もいるんだなぐらいの温度感で読んでください。<br /> 　同人ソフトやGameJamなどでのゲームの作り方の参考の一つにでもなれば幸いと考えています。</p>
+<h4>手段の選択</h4>
+<p>　なんらかのソフトウェアを作れる手段が必要です。<br /> 　それは”プログラムを書ける”でもいいですし、”Unityを使える”でもかまいませんし、”RPGツクールがさわれる”でもかまいません。<br /> 　それが出来るのがあなたである必要もありませんが、他人に無理強いはやめましょう。<br /> 　いっそ、ゲームが作りたいという理由から、これらを学ぶというのもよいと思います。ゲームを作りたいという動機は、学ぶ原動力として大きく働くと思います。</p>
+<p>　今回は、ブログに直接プレイできる形で載せたかったため、HTML5+Javascriptを選択しました。</p>
+<h4>ルールを考える</h4>
+<p>　とにもかくにも、ルールを考えなければ何も出来ません。<br /> 　「何を作りたいのか？」「何が出来るのか？」「ジャンルは何にするのか？」<br /> 　今回は私一人で作ったため、悩むことは少なかったですが、時間や予算、自分の技術力、チームで作る場合はチームの力量を踏まえて何がどこまで作れるかをあらかじめ想像しておかなければいけません。<br /> 　たとえば、無限のお金と時間があればだれでもAAA級タイトルを目指せるわけですが、現実に無限な資源など存在しないわけです。</p>
+<p><img class="hatena-fotolife" style="float: right;" title="20170620164041" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164041.png" alt="20170620164041" width="200" />今回は技術ブログに掲載するということで、技術的にレイトレースを使うということは決めていました。<br /> 　そして、レイトレースの鏡面反射を正確に表現できるという特徴を利用するために、パズルゲームのルールを考えたのですが……。<span style="clear: both;"> </span></p>
+<h4>プロトタイプ的なものを作る</h4>
+<p>　当然といえば当然なのですが、最初に考えたルールが必ずしも面白いとは限りません。<br /> 　なので、ゲーム開発初期段階でなんらかのプロトタイプを作ってゲームが面白いかどうか、面白く出来るかどうかをおおよそつかむ必要があります。<br /> 　最近ですとゼルダの伝説BotWが初期に2Dプロトタイプを作って新しいゼルダの面白さを提示したというエピソードが話題になりましたが、あそこまでしっかりしたことをするかどうかは別として、なんらかのプロトタイプ的なものを作ることは重要です。</p>
+<p>　今回のゲームの場合も、非常に荒削りな状態でゲームのルールだけ確認できるものを最初に用意しました。<br /> 　で、最初に思いついたルールを組み込んだプロトタイプをプレイしてみたところ……面白くないことがわかりました。<br /> 　最初に考えたパズルゲームのルールはこうでした。</p>
+<blockquote>
+<p>４ｘ４の玉を４面鏡に囲まれた箱の中に配置する。鏡の中も含めて同じ色を８個以上つなげたら消える。合わせ鏡で無限につながったら大きな得点を得られる。連続で消すとチェインボーナス得点を得られる。</p>
+</blockquote>
+<p>　今回公開したものとは似ても似つかないルールです。<br /> 　脳内テストプレイでは「お、面白くなりそう。」と思っていたわけですが、実際に実装してプレイしてみたら、これがうーん、つまらない。想定どおり消えるし、得点も得られるけど、つまらない。<br /> 　いろいろと原因は考えられましたが、単純にパズルとして考えることが少なすぎるのがつまらなさの最大の原因でした。<br /> 　このルールでも解空間を広げることで面白さが出せるのではないかとも考えたのですが、レイトレースで実装することを考えるとオブジェクト数が増えることは処理負荷が増えることに直結しますし、また構想段階からできればスマホで動かしたいという思惑もあり、解空間を増やしての実験は行わずに、根本的にルールを見直すことを考えました。<br /> 　まぁ詳しくは省きますが、なんやかんやあって、ある程度面白さを感じられる今のルールに落ち着いたのです。</p>
+<p><img class="hatena-fotolife" style="float: right;" title="20170620164220" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164220.png" alt="20170620164220" width="200" />このように、プロトタイプを作ることでつまらないゲームになることを事前にある程度防ぐことが出来るわけです。いうなれば、料理で言うところの”味見”みたいなものですね。<br /> 　ここで美味しくなるまで企画をちゃんと練るのが重要だと思います。<span style="clear: both;"> </span></p>
+<h4>作りこむ</h4>
+<p>　だいたいの面白さは確保できたら、作りこみフェーズに移行します。</p>
+<ul>
+<li>グラフィック・BGM・テキストなどの必要なリソースを用意する。</li>
+<li>タイトルなどのゲーム以外のシーケンスを用意する。</li>
+<li>ゲームバランスを調整する。</li>
+<li>エフェクトの追加など見た目を良くする。</li>
+<li>逐次、バグがあれば除去する。</li>
+</ul>
+<p>　プロトタイプで出来た骨子に肉付けしていくイメージです。<br /> 　これを完成するまで続けます。<br /> 　ゲームのボリュームに比例して大変な作業となります。<br /> 　実際のプロジェクトではここからが作業の本番といえるでしょう。特にグラフィックやＢＧＭ、テキストなどのリソースを用意するのは物量を必要とするため一番大変です。<br /> 　最初に夢見がちな企画を考えてしまうと、ここであえなくオダブツとなってしまうため、実力と時間にみあった計画をしましょう。</p>
+<p><img class="hatena-fotolife" style="float: right;" title="20170620164215" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164215.png" alt="20170620164215" width="200" />今回のゲームは１人で短期間で作るためにゲームの仕様を最小限に止めた為、ここではリソース作成の作業は発生しませんでした。（させませんでした。）<br /> 　せいぜい、タイトルやタイムアップ画面などの追加、ハイスコアの保存やゲームバランスの調整、ささやかな演出の追加など、コードの追加実装のみで作業は完結してます。<span style="clear: both;"> </span></p>
+<h4>完成</h4>
+<p>　ひと通りできたら完成です。<br /> 　完成したら公開することをお勧めします。身内に見せるだけでもいいですが、ネット上に公開したほうがより多くの人の目に付くので良いと思います。いろんな人にプレイしてもらえるだけでもモチベーションがあがります。<br /> 　なにより、人にプレイしてもらってこそのゲームなのです。<br /> 　同人ゲームだったらコミケに出すのもいいかもしれません。<br /> 　また、就職活動でゲーム会社を受けたときに、面接時に「こういうゲームを作りました」というアピールにも使えるでしょう。</p>
+<p><img class="hatena-fotolife" style="float: right;" title="20170620164210" src="http://img.f.hatena.ne.jp/images/fotolife/s/sgtech/20170620/20170620164210.png" alt="20170620164210" width="200" />今作はブログにて公開と相成りました。皆さまプレイはしていただけたでしょうか？得点はいくらほど取れたでしょうか？面白い、楽しいと少しでも感じていただけたでしょうか？得点や感想などをブクマやツイートをしていただけると幸いにございます。<span style="clear: both;"> </span></p>
+<h3>最後に</h3>
+<p>　今回は技術ブログでゲームを公開するというチャレンジをしてみたわけですが、技術としては特段変わったことはしていないので、あまり書くことがなかったというのが執筆していてつらかったところです。<br /> 　あまり堅苦しいブログになってほしくない、ライトな層にも見ていただきたいという思いからゲームを公開してみようと思い立ったのですが、皆様のこころに少しでもささってくれればうれしいなと思います。</p>
+<p>　また、セガでゲーム開発やその周りに携わりたい、もしくは興味があるという方がいらっしゃいましたら、下記の弊社グループ採用サイトをご確認ください。<br /> 　いっしょに働きましょう！<br /><br /><a href="http://sega.co.jp/recruit/">採用情報 | セガ企業情報サイト</a></p>
+
+
+
+</div>
+
+
+  <footer class="entry-footer">
+
+    <div class="entry-tags-wrapper">
+  <div class="entry-tags">  </div>
+</div>
+
+    <p class="entry-footer-section track-inview-by-gtm" data-gtm-track-json="{&quot;area&quot;: &quot;finish_reading&quot;}">
+  <span class="author vcard"><span class="fn" data-load-nickname="1" data-user-name="sgtech" >sgtech</span></span>
+  <span class="entry-footer-time"><a href="https://techblog.sega.jp/entry/2017/06/26/100000"><time data-relative datetime="2017-06-26T01:00:00Z" title="2017-06-26T01:00:00Z" class="updated">2017-06-26 10:00</time></a></span>
+</p>
+
+
+
+
+<div class="social-buttons">
+
+
+
+
+
+
+
+</div>
+
+
+
+    <div class="customized-footer">
+
+
+
+
+          <div class="entry-footer-modules" id="entry-footer-secondary-modules">
+<div class="hatena-module hatena-module-related-entries" >
+
+  <!-- Hatena-Epic-has-related-entries-with-elasticsearch:true -->
+  <div class="hatena-module-title">
+    関連記事
+  </div>
+  <div class="hatena-module-body">
+    <ul class="related-entries hatena-urllist urllist-with-thumbnails">
+
+
+
+    <li class="urllist-item related-entries-item">
+      <div class="urllist-item-inner related-entries-item-inner">
+
+                      <a class="urllist-image-link related-entries-image-link" href="https://techblog.sega.jp/entry/2020/07/27/100000">
+  <img alt="『Ｄ×２ 真・女神転生リベレーション』でのビッグバナー画像制作事例" src="https://cdn.image.st-hatena.com/image/square/dbcd6fa593a099df7f46f8a11b159bf7438401e2/backend=imagemagick;height=100;version=1;width=100/https%3A%2F%2Fcdn-ak.f.st-hatena.com%2Fimages%2Ffotolife%2Fs%2Fsgtech%2F20200723%2F20200723200238.png" class="urllist-image related-entries-image" title="『Ｄ×２ 真・女神転生リベレーション』でのビッグバナー画像制作事例" width="100">
+</a>
+            <div class="urllist-date-link related-entries-date-link">
+  <a href="https://techblog.sega.jp/archive/2020/07/27" rel="nofollow">
+    <time datetime="2020-07-27T01:00:00Z" title="2020-07-27T01:00:00Z">
+      2020-07-27
+    </time>
+  </a>
+</div>
+
+          <a href="https://techblog.sega.jp/entry/2020/07/27/100000" class="urllist-title-link related-entries-title-link  urllist-title related-entries-title">『Ｄ×２ 真・女神転生リベレーション』でのビッグバナー画像制作事例</a>
+
+
+
+
+
+                      <div class="urllist-entry-body related-entries-entry-body">はじめまして。セガ 第4事業部・第4開発1部・TAセクションの村…</div>
+      </div>
+    </li>
+
+
+    <li class="urllist-item related-entries-item">
+      <div class="urllist-item-inner related-entries-item-inner">
+
+                      <a class="urllist-image-link related-entries-image-link" href="https://techblog.sega.jp/entry/2019/06/25/100000">
+  <img alt="GDC報告会に見るセガの学習機会と共有の取り組み" src="https://cdn.image.st-hatena.com/image/square/a93649c037b735d6d30616a7422d398e6e4e7e62/backend=imagemagick;height=100;version=1;width=100/https%3A%2F%2Fcdn-ak.f.st-hatena.com%2Fimages%2Ffotolife%2Fk%2Fkoichi_kobayashi%2F20190527%2F20190527162556.jpg" class="urllist-image related-entries-image" title="GDC報告会に見るセガの学習機会と共有の取り組み" width="100">
+</a>
+            <div class="urllist-date-link related-entries-date-link">
+  <a href="https://techblog.sega.jp/archive/2019/06/25" rel="nofollow">
+    <time datetime="2019-06-25T01:00:00Z" title="2019-06-25T01:00:00Z">
+      2019-06-25
+    </time>
+  </a>
+</div>
+
+          <a href="https://techblog.sega.jp/entry/2019/06/25/100000" class="urllist-title-link related-entries-title-link  urllist-title related-entries-title">GDC報告会に見るセガの学習機会と共有の取り組み</a>
+
+
+
+
+
+                      <div class="urllist-entry-body related-entries-entry-body">はじめまして SEGA Tech Blogをご覧のみなさまこんにちは。セガ…</div>
+      </div>
+    </li>
+
+
+    <li class="urllist-item related-entries-item">
+      <div class="urllist-item-inner related-entries-item-inner">
+
+                      <a class="urllist-image-link related-entries-image-link" href="https://techblog.sega.jp/entry/2018/07/25/100000">
+  <img alt="CEDEC 2018 セガグループセッション紹介" src="https://cdn.image.st-hatena.com/image/square/5a1a140b4f5d3542a1ffb9923e3fb892adef8416/backend=imagemagick;height=100;version=1;width=100/https%3A%2F%2Fcdn-ak.f.st-hatena.com%2Fimages%2Ffotolife%2Fm%2Fmasaharu_ijichi%2F20180717%2F20180717204114.png" class="urllist-image related-entries-image" title="CEDEC 2018 セガグループセッション紹介" width="100">
+</a>
+            <div class="urllist-date-link related-entries-date-link">
+  <a href="https://techblog.sega.jp/archive/2018/07/25" rel="nofollow">
+    <time datetime="2018-07-25T01:00:00Z" title="2018-07-25T01:00:00Z">
+      2018-07-25
+    </time>
+  </a>
+</div>
+
+          <a href="https://techblog.sega.jp/entry/2018/07/25/100000" class="urllist-title-link related-entries-title-link  urllist-title related-entries-title">CEDEC 2018 セガグループセッション紹介</a>
+
+
+
+
+
+                      <div class="urllist-entry-body related-entries-entry-body">皆さんこんにちは！ セガゲームス、開発サポート部の麓です。毎…</div>
+      </div>
+    </li>
+
+
+    <li class="urllist-item related-entries-item">
+      <div class="urllist-item-inner related-entries-item-inner">
+
+                      <a class="urllist-image-link related-entries-image-link" href="https://techblog.sega.jp/entry/2018/03/26/100000">
+  <img alt="Anima2Dでキャラクターアニメーションを作ろう！編 " src="https://cdn.image.st-hatena.com/image/square/cad088ee4e5fe71f9f6df4b0c12275e65890b8b6/backend=imagemagick;height=100;version=1;width=100/https%3A%2F%2Fcdn-ak.f.st-hatena.com%2Fimages%2Ffotolife%2Fs%2Fsgtech%2F20180326%2F20180326002657.gif" class="urllist-image related-entries-image" title="Anima2Dでキャラクターアニメーションを作ろう！編 " width="100">
+</a>
+            <div class="urllist-date-link related-entries-date-link">
+  <a href="https://techblog.sega.jp/archive/2018/03/26" rel="nofollow">
+    <time datetime="2018-03-26T01:00:00Z" title="2018-03-26T01:00:00Z">
+      2018-03-26
+    </time>
+  </a>
+</div>
+
+          <a href="https://techblog.sega.jp/entry/2018/03/26/100000" class="urllist-title-link related-entries-title-link  urllist-title related-entries-title">Anima2Dでキャラクターアニメーションを作ろう！編 </a>
+
+
+
+
+
+                      <div class="urllist-entry-body related-entries-entry-body">■ 共闘ことばRPG 「コトダマン」 www.youtube.comこんにちは。 …</div>
+      </div>
+    </li>
+
+
+    <li class="urllist-item related-entries-item">
+      <div class="urllist-item-inner related-entries-item-inner">
+
+                      <a class="urllist-image-link related-entries-image-link" href="https://techblog.sega.jp/entry/2018/02/26/100000">
+  <img alt="MayaからUnityへのUVアニメーションエクスポート" src="https://cdn.image.st-hatena.com/image/square/8d2313e7889bbca3fb8ce8314267447cc48a3b21/backend=imagemagick;height=100;version=1;width=100/https%3A%2F%2Fcdn-ak.f.st-hatena.com%2Fimages%2Ffotolife%2Fs%2Fsgtech%2F20180225%2F20180225204616.jpg" class="urllist-image related-entries-image" title="MayaからUnityへのUVアニメーションエクスポート" width="100">
+</a>
+            <div class="urllist-date-link related-entries-date-link">
+  <a href="https://techblog.sega.jp/archive/2018/02/26" rel="nofollow">
+    <time datetime="2018-02-26T01:00:00Z" title="2018-02-26T01:00:00Z">
+      2018-02-26
+    </time>
+  </a>
+</div>
+
+          <a href="https://techblog.sega.jp/entry/2018/02/26/100000" class="urllist-title-link related-entries-title-link  urllist-title related-entries-title">MayaからUnityへのUVアニメーションエクスポート</a>
+
+
+
+
+
+                      <div class="urllist-entry-body related-entries-entry-body">はじめに こんにちは、セガ・インタラクティブ 第三研究開発本…</div>
+      </div>
+    </li>
+
+</ul>
+
+  </div>
+</div>
+  </div>
+
+  <div class="entry-footer-html"><script type="text/javascript" src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+<!--シェア数の数字-->
+<script>
+//Facebookのシェア数を取得
+function get_social_count_facebook(url, selcter) {
+  jQuery.ajax({
+    url:'https://graph.facebook.com/',
+    dataType:'jsonp',
+    data:{
+      id:url
+    },
+    success:function(res){
+      jQuery( selcter ).text( res.share.share_count || 0 );
+    },
+    error:function(){
+      jQuery( selcter ).text('0');
+    }
+  });
+}
+//はてなブックマークではてブ数を取得
+function get_social_count_hatebu(url, selcter) {
+  jQuery.ajax({
+    url:'http://api.b.st-hatena.com/entry.count?callback=?',
+    dataType:'jsonp',
+    data:{
+      url:url
+    },
+    success:function(res){
+      jQuery( selcter ).text( res || 0 );
+    },
+    error:function(){
+      jQuery( selcter ).text('0');
+    }
+  });
+}
+jQuery(function(){
+  get_social_count_facebook('https://techblog.sega.jp/entry/2017/06/26/100000', '.facebook-count');
+  get_social_count_hatebu('https://techblog.sega.jp/entry/2017/06/26/100000', '.hatebu-count');
+});
+</script>
+
+<!--シェアボタン-->
+<div class="share-flat">
+<span style="font-size: 8px"></span>
+<div class="share-flat-inner">
+<!--はてブ-->
+<a href="http://b.hatena.ne.jp/entry/https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="hatena-bookmark-button" target="_blank" data-hatena-bookmark-title="WebGLでレイトレしてゲームを作ってみた" data-hatena-bookmark-layout="simple" title="このエントリーをはてなブックマークに追加"><i class="blogicon-bookmark lg"></i><br> <span class="hatebu-count small-text"><i class="fa fa-spinner fa-spin"></i></span></a>
+<!--Facebook-->
+<a href="http://www.facebook.com/sharer.php?u=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="facebook-button" onclick="window.open(this.href, 'FBwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;" ><i class="blogicon-facebook lg"></i><br><span class="facebook-count small-text"><i class="fa fa-spinner fa-spin"></i></span></a>
+<!--Twitter-->
+<a href="http://twitter.com/intent/tweet?text=WebGLでレイトレしてゲームを作ってみた https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000&button_hashtag=SEGATECHBLOG" class="twitter-button" target="_blank"><i class="blogicon-twitter lg"></i><br><span class="small-text">Twitter</span></a>
+<!--Googleプラス-->
+<a href="https://plus.google.com/share?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" onclick="window.open(this.href, 'Gwindow', 'width=650, height=450, menubar=no, toolbar=no, scrollbars=yes'); return false;" class="googleplus-button"><i class="fa fa-google-plus"></i><br><span class="small-text">Google+</span></a>
+<!--Pocket-->
+<a href="http://getpocket.com/edit?url=https%3A%2F%2Ftechblog.sega.jp%2Fentry%2F2017%2F06%2F26%2F100000" class="pocket-button" target="_blank"><i class="fa fa-get-pocket"></i><br><span class="small-text">Pocket</span></a>
+</div>
+</div></div>
+
+
+
+    </div>
+
+  <div class="comment-box js-comment-box">
+
+      <a class="leave-comment-title js-leave-comment-title">コメントを書く</a>
+
+    <ul class="comment js-comment">
+      <li class="read-more-comments" style="display: none;"><a>もっと読む</a></li>
+    </ul>
+
+  </div>
+
+  </footer>
+
+  </div>
+</article>
+
+
+
+
+
+
+
+  <!-- rakuten_ad_target_end -->
+  <!-- google_ad_section_end -->
+
+
+
+  <div class="pager pager-permalink permalink">
+
+
+      <span class="pager-prev">
+        <a href="https://techblog.sega.jp/entry/2017/07/26/100000" rel="prev">
+          <span class="pager-arrow">&laquo; </span>
+          デザインデータを共有しよう
+        </a>
+      </span>
+
+
+
+      <span class="pager-next">
+        <a href="https://techblog.sega.jp/entry/2017/05/26/100000" rel="next">
+          GameJamで覚えるタスクボード(カンバン)
+          <span class="pager-arrow"> &raquo;</span>
+        </a>
+      </span>
+
+  </div>
+
+
+
+
+
+
+        </div>
+      </div>
+
+      <aside id="box1">
+  <div id="box1-inner">
+  </div>
+</aside>
+
+    </div><!-- #wrapper -->
+
+
+<aside id="box2">
+
+  <div id="box2-inner">
+
+
+<div class="hatena-module hatena-module-html">
+    <div class="hatena-module-title">リクルート情報ページ</div>
+  <div class="hatena-module-body">
+    <br>
+
+<div id="link_banner">
+<a href="https://www.sega.co.jp/recruit/index.html"  onMouseDown="ga('HatenaBlogUserTracker.send', 'event', 'recruit', 'games_banner_clicked','recruit_games_out', true);"> </a>
+</div>
+
+<br>
+
+<p><iframe class="embed-card embed-webcard" style="display: block; width: 100%; height: 155px; max-width: 500px; margin: 10px 0px;" title="リクルート | アトラス公式サイト" src="https://hatenablog-parts.com/embed?url=https%3A%2F%2Fwww.atlus.co.jp%2Frecruit%2F" frameborder="0" scrolling="no"></iframe><cite class="hatena-citation"><a href="https://www.atlus.co.jp/recruit/">www.atlus.co.jp</a></cite></p>
+
+<br>
+<!-- -->
+  </div>
+</div>
+
+
+      <div class="hatena-module hatena-module-search-box">
+  <div class="hatena-module-title">
+    検索
+  </div>
+  <div class="hatena-module-body">
+    <form class="search-form" role="search" action="https://techblog.sega.jp/search" method="get">
+  <input type="text" name="q" class="search-module-input" value="" placeholder="記事を検索" required>
+  <input type="submit" value="検索" class="search-module-button" />
+</form>
+
+  </div>
+</div>
+
+
+      <div class="hatena-module hatena-module-recent-entries ">
+  <div class="hatena-module-title">
+    <a href="https://techblog.sega.jp/archive">
+      最新記事
+    </a>
+  </div>
+  <div class="hatena-module-body">
+    <ul class="recent-entries hatena-urllist ">
+
+
+
+    <li class="urllist-item recent-entries-item">
+      <div class="urllist-item-inner recent-entries-item-inner">
+
+
+          <a href="https://techblog.sega.jp/entry/segatech_20210727" class="urllist-title-link recent-entries-title-link  urllist-title recent-entries-title">CEDEC 2021 セガグループによるセッション紹介！</a>
+
+
+
+
+
+                </div>
+    </li>
+
+
+    <li class="urllist-item recent-entries-item">
+      <div class="urllist-item-inner recent-entries-item-inner">
+
+
+          <a href="https://techblog.sega.jp/entry/2021/06/15/100000" class="urllist-title-link recent-entries-title-link  urllist-title recent-entries-title">クォータニオンとは何ぞや？：基礎線形代数講座</a>
+
+
+
+
+
+                </div>
+    </li>
+
+
+    <li class="urllist-item recent-entries-item">
+      <div class="urllist-item-inner recent-entries-item-inner">
+
+
+          <a href="https://techblog.sega.jp/entry/2020/11/25/100000" class="urllist-title-link recent-entries-title-link  urllist-title recent-entries-title">アーケードゲームを支えるデバッグ術</a>
+
+
+
+
+
+                </div>
+    </li>
+
+
+    <li class="urllist-item recent-entries-item">
+      <div class="urllist-item-inner recent-entries-item-inner">
+
+
+          <a href="https://techblog.sega.jp/entry/2020/09/25/100000" class="urllist-title-link recent-entries-title-link  urllist-title recent-entries-title">ペルソナ５ ザ・ロイヤルの開発中、自動プレイでバグを検出してみた話</a>
+
+
+
+
+
+                </div>
+    </li>
+
+
+    <li class="urllist-item recent-entries-item">
+      <div class="urllist-item-inner recent-entries-item-inner">
+
+
+          <a href="https://techblog.sega.jp/entry/2020/08/25/100000" class="urllist-title-link recent-entries-title-link  urllist-title recent-entries-title">CEDEC 2020 セガグループによるセッション紹介！</a>
+
+
+
+
+
+                </div>
+    </li>
+
+</ul>
+
+      </div>
+</div>
+
+
+
+
+<div class="hatena-module hatena-module-archive" data-archive-type="default" data-archive-url="https://techblog.sega.jp/archive">
+  <div class="hatena-module-title">
+    <a href="https://techblog.sega.jp/archive">月別アーカイブ</a>
+  </div>
+  <div class="hatena-module-body">
+  </div>
+</div>
+
+
+
+  </div>
+</aside>
+
+
+  </div>
+</div>
+
+
+
+
+
+
+
+  <div id="bottom-editarea">
+    <Table border="0" width="1000"><tr align="CENTER" valign="middle"><td><a href="http://hatenablog.com/"><img src="https://cdn.blog.st-hatena.com/images/powered-by-hatenablog.png" alt="Powered by はてなブログ"
+style="width:200px;max-width:100%;"></a></td></tr></tabke>
+  </div>
+
+
+      </div>
+    </div>
+
+
+
+
+
+
+
+
+
+<div class="quote-box">
+  <div class="tooltip-quote tooltip-quote-stock">
+    <i class="blogicon-quote" title="引用をストック"></i>
+  </div>
+  <div class="tooltip-quote tooltip-quote-tweet js-tooltip-quote-tweet">
+    <a class="js-tweet-quote" target="_blank" data-track-name="quote-tweet" data-track-once><i class="blogicon-twitter" title="引用してツイートする"></i></a>
+  </div>
+</div>
+
+<div class="quote-stock-panel" id="quote-stock-message-box" style="position: absolute; z-index: 3000">
+  <div class="message-box" id="quote-stock-succeeded-message" style="display: none">
+    <p>引用をストックしました</p>
+    <button class="btn btn-primary" id="quote-stock-show-editor-button" data-track-name="curation-quote-edit-button">ストック一覧を見る</button>
+    <button class="btn quote-stock-close-message-button">閉じる</button>
+  </div>
+
+  <div class="message-box" id="quote-login-required-message" style="display: none">
+    <p>引用するにはまずログインしてください</p>
+    <button class="btn btn-primary" id="quote-login-button">ログイン</button>
+    <button class="btn quote-stock-close-message-button">閉じる</button>
+  </div>
+
+  <div class="error-box" id="quote-stock-failed-message" style="display: none">
+    <p>引用をストックできませんでした。再度お試しください</p>
+    <button class="btn quote-stock-close-message-button">閉じる</button>
+  </div>
+
+  <div class="error-box" id="unstockable-quote-message-box" style="display: none; position: absolute; z-index: 3000;">
+    <p>限定公開記事のため引用できません。</p>
+  </div>
+</div>
+
+<script type="x-underscore-template" id="js-requote-button-template">
+  <div class="requote-button js-requote-button">
+    <button class="requote-button-btn tipsy-top" title="引用する"><i class="blogicon-quote"></i></button>
+  </div>
+</script>
+
+
+
+
+    <div id="hidden-subscribe-button" style="display: none;">
+      <div class="hatena-follow-button-box btn-subscribe js-hatena-follow-button-box"
+
+  >
+
+  <a href="#" class="hatena-follow-button js-hatena-follow-button">
+    <span class="subscribing">
+      <span class="foreground">読者です</span>
+      <span class="background">読者をやめる</span>
+    </span>
+    <span class="unsubscribing" data-track-name="profile-widget-subscribe-button" data-track-once>
+      <span class="foreground">読者になる</span>
+      <span class="background">読者になる</span>
+    </span>
+  </a>
+  <div class="subscription-count-box js-subscription-count-box">
+    <i></i>
+    <u></u>
+    <span class="subscription-count js-subscription-count">
+    </span>
+  </div>
+</div>
+
+    </div>
+
+
+  <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<script type="text/javascript" src="https://b.st-hatena.com/js/bookmark_button.js" charset="utf-8" async="async"></script>
+
+
+<script type="text/javascript" src="https://cdn.blog.st-hatena.com/js/external/jquery.min.js?v=1.12.4&amp;version=c6c826d821d219e344d1a15f342c86"></script>
+
+
+
+<script id="vendor-js" data-env="production" type="text/javascript" src="https://cdn.blog.st-hatena.com/js/vendor.js?version=c6c826d821d219e344d1a15f342c86" crossorigin="anonymous"></script>
+
+
+
+
+
+<script type="text/javascript" src="https://cdn.blog.st-hatena.com/js/texts-ja.js?version=c6c826d821d219e344d1a15f342c86"></script>
+<script id="hatenablog-js" data-env="production"
+  type="text/javascript" src="https://cdn.blog.st-hatena.com/js/hatenablog.js?version=c6c826d821d219e344d1a15f342c86" crossorigin="anonymous"></script>
+
+
+  <script type="text/javascript">Hatena.Diary.GlobalHeader.init()</script>
+
+
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  </body>
+</html>
