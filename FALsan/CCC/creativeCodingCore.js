@@ -5,19 +5,21 @@
  * GitHub repository: {@link https://github.com/fal-works/creative-coding-core}
  *
  * @module creative-coding-core
- * @copyright 2019 FAL
+ * @copyright 2019-2020 FAL
  * @author FAL <contact@fal-works.com>
  * @license MIT
- * @version 0.6.1
+ * @version 0.10.0
  */
 
-(function(global, factory) {
+(function (global, factory) {
   typeof exports === "object" && typeof module !== "undefined"
     ? factory(exports)
     : typeof define === "function" && define.amd
     ? define(["exports"], factory)
-    : ((global = global || self), factory((global.CreativeCodingCore = {})));
-})(this, function(exports) {
+    : ((global =
+        typeof globalThis !== "undefined" ? globalThis : global || self),
+      factory((global.CreativeCodingCore = {})));
+})(this, function (exports) {
   "use strict";
 
   /**
@@ -119,7 +121,7 @@
    *   - If falsy, a new empty array is returned.
    * @returns A new array.
    */
-  const unifyToArray = arrayOrValue =>
+  const unifyToArray = (arrayOrValue) =>
     arrayOrValue
       ? Array.isArray(arrayOrValue)
         ? arrayOrValue.slice()
@@ -130,7 +132,7 @@
    * @param arrays
    * @returns A new 1-dimensional array.
    */
-  const flatNaive = arrays => [].concat(...arrays);
+  const flatNaive = (arrays) => [].concat(...arrays);
   /**
    * An alternative to `Array.prototype.flat()`.
    * @param array
@@ -172,7 +174,7 @@
    * @param length
    * @returns A new number array.
    */
-  const createIntegerSequence = length => {
+  const createIntegerSequence = (length) => {
     const array = new Array(length);
     for (let i = 0; i < length; i += 1) array[i] = i;
     return array;
@@ -182,7 +184,7 @@
    * @param range
    * @returns A new number array.
    */
-  const fromRange = range => {
+  const fromRange = (range) => {
     const { start, end } = range;
     const length = end - start;
     const array = new Array(length);
@@ -210,7 +212,7 @@
    * @param functionArray
    * @param argument
    */
-  const loopRun = functionArray => {
+  const loopRun = (functionArray) => {
     const len = functionArray.length;
     for (let i = 0; i < len; i += 1) functionArray[i]();
   };
@@ -266,7 +268,7 @@
     filterMapArray: filterMap,
     loopRunArray: loopRun,
     loopRunArrayWithArgument: loopRunWithArgument,
-    blitArray: blit
+    blitArray: blit,
   });
 
   const index = /*#__PURE__*/ Object.freeze({
@@ -290,55 +292,87 @@
     filterMap: filterMap,
     loopRun: loopRun,
     loopRunWithArgument: loopRunWithArgument,
-    blit: blit
+    blit: blit,
   });
 
   /**
-   * Creates an array-list unit.
+   * Creates an array-based collection unit.
    * @param initialCapacity
    */
-  const create = initialCapacity => {
+  const create = (initialCapacity) => {
     return {
       array: new Array(initialCapacity),
-      size: 0
+      size: 0,
     };
   };
   /**
-   * Creates an array-list unit filled with `value`.
+   * Creates an array-based collection unit filled with `value`.
    * @param size
    * @param value
    */
   const createFilled = (size, value) => {
     return {
       array: new Array(size).fill(value),
-      size
+      size,
     };
   };
   /**
-   * Creates an array-list unit, filled by running `factory` and assignint the result for each index.
+   * Creates an array-based collection unit,
+   * filled by running `factory` and assignint the result for each index.
    * @param size
    * @param factory
    */
   const createPopulated$1 = (size, factory) => {
     return {
       array: populate(new Array(size), factory),
-      size
+      size,
     };
   };
   /**
-   * Creates an array-list unit by reusing the reference to `array`.
-   * The `size` of the array-list will be `array.length`.
+   * Creates a collection by reusing the reference to `array`.
+   * The `size` of the collection will be `array.length`.
    * Be sure that `array` is filled with valid elements.
    *
-   * @param array
-   * @returns A new array-list unit.
+   * @returns A new collection unit.
    */
-  const fromArray = array => {
+  const fromArray = (array) => {
     return {
       array,
-      size: array.length
+      size: array.length,
     };
   };
+  /**
+   * Clears the contents.
+   * This just sets `size` to `0` and does not nullify references.
+   */
+  const clear = (collection) => {
+    collection.size = 0;
+  };
+  /**
+   * Clears the contents and also nullifies all references.
+   */
+  const clearReference = (collection) => {
+    collection.size = 0;
+    const { array } = collection;
+    const capacity = array.length;
+    array.length = 0;
+    array.length = capacity;
+  };
+  /**
+   * Checks if it is empty.
+   * @returns `true` if the size is 0.
+   */
+  const isEmpty = (collection) => collection.size === 0;
+  /**
+   * Checks if it is full.
+   * @returns `true` if the size is equal to the capacity.
+   */
+  const isFull = (collection) => collection.size === collection.array.length;
+
+  const create$1 = create;
+  const createFilled$1 = createFilled;
+  const createPopulated$2 = createPopulated$1;
+  const fromArray$1 = fromArray;
   /**
    * Adds `element` to `arrayList`.
    * @param arrayList
@@ -360,7 +394,7 @@
    * @param arrayList
    * @returns The last element of `arrayList`.
    */
-  const pop = arrayList => {
+  const pop = (arrayList) => {
     const lastIndex = arrayList.size - 1;
     const removedElement = arrayList.array[lastIndex];
     arrayList.size = lastIndex;
@@ -378,7 +412,7 @@
    * @param arrayList
    * @returns The last element of `arrayList`.
    */
-  const peek = arrayList => arrayList.array[arrayList.size - 1];
+  const peek = (arrayList) => arrayList.array[arrayList.size - 1];
   /**
    * Returns the last element of `arrayList`.
    * Be sure that `arrayList` is not empty.
@@ -418,30 +452,14 @@
     destination.size += len;
   };
   /**
-   * Clears the contents of `arrayList`.
-   * This just sets `size` to `0` and does not nullify references.
-   * @param arrayList
-   */
-  const clear = arrayList => {
-    arrayList.size = 0;
-  };
-  /**
    * Nullifies the slots that are not used.
    * @param arrayList
    */
-  const cleanUnusedSlots = arrayList => {
+  const cleanUnusedSlots = (arrayList) => {
     const { array, size } = arrayList;
     const capacity = array.length;
     array.length = size;
     array.length = capacity;
-  };
-  /**
-   * Clears the contents of `arrayList` and also nullifies all references.
-   * @param arrayList
-   */
-  const clearReference = arrayList => {
-    arrayList.size = 0;
-    cleanUnusedSlots(arrayList);
   };
   /**
    * Runs `callback` for each element of `arrayList`.
@@ -546,11 +564,6 @@
    * @param predicate
    * @returns `true` if any element has been removed.
    */
-
-   // うまいなぁこれ
-   // 順方向走査で条件を満たすものをremoveしてる
-   // predicateがたとえばupdateであればupdate処理の結果それがremoveされる場合はtrueを返してそのままremoveしましょうってなる
-   // かしこいね...
   const removeShiftAll = (arrayList, predicate) => {
     const { array, size } = arrayList;
     let writeIndex = 0;
@@ -621,10 +634,10 @@
 
   const fullName$1 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    createArrayList: create,
-    createFilledArrayList: createFilled,
-    createPopulatedArrayList: createPopulated$1,
-    arrayListFromArray: fromArray,
+    createArrayList: create$1,
+    createFilledArrayList: createFilled$1,
+    createPopulatedArrayList: createPopulated$2,
+    arrayListFromArray: fromArray$1,
     addToArrayList: add,
     pushToArrayList: push,
     popFromArrayList: pop,
@@ -648,16 +661,20 @@
     removeSwapAllFromArrayList: removeSwapAll,
     populateArrayList: populate$1,
     arrayListNestedLoopJoin: nestedLoopJoin$1,
-    arrayListRoundRobin: roundRobin$1
+    arrayListRoundRobin: roundRobin$1,
   });
 
   const index$1 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     FullName: fullName$1,
-    create: create,
-    createFilled: createFilled,
-    createPopulated: createPopulated$1,
-    fromArray: fromArray,
+    clear: clear,
+    clearReference: clearReference,
+    isEmpty: isEmpty,
+    isFull: isFull,
+    create: create$1,
+    createFilled: createFilled$1,
+    createPopulated: createPopulated$2,
+    fromArray: fromArray$1,
     add: add,
     push: push,
     pop: pop,
@@ -666,9 +683,7 @@
     getLast: getLast,
     addArray: addArray,
     addList: addList,
-    clear: clear,
     cleanUnusedSlots: cleanUnusedSlots,
-    clearReference: clearReference,
     loop: loop$1,
     loopBackwards: loopBackwards$1,
     find: find,
@@ -681,25 +696,21 @@
     removeSwapAll: removeSwapAll,
     populate: populate$1,
     nestedLoopJoin: nestedLoopJoin$1,
-    roundRobin: roundRobin$1
+    roundRobin: roundRobin$1,
   });
 
   /**
    * Creates an array-based queue.
-   * @param capacity
    * @returns A queue object.
    */
-  const create$1 = capacity => ({
-    array: new Array(capacity),
-    headIndex: 0,
-    tailIndex: 0,
-    size: 0
-  });
+  const create$2 = (capacity) =>
+    Object.assign(Object.assign({}, create(capacity)), {
+      headIndex: 0,
+      tailIndex: 0,
+    });
   /**
    * Adds `element` to `queue` as the last (newest) element.
    * Be sure that `queue` is not full.
-   * @param queue
-   * @param element
    */
   const enqueue = (queue, element) => {
     const { array, tailIndex } = queue;
@@ -709,12 +720,17 @@
     queue.size += 1;
   };
   /**
+   * Adds `element` to `queue` as the last (newest) element if `queue` is not yet full.
+   */
+  const enqueueSafe = (queue, element) => {
+    if (!isFull(queue)) enqueue(queue, element);
+  };
+  /**
    * Removes the top (oldest) element from `queue`.
    * Be sure that `queue` is not empty.
-   * @param queue
    * @returns Removed element.
    */
-  const dequeue = queue => {
+  const dequeue = (queue) => {
     const { array, headIndex } = queue;
     const nextHeadIndex = headIndex + 1;
     queue.headIndex = nextHeadIndex < array.length ? nextHeadIndex : 0;
@@ -722,42 +738,34 @@
     return array[headIndex];
   };
   /**
-   * Removes the top (oldest) element from `queue`.
-   * @param queue
+   * Removes the top (oldest) element from `queue` if `queue` is not empty.
    * @returns Removed element, or `undefined` if empty.
    */
-  const dequeueSafe = queue => {
-    const { array, headIndex, tailIndex } = queue;
-    if (headIndex === tailIndex) return undefined;
-    const nextHeadIndex = headIndex + 1;
-    queue.headIndex = nextHeadIndex < array.length ? nextHeadIndex : 0;
-    queue.size -= 1;
-    return array[headIndex];
-  };
+  const dequeueSafe = (queue) => (isEmpty(queue) ? undefined : dequeue(queue));
   /**
-   * Retunrs the top (oldest) element from `queue`.
-   * Be sure that `queue` is not empty.
-   * @param queue
-   * @returns Removed element.
+   * Removes the top (oldest) element from `queue` only if `queue` is full.
+   * @returns Removed element, or `undefined` if not full.
    */
-  const peek$1 = queue => queue.array[queue.headIndex];
+  const dequeueIfFull = (queue) => (isFull(queue) ? dequeue(queue) : undefined);
   /**
-   * Retunrs the top (oldest) element from `queue`.
-   * @param queue
-   * @returns Removed element, or `undefined` if empty.
+   * @returns The top (oldest) element from `queue`.
+   * Unspecified if `queue` is empty.
    */
-  const peekSafe = queue => {
+  const peek$1 = (queue) => queue.array[queue.headIndex];
+  /**
+   * @returns The top (oldest) element, or `undefined` if empty.
+   */
+  const peekSafe = (queue) => {
     const { headIndex } = queue;
     return headIndex !== queue.tailIndex ? queue.array[headIndex] : undefined;
   };
   /**
    * Runs `callback` for each element of `queue`.
-   * @param arrayList
-   * @param callback
    */
   const loop$2 = (queue, callback) => {
+    if (queue.size === 0) return;
     const { array, headIndex, tailIndex } = queue;
-    if (headIndex <= tailIndex) {
+    if (headIndex < tailIndex) {
       loopRange(array, callback, headIndex, tailIndex);
       return;
     }
@@ -767,7 +775,6 @@
   /**
    * Removes the top (oldest) element from `queue` if `predicate` returns true.
    * Be sure that `queue` is not empty.
-   * @param queue
    * @param predicate Function that returns `true` if a given value matches the condition.
    * @returns Removed element, or `undefined` if not removed.
    */
@@ -782,88 +789,165 @@
   };
   /**
    * Removes the top (oldest) element from `queue` if `predicate` returns true.
-   * @param queue
    * @param predicate Function that returns `true` if a given value matches the condition.
    * @returns Removed element, or `undefined` if empty or not removed.
    */
   const dequeueSafeIf = (queue, predicate) =>
-    queue.headIndex !== queue.tailIndex
-      ? dequeueIf(queue, predicate)
-      : undefined;
+    isEmpty(queue) ? undefined : dequeueIf(queue, predicate);
   /**
-   * Checks if `queue` is empty.
-   * @param queue
-   * @returns `true` if `queue.size === 0`.
-   */
-  const isEmpty = queue => queue.size === 0;
-  /**
-   * Clears the contents of `queue`.
+   * Clears the contents.
    * This does not nullify references.
-   * @param queue
    */
-  const clear$1 = queue => {
+  const clear$1 = (queue) => {
+    clear(queue);
     queue.headIndex = 0;
     queue.tailIndex = 0;
-    queue.size = 0;
-  };
-  /**
-   * Clears the contents of `queue` and also nullifies all references.
-   * @param queue
-   */
-  const clearReference$1 = queue => {
-    clear$1(queue);
-    const { array } = queue;
-    const capacity = array.length;
-    array.length = 0;
-    array.length = capacity;
   };
 
   const fullName$2 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    createArrayQueue: create$1,
+    createArrayQueue: create$2,
+    arrayQueueIsEmpty: isEmpty,
+    arrayQueueIsFull: isFull,
     enqueue: enqueue,
+    enqueueSafe: enqueueSafe,
     dequeue: dequeue,
     dequeueSafe: dequeueSafe,
+    dequeueIfFull: dequeueIfFull,
     loopArrayQueue: loop$2,
     peekArrayQueue: peek$1,
     peekArrayQueueSafe: peekSafe,
     dequeueIf: dequeueIf,
-    dequeueSafeIf: dequeueSafeIf
+    dequeueSafeIf: dequeueSafeIf,
+    clearArrayQueue: clear$1,
+    clearArrayQueueReference: clearReference,
   });
 
   const index$2 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     FullName: fullName$2,
-    create: create$1,
+    clearReference: clearReference,
+    create: create$2,
+    isEmpty: isEmpty,
+    isFull: isFull,
     enqueue: enqueue,
+    enqueueSafe: enqueueSafe,
     dequeue: dequeue,
     dequeueSafe: dequeueSafe,
+    dequeueIfFull: dequeueIfFull,
     peek: peek$1,
     peekSafe: peekSafe,
     loop: loop$2,
     dequeueIf: dequeueIf,
     dequeueSafeIf: dequeueSafeIf,
-    isEmpty: isEmpty,
     clear: clear$1,
-    clearReference: clearReference$1
   });
 
-  const create$2 = factory => {
+  const isolate = (element) => {
+    element.next = null;
+  };
+  const create$3 = () => ({
+    top: null,
+    last: null,
+  });
+  /**
+   * Adds `element` to `queue` as the last (newest) element.
+   */
+  const enqueue$1 = (queue, element) => {
+    const { last } = queue;
+    if (last === null) {
+      queue.top = queue.last = element;
+    } else {
+      last.next = element;
+      queue.last = element;
+    }
+  };
+  /**
+   * Removes the top (oldest) element from `queue` if `queue` is not empty.
+   * @returns Removed element, or `null` if empty.
+   */
+  const dequeue$1 = (queue) => {
+    const { top } = queue;
+    if (top !== null) {
+      const next = top.next;
+      queue.top = next;
+      if (!next) queue.last = null;
+      isolate(top);
+    }
+    return top;
+  };
+  /**
+   * Runs `callback` for each of `element` and its succeeding elements.
+   */
+  const loopFrom = (element, callback) => {
+    let current = element;
+    while (current !== null) {
+      const next = current.next;
+      callback(current);
+      current = next;
+    }
+  };
+  /**
+   * Runs `callback` for each element of `queue`.
+   */
+  const loop$3 = (queue, callback) => loopFrom(queue.top, callback);
+  /**
+   * Clears `queue`.
+   * This just sets `queue.top` and `queue.last` to null and does not clear
+   * the `next` field of each element.
+   */
+  const clear$2 = (queue) => {
+    queue.top = null;
+    queue.last = null;
+  };
+  /**
+   * Clears `queue`.
+   * This just sets `queue.top` and `queue.last` to null and does not clear
+   * the `next` field of each element.
+   */
+  const clearReference$1 = (queue) => {
+    loop$3(queue, isolate);
+    clear$2(queue);
+  };
+
+  const index$3 = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    create: create$3,
+    enqueue: enqueue$1,
+    dequeue: dequeue$1,
+    loopFrom: loopFrom,
+    loop: loop$3,
+    clear: clear$2,
+    clearReference: clearReference$1,
+  });
+
+  /**
+   * @returns New `Lazy` unit with `factory`.
+   */
+  const create$4 = (factory) => {
     return {
       value: undefined,
-      factory
+      factory,
     };
   };
-  const get$1 = object => object.value || (object.value = object.factory());
-  const clear$2 = object => {
+  /**
+   * Returns the value of `object`.
+   * Creates the value if not yet created.
+   */
+  const get$1 = (object) => object.value || (object.value = object.factory());
+  /**
+   * Clears the value of `object`.
+   * `object.factory` still remains, so the value can be created later again.
+   */
+  const clear$3 = (object) => {
     object.value = undefined;
   };
 
   const lazy = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    create: create$2,
+    create: create$4,
     get: get$1,
-    clear: clear$2
+    clear: clear$3,
   });
 
   const from = (prototypeStructure, length) => {
@@ -872,13 +956,13 @@
       data[key] = new Array(length).fill(prototypeStructure[key]);
     return {
       data,
-      length
+      length,
     };
   };
 
   const structureOfArrays = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    from: from
+    from: from,
   });
 
   const {
@@ -915,7 +999,7 @@
     hypot,
     trunc,
     fround,
-    cbrt
+    cbrt,
   } = Math;
   /**
    * Same as `Math.sqrt`.
@@ -947,12 +1031,12 @@
    * @returns ∛x
    */
   const cubeRoot = cbrt;
-  const square = v => v * v;
-  const cube = v => v * v * v;
-  const pow4 = v => square(v * v);
-  const pow5 = v => square(v * v) * v;
-  const squareInt = v => imul(v, v);
-  const cubeInt = v => imul(imul(v, v), v);
+  const square = (v) => v * v;
+  const cube = (v) => v * v * v;
+  const pow4 = (v) => square(v * v);
+  const pow5 = (v) => square(v * v) * v;
+  const squareInt = (v) => imul(v, v);
+  const cubeInt = (v) => imul(imul(v, v), v);
   /**
    * Checks whether `a` and `b` are considered equal.
    * @param a
@@ -1044,7 +1128,7 @@
   const createMap = (inStart, inEnd, outStart, outEnd) => {
     const inLength = inEnd - inStart;
     const outLength = outEnd - outStart;
-    return value => outStart + (outLength * (value - inStart)) / inLength;
+    return (value) => outStart + (outLength * (value - inStart)) / inLength;
   };
   /**
    * Maps `value` from the range [`start`, `end`] to the range [0, 1].
@@ -1115,7 +1199,7 @@
     constrain: constrain,
     map: map,
     createMap: createMap,
-    inverseLerp: inverseLerp
+    inverseLerp: inverseLerp,
   });
 
   const { E, LN10, LN2, LOG2E, LOG10E } = Math;
@@ -1189,7 +1273,7 @@
     ONE_OVER_SQUARE_ROOT_THREE: ONE_OVER_SQUARE_ROOT_THREE,
     TWO_OVER_SQUARE_ROOT_THREE: TWO_OVER_SQUARE_ROOT_THREE,
     SQUARE_ROOT_THREE_OVER_TWO: SQUARE_ROOT_THREE_OVER_TWO,
-    SQUARE_ROOT_TWO_OVER_TWO: SQUARE_ROOT_TWO_OVER_TWO
+    SQUARE_ROOT_TWO_OVER_TWO: SQUARE_ROOT_TWO_OVER_TWO,
   });
 
   const PI = Math.PI;
@@ -1206,20 +1290,20 @@
   const COS60 = SIN30;
   const DEGREES_TO_RADIANS = TWO_PI / 360;
   const RADIANS_TO_DEGREES = 360 / TWO_PI;
-  const createArray = resolution => {
+  const createArray = (resolution) => {
     const array = new Array(resolution);
     const interval = TWO_PI / resolution;
     for (let i = 0; i < resolution; i += 1) array[i] = i * interval;
     return array;
   };
-  const fromDegrees = degrees => DEGREES_TO_RADIANS * degrees;
-  const toDegrees = radians => RADIANS_TO_DEGREES * radians;
+  const fromDegrees = (degrees) => DEGREES_TO_RADIANS * degrees;
+  const toDegrees = (radians) => RADIANS_TO_DEGREES * radians;
   /**
    * Calculates the angle in radians from origin to `position`.
    * @param position
    * @returns The angle. `0` if `position` is a zero vector.
    */
-  const fromOrigin = position => {
+  const fromOrigin = (position) => {
     const { x, y } = position;
     return x !== 0 || y !== 0 ? atan2(position.y, position.x) : 0;
   };
@@ -1262,30 +1346,28 @@
     toDegrees: toDegrees,
     fromOrigin: fromOrigin,
     betweenPoints: betweenPoints,
-    betweenCoordinates: betweenCoordinates
+    betweenCoordinates: betweenCoordinates,
   });
-
-  // こっからがベクトルの話のようです
 
   /**
    * @param x
    * @param y
    * @returns A new 2D vector.
    */
-  const create$3 = (x, y) => ({ x, y });
+  const create$5 = (x, y) => ({ x, y });
   /**
    * Zero vector.
    */
   const zero = {
     x: 0,
-    y: 0
+    y: 0,
   };
   /**
    * Checks if a given vector is completely zero.
    * @param v
    * @returns `true` if zero.
    */
-  const isZero = v => v.x === 0 && v.y === 0;
+  const isZero = (v) => v.x === 0 && v.y === 0;
   /**
    * Creates a new vector from polar coordinates `angle` and `length`.
    * @param length
@@ -1295,7 +1377,7 @@
   const fromPolar = (length, angle) => {
     return {
       x: length * cos(angle),
-      y: length * sin(angle)
+      y: length * sin(angle),
     };
   };
   /**
@@ -1307,7 +1389,7 @@
   const add$1 = (a, b) => {
     return {
       x: a.x + b.x,
-      y: a.y + b.y
+      y: a.y + b.y,
     };
   };
   /**
@@ -1320,7 +1402,7 @@
   const addCartesian = (vector, x, y) => {
     return {
       x: vector.x + x,
-      y: vector.y + y
+      y: vector.y + y,
     };
   };
   /**
@@ -1333,7 +1415,7 @@
   const addPolar = (vector, length, angle) => {
     return {
       x: vector.x + length * cos(angle),
-      y: vector.y + length * sin(angle)
+      y: vector.y + length * sin(angle),
     };
   };
   /**
@@ -1345,7 +1427,7 @@
   const subtract = (a, b) => {
     return {
       x: a.x - b.x,
-      y: a.y - b.y
+      y: a.y - b.y,
     };
   };
   /**
@@ -1358,7 +1440,7 @@
   const subtractCartesian = (vector, x, y) => {
     return {
       x: vector.x - x,
-      y: vector.y - y
+      y: vector.y - y,
     };
   };
   /**
@@ -1371,7 +1453,7 @@
   const subtractPolar = (vector, length, angle) => {
     return {
       x: vector.x - length * cos(angle),
-      y: vector.y - length * sin(angle)
+      y: vector.y - length * sin(angle),
     };
   };
   /**
@@ -1383,7 +1465,7 @@
   const multiply = (vector, multiplier) => {
     return {
       x: vector.x * multiplier,
-      y: vector.y * multiplier
+      y: vector.y * multiplier,
     };
   };
   /**
@@ -1395,7 +1477,7 @@
   const divide = (vector, divisor) => {
     return {
       x: vector.x / divisor,
-      y: vector.y / divisor
+      y: vector.y / divisor,
     };
   };
   /**
@@ -1419,15 +1501,15 @@
    * @param vector
    * @returns String expression.
    */
-  const toStr = vector => `{x:${vector.x},y:${vector.y}}`;
+  const toStr = (vector) => `{x:${vector.x},y:${vector.y}}`;
   /**
    * Creates a new vector with same values.
    * @param vector
    */
-  const copy = vector => {
+  const copy = (vector) => {
     return {
       x: vector.x,
-      y: vector.y
+      y: vector.y,
     };
   };
   /**
@@ -1435,27 +1517,63 @@
    * @param vector
    * @returns The squared length.
    */
-  const lengthSquared = vector => hypotenuseSquared2D(vector.x, vector.y);
+  const lengthSquared = (vector) => hypotenuseSquared2D(vector.x, vector.y);
   /**
    * Calculates length of `vector`.
    * @param vector
    * @returns The length.
    */
-  const length = vector => hypotenuse2D(vector.x, vector.y);
+  const length = (vector) => hypotenuse2D(vector.x, vector.y);
   /**
    * Calculates angle of `vector` in radians.
    * @param vector
    * @returns The angle. `0` if `vector` is a zero vector.
    */
-  const angle$1 = vector => {
+  const angle$1 = (vector) => {
     const { x, y } = vector;
     return x !== 0 || y !== 0 ? atan2(vector.y, vector.x) : 0;
+  };
+  /**
+   * Calculates the dot product of `vectorA` and `vectorB`.
+   * @param vectorA
+   * @param vectorB
+   * @returns The dot product.
+   */
+  const dot = (vectorA, vectorB) =>
+    vectorA.x * vectorB.x + vectorA.y * vectorB.y;
+  /**
+   * Creates a new unit vector from `vector`.
+   * @param vector
+   * @returns new `Vector2D`.
+   */
+  const normalize = (vector) => {
+    const { x, y } = vector;
+    const length = hypotenuse2D(x, y);
+    return {
+      x: x / length,
+      y: y / length,
+    };
+  };
+  /**
+   * Creates a new normal unit vector from a point to another.
+   * @param to
+   * @param from
+   * @returns new `Vector2D`.
+   */
+  const normalizeBetween = (from, to) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = hypotenuse2D(dx, dy);
+    return {
+      x: dx / distance,
+      y: dy / distance,
+    };
   };
 
   /**
    * @returns A new mutable 2D vector.
    */
-  const create$4 = () => ({ x: 0, y: 0 });
+  const create$6 = () => ({ x: 0, y: 0 });
   const add$2 = (vector, otherVector) => {
     vector.x += otherVector.x;
     vector.y += otherVector.y;
@@ -1522,10 +1640,46 @@
     vector.y = constrain(vector.y, minY, maxY);
     return vector;
   };
+  /**
+   * Updates `vector` so that the distance from another point will be at least equal or larger than `minDistance`.
+   * @param vector
+   * @param from
+   * @param minDistance
+   */
+  const separate = (vector, from, minDistance) => {
+    const distanceSquared$1 = distanceSquared(vector, from);
+    if (distanceSquared$1 >= minDistance * minDistance) return vector;
+    const angle$1 = betweenPoints(from, vector);
+    vector.x = from.x + minDistance * cos(angle$1);
+    vector.y = from.y + minDistance * sin(angle$1);
+    return vector;
+  };
+  /**
+   * Updates `a` and `b` so that the distance will be at least equal or larger than `minDistance`.
+   * @param a
+   * @param b
+   * @param minDistance
+   * @param midPointRatio The ratio for determining the midpoint from `a` to `b`.
+   */
+  const separateEachOther = (a, b, minDistance, midPointRatio) => {
+    const distanceSquared$1 = distanceSquared(a, b);
+    if (distanceSquared$1 >= minDistance * minDistance) return;
+    const angleFromA = betweenPoints(a, b);
+    const midX = lerp(a.x, b.x, midPointRatio);
+    const midY = lerp(a.y, b.y, midPointRatio);
+    const halfMinDistance = minDistance / 2;
+    const bDisplacementX = halfMinDistance * cos(angleFromA);
+    const bDisplacementY = halfMinDistance * sin(angleFromA);
+    b.x = midX + bDisplacementX;
+    b.y = midY + bDisplacementY;
+    a.x = midX - bDisplacementX;
+    a.y = midY - bDisplacementY;
+    return;
+  };
 
   const mutable = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    create: create$4,
+    create: create$6,
     add: add$2,
     addCartesian: addCartesian$1,
     addPolar: addPolar$1,
@@ -1538,7 +1692,9 @@
     multiply: multiply$1,
     divide: divide$1,
     clamp: clamp$1,
-    constrain: constrain$1
+    constrain: constrain$1,
+    separate: separate,
+    separateEachOther: separateEachOther,
   });
 
   const add$3 = (sourceA, sourceB, target) => {
@@ -1602,6 +1758,21 @@
     target.y = constrain(vector.y, minY, maxY);
     return target;
   };
+  const normalize$1 = (vector, target) => {
+    const { x, y } = vector;
+    const length = hypotenuse2D(x, y);
+    target.x = x / length;
+    target.y = y / length;
+    return target;
+  };
+  const normalizeBetween$1 = (from, to, target) => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = hypotenuse2D(dx, dy);
+    target.x = dx / distance;
+    target.y = dy / distance;
+    return target;
+  };
 
   const assign = /*#__PURE__*/ Object.freeze({
     __proto__: null,
@@ -1616,12 +1787,14 @@
     multiply: multiply$2,
     divide: divide$2,
     clamp: clamp$2,
-    constrain: constrain$2
+    constrain: constrain$2,
+    normalize: normalize$1,
+    normalizeBetween: normalizeBetween$1,
   });
 
   const fullName$3 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    createVector: create$3,
+    createVector: create$5,
     zeroVector: zero,
     vectorIsZero: isZero,
     vectorFromPolar: fromPolar,
@@ -1640,7 +1813,7 @@
     vectorLengthSquared: lengthSquared,
     vectorLength: length,
     vectorAngle: angle$1,
-    createVectorMutable: create$4,
+    createVectorMutable: create$6,
     addVectorMutable: add$2,
     addCartesianMutable: addCartesian$1,
     addPolarMutable: addPolar$1,
@@ -1654,6 +1827,8 @@
     divideVectorMutable: divide$1,
     clampVector: clamp$1,
     constrainVector: constrain$1,
+    separateVector: separate,
+    separateVectors: separateEachOther,
     addVectorAssign: add$3,
     addCartesianAssign: addCartesian$2,
     addPolarAssign: addPolar$2,
@@ -1663,16 +1838,39 @@
     multiplyVectorAssign: multiply$2,
     divideVectorAssign: divide$2,
     clampVectorAssign: clamp$2,
-    constrainVectorAssign: constrain$2
+    constrainVectorAssign: constrain$2,
   });
 
-// これがVector2Dらしいんだけどなんでこんな分かりづらいんだ...
-  const index$3 = /*#__PURE__*/ Object.freeze({
+  const tmpVectorAP = create$6();
+  const tmpVectorAB = create$6();
+  /**
+   * Returns the position on the line segment AB
+   * which is closest to the reference point P.
+   * @param P - The position of the reference point.
+   * @param A - The position of the line segment start point.
+   * @param B - The position of the line segment end point.
+   * @param target - The vector to receive the result.
+   * @returns Either `target`, `A` or `B`.
+   */
+  function getClosestPosition(P, A, B, target) {
+    subtract$2(P, A, tmpVectorAP);
+    subtract$2(B, A, tmpVectorAB);
+    const lengthSquaredAB = lengthSquared(tmpVectorAB);
+    const dotProductAPAB = dot(tmpVectorAP, tmpVectorAB);
+    const distanceRatioAX = dotProductAPAB / lengthSquaredAB;
+    if (distanceRatioAX <= 0) return A;
+    if (distanceRatioAX >= 1) return B;
+    const vectorAX = multiply$1(tmpVectorAB, distanceRatioAX);
+    add$3(A, vectorAX, target);
+    return target;
+  }
+
+  const index$4 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Mutable: mutable,
     Assign: assign,
     FullName: fullName$3,
-    create: create$3,
+    create: create$5,
     zero: zero,
     isZero: isZero,
     fromPolar: fromPolar,
@@ -1690,15 +1888,19 @@
     copy: copy,
     lengthSquared: lengthSquared,
     length: length,
-    angle: angle$1
+    angle: angle$1,
+    dot: dot,
+    normalize: normalize,
+    normalizeBetween: normalizeBetween,
+    getClosestPosition: getClosestPosition,
   });
 
-  const create$5 = (topLeftPosition, size) => ({
+  const create$7 = (topLeftPosition, size) => ({
     topLeft: topLeftPosition,
     bottomRight: {
       x: topLeftPosition.x + size.width,
-      y: topLeftPosition.y + size.height
-    }
+      y: topLeftPosition.y + size.height,
+    },
   });
   const createFromCenter = (centerPosition, size) => {
     const { x, y } = centerPosition;
@@ -1706,7 +1908,7 @@
     const halfHeight = size.height / 2;
     return {
       topLeft: { x: x - halfWidth, y: y - halfHeight },
-      bottomRight: { x: x + halfWidth, y: y + halfHeight }
+      bottomRight: { x: x + halfWidth, y: y + halfHeight },
     };
   };
   /**
@@ -1726,13 +1928,13 @@
       y < bottomRight.y - margin
     );
   };
-  const getWidth = region => region.bottomRight.x - region.topLeft.x;
-  const getHeight = region => region.bottomRight.y - region.topLeft.y;
-  const getSize = region => {
+  const getWidth = (region) => region.bottomRight.x - region.topLeft.x;
+  const getHeight = (region) => region.bottomRight.y - region.topLeft.y;
+  const getSize = (region) => {
     const { topLeft, bottomRight } = region;
     return {
       width: bottomRight.x - topLeft.x,
-      height: bottomRight.y - topLeft.y
+      height: bottomRight.y - topLeft.y,
     };
   };
   /**
@@ -1741,11 +1943,11 @@
    * @param region
    * @return The center point.
    */
-  const getCenterPoint = region => {
+  const getCenterPoint = (region) => {
     const { topLeft, bottomRight } = region;
     return {
       x: (topLeft.x + bottomRight.x) / 2,
-      y: (topLeft.y + bottomRight.y) / 2
+      y: (topLeft.y + bottomRight.y) / 2,
     };
   };
   /**
@@ -1763,23 +1965,23 @@
           topLeft,
           bottomRight: {
             x: lerp(topLeft.x, bottomRight.x, scaleFactor),
-            y: lerp(topLeft.y, bottomRight.y, scaleFactor)
-          }
+            y: lerp(topLeft.y, bottomRight.y, scaleFactor),
+          },
         };
       case 1: {
         const center = getCenterPoint(region);
         const size = getSize(region);
-        const halfWidth = size.width / 2;
-        const halfHeight = size.height / 2;
+        const halfWidth = scaleFactor * (size.width / 2);
+        const halfHeight = scaleFactor * (size.height / 2);
         return {
           topLeft: {
             x: center.x - halfWidth,
-            y: center.y - halfHeight
+            y: center.y - halfHeight,
           },
           bottomRight: {
             x: center.x + halfWidth,
-            y: center.y + halfHeight
-          }
+            y: center.y + halfHeight,
+          },
         };
       }
     }
@@ -1789,16 +1991,16 @@
    * @param region
    * @returns The cloned instance.
    */
-  const copy$1 = region => ({
+  const copy$1 = (region) => ({
     topLeft: copy(region.topLeft),
-    bottomRight: copy(region.bottomRight)
+    bottomRight: copy(region.bottomRight),
   });
   /**
    * @returns A `RectangleRegion` instance with `Infinity` values.
    */
   const createInfinite = () => ({
     topLeft: { x: -Infinity, y: -Infinity },
-    bottomRight: { x: Infinity, y: Infinity }
+    bottomRight: { x: Infinity, y: Infinity },
   });
   /**
    * Creates a new `RectangleRegion` by adding `margin` to `region`.
@@ -1809,17 +2011,17 @@
   const addMargin = (region, margin) => {
     const {
       topLeft: originalTopLeft,
-      bottomRight: originalBottomRight
+      bottomRight: originalBottomRight,
     } = region;
     return {
       topLeft: {
         x: originalTopLeft.x - margin,
-        y: originalTopLeft.y - margin
+        y: originalTopLeft.y - margin,
       },
       bottomRight: {
         x: originalBottomRight.x + margin,
-        y: originalBottomRight.y + margin
-      }
+        y: originalBottomRight.y + margin,
+      },
     };
   };
   /**
@@ -1831,23 +2033,23 @@
   const addMargins = (region, margins) => {
     const {
       topLeft: originalTopLeft,
-      bottomRight: originalBottomRight
+      bottomRight: originalBottomRight,
     } = region;
     return {
       topLeft: {
         x: originalTopLeft.x - margins.left,
-        y: originalTopLeft.y - margins.top
+        y: originalTopLeft.y - margins.top,
       },
       bottomRight: {
         x: originalBottomRight.x + margins.right,
-        y: originalBottomRight.y + margins.bottom
-      }
+        y: originalBottomRight.y + margins.bottom,
+      },
     };
   };
 
   const rectangleRegion = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    create: create$5,
+    create: create$7,
     createFromCenter: createFromCenter,
     containsPoint: containsPoint,
     getWidth: getWidth,
@@ -1858,35 +2060,35 @@
     copy: copy$1,
     createInfinite: createInfinite,
     addMargin: addMargin,
-    addMargins: addMargins
+    addMargins: addMargins,
   });
 
   /**
    * Calculates the aspect ratio i.e. `width / height`.
    * @param size
    */
-  const getAspectRatio = size => size.width / size.height;
+  const getAspectRatio = (size) => size.width / size.height;
   /**
    * Calculates the area i.e. `width * height`.
    * @param size
    */
-  const getArea = size => size.width * size.height;
+  const getArea = (size) => size.width * size.height;
   /**
    * @returns A `RectangleSize` instance with `Infinity` values.
    */
   const createInfinite$1 = () => ({
     width: Infinity,
-    height: Infinity
+    height: Infinity,
   });
 
   const rectangleSize = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     getAspectRatio: getAspectRatio,
     getArea: getArea,
-    createInfinite: createInfinite$1
+    createInfinite: createInfinite$1,
   });
 
-  const createCurve = vertexPropertyList => {
+  const createCurve = (vertexPropertyList) => {
     const paths = [];
     const len = vertexPropertyList.length;
     let previousVertex = vertexPropertyList[0];
@@ -1905,20 +2107,20 @@
           0.5 * currentControlLine.length,
           currentControlLine.angle
         ),
-        targetPoint: currentVertex.point
+        targetPoint: currentVertex.point,
       });
       previousVertex = currentVertex;
       previousControlLine = currentControlLine;
     }
     return {
       startPoint: vertexPropertyList[0].point,
-      paths
+      paths,
     };
   };
 
   const bezier = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    createCurve: createCurve
+    createCurve: createCurve,
   });
 
   /**
@@ -1944,7 +2146,7 @@
   const coordinates2d = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     distanceSquared: distanceSquared$1,
-    distance: distance$1
+    distance: distance$1,
   });
 
   /**
@@ -1970,13 +2172,13 @@
    * @param x Any ratio.
    * @returns Eased ratio. `0` if x=0, `1` if x=1.
    */
-  const expo = x => (x ? pow(2, 10 * (x - 1)) : 0);
+  const expo = (x) => (x ? pow(2, 10 * (x - 1)) : 0);
   /**
    * Creates a new "easeInBack" function with `coefficient`.
    * @param coefficient Defaults to 1.70158
    * @returns "easeInBack" function.
    */
-  const createBack = (coefficient = 1.70158) => x =>
+  const createBack = (coefficient = 1.70158) => (x) =>
     x * x * ((coefficient + 1) * x - coefficient);
 
   const _in = /*#__PURE__*/ Object.freeze({
@@ -1985,7 +2187,7 @@
     cubic: cubic,
     quart: quart,
     expo: expo,
-    createBack: createBack
+    createBack: createBack,
   });
 
   /**
@@ -1993,32 +2195,32 @@
    * @param x Any ratio.
    * @returns Eased ratio. `0` if x=0, `1` if x=1.
    */
-  const quad$1 = x => -square(x - 1) + 1;
+  const quad$1 = (x) => -square(x - 1) + 1;
   /**
    * "easeOutCubic" function.
    * @param x Any ratio.
    * @returns Eased ratio. `0` if x=0, `1` if x=1.
    */
-  const cubic$1 = x => cube(x - 1) + 1;
+  const cubic$1 = (x) => cube(x - 1) + 1;
   /**
    * "easeOutQuart" function.
    * @param x Any ratio.
    * @returns Eased ratio. `0` if x=0, `1` if x=1.
    */
-  const quart$1 = x => -pow4(x - 1) + 1;
+  const quart$1 = (x) => -pow4(x - 1) + 1;
   /**
    * "easeOutExpo" function.
    * @param x Any ratio.
    * @returns Eased ratio. `0` if x=0, `1` if x=1.
    */
-  const expo$1 = x => (x < 1 ? -pow(2, -10 * x) + 1 : 1);
+  const expo$1 = (x) => (x < 1 ? -pow(2, -10 * x) + 1 : 1);
   /**
    * Creates a new "easeOutBack" function with `coefficient`.
    * @param coefficient Defaults to 1.70158
    * @returns "easeOutBack" function.
    */
   const createBack$1 = (coefficient = 1.70158) => {
-    return x => {
+    return (x) => {
       const r = x - 1;
       const r2 = r * r;
       return (coefficient + 1) * (r * r2) + coefficient * r2 + 1;
@@ -2031,7 +2233,7 @@
     cubic: cubic$1,
     quart: quart$1,
     expo: expo$1,
-    createBack: createBack$1
+    createBack: createBack$1,
   });
 
   /**
@@ -2043,7 +2245,7 @@
    */
   const concatenate = (easingA, easingB, thresholdRatio = 0.5) => {
     const inverseThresholdRatio = 1 / thresholdRatio;
-    return ratio => {
+    return (ratio) => {
       if (ratio < thresholdRatio) return easingA(inverseThresholdRatio * ratio);
       else {
         const ratioB = 1 - thresholdRatio;
@@ -2061,7 +2263,7 @@
    */
   const integrate = (easingA, easingB, thresholdRatio = 0.5) => {
     const inverseThresholdRatio = 1 / thresholdRatio;
-    return ratio => {
+    return (ratio) => {
       if (ratio < thresholdRatio)
         return thresholdRatio * easingA(inverseThresholdRatio * ratio);
       else {
@@ -2102,7 +2304,7 @@
    * @param coefficient Defaults to 1.70158
    * @returns "easeInOutBack" function.
    */
-  const createBack$2 = coefficient =>
+  const createBack$2 = (coefficient) =>
     integrate(createBack(coefficient), createBack$1(coefficient));
 
   const inOut = /*#__PURE__*/ Object.freeze({
@@ -2111,7 +2313,7 @@
     cubic: cubic$2,
     quart: quart$2,
     expo: expo$2,
-    createBack: createBack$2
+    createBack: createBack$2,
   });
 
   /**
@@ -2143,7 +2345,7 @@
    * @param coefficient Defaults to 1.70158
    * @returns "easeOutInBack" function.
    */
-  const createBack$3 = coefficient =>
+  const createBack$3 = (coefficient) =>
     integrate(createBack$1(coefficient), createBack(coefficient));
 
   const outIn = /*#__PURE__*/ Object.freeze({
@@ -2152,7 +2354,7 @@
     cubic: cubic$3,
     quart: quart$3,
     expo: expo$3,
-    createBack: createBack$3
+    createBack: createBack$3,
   });
 
   /**
@@ -2160,7 +2362,7 @@
    * @param x Any ratio.
    * @returns Eased ratio (same as `x`). `0` if x=0, `1` if x=1.
    */
-  const linear = x => x;
+  const linear = (x) => x;
 
   const fullName$4 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
@@ -2186,10 +2388,10 @@
     createEaseOutInBack: createBack$3,
     easeLinear: linear,
     concatenateEasing: concatenate,
-    integrateEasing: integrate
+    integrateEasing: integrate,
   });
 
-  const index$4 = /*#__PURE__*/ Object.freeze({
+  const index$5 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     In: _in,
     Out: out,
@@ -2198,7 +2400,7 @@
     FullName: fullName$4,
     linear: linear,
     concatenate: concatenate,
-    integrate: integrate
+    integrate: integrate,
   });
 
   /**
@@ -2217,7 +2419,7 @@
    * so that it will be used as the base of all `Random` functions.
    * @param randomFunction - Any function that returns a (pseudo-)random number from `0` up to (but not including) `1`.
    */
-  const setBaseFunction = randomFunction => {
+  const setBaseFunction = (randomFunction) => {
     random = randomFunction;
     ratio = randomFunction;
   };
@@ -2227,7 +2429,7 @@
    * @param max
    * @returns A random value.
    */
-  const value = max => random() * max;
+  const value = (max) => random() * max;
   /**
    * Returns random value from `0` to (but not including) `2 * PI`.
    * @returns A random radians value.
@@ -2245,26 +2447,26 @@
    * @param range
    * @returns A random value.
    */
-  const inRange = range => between(range.start, range.end);
+  const inRange = (range) => between(range.start, range.end);
   /**
    * Returns `true` or `false` randomly.
    * @param probability A number between 0 and 1.
    * @returns `true` with the given `probability`.
    */
-  const bool = probability => random() < probability;
+  const bool = (probability) => random() < probability;
   /**
    * Returns `1` or `-1` randomly.
    * @param positiveProbability A number between 0 and 1 for the probability of a positive value being returned.
    * @returns Either `1` or `-1`.
    */
-  const sign$1 = positiveProbability =>
+  const sign$1 = (positiveProbability) =>
     random() < positiveProbability ? 1 : -1;
   /**
    * Returns a positive or negative value randomly with a magnitude from `0` up to (but not including) `maxMagnitude`.
    * @param maxMagnitude
    * @returns A random value.
    */
-  const signed = maxMagnitude =>
+  const signed = (maxMagnitude) =>
     (random() < 0.5 ? 1 : -1) * random() * maxMagnitude;
   /**
    * Returns a positive or negative value randomly with a magnitude from `0` up to (but not including) `PI`.
@@ -2277,17 +2479,17 @@
    * @param length
    * @returns New `Vector2D` unit.
    */
-  const vector = length => fromPolar(length, angle$2());
+  const vector = (length) => fromPolar(length, angle$2());
   /**
    * Returns a random point in `region`.
    * @param region
    * @returns Random `Vector2D`.
    */
-  const pointInRectangleRegion = region => {
+  const pointInRectangleRegion = (region) => {
     const { topLeft, bottomRight } = region;
     return {
       x: between(topLeft.x, bottomRight.x),
-      y: between(topLeft.y, bottomRight.y)
+      y: between(topLeft.y, bottomRight.y),
     };
   };
 
@@ -2297,7 +2499,7 @@
    * @param maxInt
    * @returns A random integer value.
    */
-  const value$1 = maxInt => floor(random() * maxInt);
+  const value$1 = (maxInt) => floor(random() * maxInt);
   /**
    * Returns random integer from `minInt` up to (but not including) `maxInt`.
    * The case where `minInt > maxInt` or `maxInt <= 0` is not expected.
@@ -2313,14 +2515,14 @@
    * @param maxMagnitude
    * @returns A random signed value.
    */
-  const signed$1 = maxMagnitude =>
+  const signed$1 = (maxMagnitude) =>
     (random() < 0.5 ? 1 : -1) * floor(random() * maxMagnitude);
 
   const integer = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     value: value$1,
     between: between$1,
-    signed: signed$1
+    signed: signed$1,
   });
 
   /**
@@ -2328,7 +2530,7 @@
    * @param step - E.g. if `0.25`, the result is either `0`, `0.25`, `0.5` or `0.75`.
    * @returns A random value.
    */
-  const ratio$1 = step => floor(random() / step) * step;
+  const ratio$1 = (step) => floor(random() / step) * step;
   /**
    * Returns a random value at intervals of `step` from `0` up to (but not including) `max`.
    * @param step
@@ -2359,14 +2561,14 @@
    * @param step - Interval angle.
    * @returns A random radians value.
    */
-  const angle$3 = step => floor(random() * (TWO_PI / step)) * step;
+  const angle$3 = (step) => floor(random() * (TWO_PI / step)) * step;
   /**
    * Returns a positive or negative value randomly at intervals of `step`
    * with a magnitude from `0` up to (but not including) `PI`.
    * @param step - Interval angle.
    * @returns A random signed radians value.
    */
-  const signedAngle$1 = step =>
+  const signedAngle$1 = (step) =>
     (random() < 0.5 ? 1 : -1) * floor(random() * (PI / step)) * step;
 
   const discrete = /*#__PURE__*/ Object.freeze({
@@ -2376,7 +2578,7 @@
     between: between$2,
     signed: signed$2,
     angle: angle$3,
-    signedAngle: signedAngle$1
+    signedAngle: signedAngle$1,
   });
 
   /**
@@ -2385,19 +2587,19 @@
    * @param array
    * @returns A random element.
    */
-  const get$2 = array => array[value$1(array.length)];
+  const get$2 = (array) => array[value$1(array.length)];
   /**
    * Removes and returns one element from `array` randomly.
    * `array` is not expected to be empty.
    * @param array
    * @returns A random element.
    */
-  const removeGet = array => array.splice(value$1(array.length), 1)[0];
+  const removeGet = (array) => array.splice(value$1(array.length), 1)[0];
 
   const arrays = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     get: get$2,
-    removeGet: removeGet
+    removeGet: removeGet,
   });
 
   /**
@@ -2405,7 +2607,7 @@
    * @param curve Function that takes a random value between [0, 1] and returns a remapped value.
    * @returns A random value.
    */
-  const ratio$2 = curve => curve(random());
+  const ratio$2 = (curve) => curve(random());
   /**
    * Similar to `value()`, but remaps the result by `curve`.
    * @param curve Function that takes a random value between [0, 1] and returns a remapped value.
@@ -2434,7 +2636,7 @@
    * @param curve Any function that takes a random value between [0, 1) and returns a remapped value.
    * @returns A random radians value.
    */
-  const angle$4 = curve => curve(random()) * TWO_PI;
+  const angle$4 = (curve) => curve(random()) * TWO_PI;
   /**
    * Similar to the normal `signed()`, but remaps the result by `curve`.
    * @param curve Any function that takes a random value between [0, 1) and returns a remapped value.
@@ -2449,7 +2651,7 @@
    * @param magnitude
    * @returns A random signed radians value.
    */
-  const signedAngle$2 = curve =>
+  const signedAngle$2 = (curve) =>
     (random() < 0.5 ? 1 : -1) * curve(random()) * PI;
 
   const curved = /*#__PURE__*/ Object.freeze({
@@ -2460,7 +2662,7 @@
     inRange: inRange$1,
     angle: angle$4,
     signed: signed$3,
-    signedAngle: signedAngle$2
+    signedAngle: signedAngle$2,
   });
 
   const fullName$5 = /*#__PURE__*/ Object.freeze({
@@ -2493,10 +2695,10 @@
     randomBetweenCurved: between$3,
     randomInRangeCurved: inRange$1,
     randomVector: vector,
-    randomPointInRectangleRegin: pointInRectangleRegion
+    randomPointInRectangleRegin: pointInRectangleRegion,
   });
 
-  const index$5 = /*#__PURE__*/ Object.freeze({
+  const index$6 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Integer: integer,
     Discrete: discrete,
@@ -2519,7 +2721,33 @@
     signed: signed,
     signedAngle: signedAngle,
     vector: vector,
-    pointInRectangleRegion: pointInRectangleRegion
+    pointInRectangleRegion: pointInRectangleRegion,
+  });
+
+  /**
+   * Multiplies the given matrix and array.
+   * The number of matrix columns and the array length must be identical.
+   * @param {number[][]} matrix - Any matrix.
+   * @param {number[]} array - Any one-dimensional array of numbers.
+   * @param {number[]} [target] - Target array for receiving the result.
+   * @returns Product of the given values as an array.
+   */
+  function multiplyMatrixAndArray(matrix, array, target) {
+    const matrixRowCount = matrix.length;
+    const matrixColumnCount = matrix[0].length;
+    const resultArray = target || new Array(matrixRowCount);
+    for (let row = 0; row < matrixRowCount; row += 1) {
+      resultArray[row] = 0;
+      for (let col = 0; col < matrixColumnCount; col += 1) {
+        resultArray[row] += matrix[row][col] * array[col];
+      }
+    }
+    return resultArray;
+  }
+
+  const matrix = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    multiplyMatrixAndArray: multiplyMatrixAndArray,
   });
 
   /**
@@ -2546,31 +2774,31 @@
 
   const fitBox = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    calculateScaleFactor: calculateScaleFactor
+    calculateScaleFactor: calculateScaleFactor,
   });
 
   /**
    * Finds HTML element by `id`. If not found, returns `document.body`.
    * @param id
    */
-  const getElementOrBody = id => document.getElementById(id) || document.body;
+  const getElementOrBody = (id) => document.getElementById(id) || document.body;
   /**
    * Returns the width and height of `node`.
    * If `node === document.body`, returns the inner width and height of `window`.
    * @param node
    */
-  const getElementSize = node =>
+  const getElementSize = (node) =>
     node === document.body
       ? {
           width: window.innerWidth,
-          height: window.innerHeight
+          height: window.innerHeight,
         }
       : node.getBoundingClientRect();
 
   const htmlUtility = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     getElementOrBody: getElementOrBody,
-    getElementSize: getElementSize
+    getElementSize: getElementSize,
   });
 
   const returnVoid = () => {};
@@ -2580,12 +2808,12 @@
   const returnOne = () => 1;
   const returnTrue = () => true;
   const returnFalse = () => false;
-  const returnArgument = argument => argument;
+  const returnArgument = (argument) => argument;
   /**
    * Runs `callback` without any arguments.
    * @param callback - Any function that can be run without any arguments.
    */
-  const runSelf = callback => callback();
+  const runSelf = (callback) => callback();
 
   const constantFunction = /*#__PURE__*/ Object.freeze({
     __proto__: null,
@@ -2597,7 +2825,7 @@
     returnTrue: returnTrue,
     returnFalse: returnFalse,
     returnArgument: returnArgument,
-    runSelf: runSelf
+    runSelf: runSelf,
   });
 
   let verbose = returnVoid;
@@ -2616,12 +2844,12 @@
    * Callback function for running `component.step()`.
    * @param component
    */
-  const step = component => component.step();
+  const step = (component) => component.step();
   /**
    * Callback function for running `component.reset()`.
    * @param component
    */
-  const reset = component => component.reset();
+  const reset = (component) => component.reset();
   const defaultName = "no name";
   /**
    * Base class for other classes implementing `Component`.
@@ -2675,22 +2903,22 @@
     __proto__: null,
     step: step,
     reset: reset,
-    Base: Base
+    Base: Base,
   });
 
-  const createProgress = duration => {
+  const createProgress = (duration) => {
     return {
       duration,
       ratioChangeRate: 1 / max2(1, duration),
       count: 0,
-      ratio: 0
+      ratio: 0,
     };
   };
-  const updateProgress = progress => {
+  const updateProgress = (progress) => {
     progress.count += 1;
     progress.ratio += progress.ratioChangeRate;
   };
-  const resetProgress = progress => {
+  const resetProgress = (progress) => {
     progress.count = 0;
     progress.ratio = 0;
   };
@@ -2732,7 +2960,7 @@
    * @param parameters
    * @returns New `Timer` instance.
    */
-  const create$6 = parameters => {
+  const create$8 = (parameters) => {
     return Unit.create(
       unifyToArray(parameters.onStart),
       unifyToArray(parameters.onProgress),
@@ -2753,7 +2981,7 @@
    * @param chain
    * @returns `true` if completed i.e. there is no next component.
    */
-  const setNextIndex = chain => {
+  const setNextIndex = (chain) => {
     const nextIndex = chain.index + 1;
     if (nextIndex < chain.components.length) {
       setIndex(chain, nextIndex);
@@ -2796,19 +3024,19 @@
    * @param components
    * @returns New `Timer.Chain` instance.
    */
-  const create$7 = components => Unit$1.create(components);
+  const create$9 = (components) => Unit$1.create(components);
 
   const chain = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Unit: Unit$1,
-    create: create$7
+    create: create$9,
   });
 
   class Unit$2 extends Base {
     constructor(components) {
       super([], []);
       this.components = components.slice();
-      this.runningComponentList = fromArray(components.slice());
+      this.runningComponentList = fromArray$1(components.slice());
     }
     static create(components) {
       return new Unit$2(components);
@@ -2843,12 +3071,12 @@
    * @param components
    * @returns New `Timer.Parallel` instance.
    */
-  const create$8 = components => Unit$2.create(components);
+  const create$a = (components) => Unit$2.create(components);
 
   const parallel = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Unit: Unit$2,
-    create: create$8
+    create: create$a,
   });
 
   class Unit$3 extends Base {
@@ -2890,30 +3118,30 @@
    * @param loopCount `Infinity` if not specified.
    * @returns New `Timer.Loop` instance.
    */
-  const create$9 = (component, loopCount = Infinity) =>
+  const create$b = (component, loopCount = Infinity) =>
     Unit$3.create(component, loopCount);
 
-  const loop$3 = /*#__PURE__*/ Object.freeze({
+  const loop$4 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Unit: Unit$3,
-    create: create$9
+    create: create$b,
   });
 
-  const create$a = capacity => {
+  const create$c = (capacity) => {
     return {
-      runningComponents: create(capacity),
-      newComponentsBuffer: create(capacity)
+      runningComponents: create$1(capacity),
+      newComponentsBuffer: create$1(capacity),
     };
   };
   const add$4 = (timerSet, component) =>
     add(timerSet.newComponentsBuffer, component);
-  const step$1 = timerSet => {
+  const step$1 = (timerSet) => {
     const { runningComponents, newComponentsBuffer } = timerSet;
     addList(runningComponents, newComponentsBuffer);
     clear(newComponentsBuffer);
     removeShiftAll(runningComponents, step);
   };
-  const clear$3 = timerSet => {
+  const clear$4 = (timerSet) => {
     clear(timerSet.runningComponents);
     clear(timerSet.newComponentsBuffer);
   };
@@ -2921,38 +3149,38 @@
    * Creates a timer set instance and returns a set of bound functions.
    * @param capacity
    */
-  const construct = capacity => {
-    const timerSet = create$a(capacity);
+  const construct = (capacity) => {
+    const timerSet = create$c(capacity);
     return {
       add: add$4.bind(undefined, timerSet),
       step: step$1.bind(undefined, timerSet),
-      clear: clear$3.bind(undefined, timerSet)
+      clear: clear$4.bind(undefined, timerSet),
     };
   };
 
   const set$1 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    create: create$a,
+    create: create$c,
     add: add$4,
     step: step$1,
-    clear: clear$3,
-    construct: construct
+    clear: clear$4,
+    construct: construct,
   });
 
-  const index$6 = /*#__PURE__*/ Object.freeze({
+  const index$7 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Component: component,
     Chain: chain,
     Parallel: parallel,
-    Loop: loop$3,
+    Loop: loop$4,
     Set: set$1,
-    chain: create$7,
-    parallel: create$8,
-    loop: create$9,
+    chain: create$9,
+    parallel: create$a,
+    loop: create$b,
     outputVerbose: outputVerbose,
     Unit: Unit,
-    create: create$6,
-    dummy: dummy
+    create: create$8,
+    dummy: dummy,
   });
 
   const morseCodeMap = new Map([
@@ -3005,7 +3233,7 @@
     [")", "-.--.-"],
     ['"', ".-..-."],
     ["=", "-...-"],
-    ["+", ".-.-."]
+    ["+", ".-.-."],
   ]);
   const createSignalUnit = (isOn, length, codeString) => {
     let s = "";
@@ -3017,7 +3245,7 @@
       isOn,
       length,
       codeString,
-      binaryString: s
+      binaryString: s,
     });
   };
   const createOnSignalUnit = (length, codeString) =>
@@ -3066,11 +3294,11 @@
     }
     return signals;
   }
-  const toString = signals =>
+  const toString = (signals) =>
     signals.reduce((acc, cur) => acc + cur.codeString, "");
-  const toBinaryString = signals =>
+  const toBinaryString = (signals) =>
     signals.reduce((acc, cur) => acc + cur.binaryString, "");
-  const getTotalLength = signals =>
+  const getTotalLength = (signals) =>
     signals.reduce((acc, cur) => acc + cur.length, 0);
 
   const signal = /*#__PURE__*/ Object.freeze({
@@ -3084,7 +3312,7 @@
     encode: encode,
     toString: toString,
     toBinaryString: toBinaryString,
-    getTotalLength: getTotalLength
+    getTotalLength: getTotalLength,
   });
 
   /**
@@ -3094,7 +3322,7 @@
   function wpmToDotDuration(wpm) {
     return 1000 / (50 * (wpm / 60));
   }
-  const create$b = (on, off, wpm = 25, signals = [], loop = false) => {
+  const create$d = (on, off, wpm = 25, signals = [], loop = false) => {
     return {
       on,
       off,
@@ -3103,10 +3331,10 @@
       loop,
       signals,
       index: 0,
-      timeout: undefined
+      timeout: undefined,
     };
   };
-  const stop = channel => {
+  const stop = (channel) => {
     if (channel.timeout) {
       channel.off(NUL);
       clearTimeout(channel.timeout);
@@ -3114,7 +3342,7 @@
     }
     channel.index = 0;
   };
-  const runCurrentSignal = channel => {
+  const runCurrentSignal = (channel) => {
     const { unitTime, signals, index, on, off } = channel;
     const currentSignal = signals[index];
     if (currentSignal.isOn) on(currentSignal);
@@ -3122,19 +3350,19 @@
     return unitTime * currentSignal.length;
   };
   const setNextRun = (run, channel, ms) => {
-    channel.timeout = setTimeout(() => {
+    channel.timeout = window.setTimeout(() => {
       channel.timeout = undefined;
       run(channel);
     }, ms);
   };
-  const run = channel => {
+  const run = (channel) => {
     const currentSignalTimeLength = runCurrentSignal(channel);
     channel.index += 1;
     if (channel.index < channel.signals.length) {
       setNextRun(run, channel, currentSignalTimeLength);
       return;
     }
-    channel.timeout = setTimeout(() => {
+    channel.timeout = window.setTimeout(() => {
       if (channel.loop) {
         channel.off(NUL);
         channel.timeout = undefined;
@@ -3154,15 +3382,15 @@
   const channel = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     wpmToDotDuration: wpmToDotDuration,
-    create: create$b,
+    create: create$d,
     stop: stop,
-    start: start
+    start: start,
   });
 
-  const index$7 = /*#__PURE__*/ Object.freeze({
+  const index$8 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Signal: signal,
-    Channel: channel
+    Channel: channel,
   });
 
   /**
@@ -3172,12 +3400,13 @@
    * @param parameters `start`, `end` and `easing`(linear by default).
    * @returns New `Timer` instance.
    */
-  const create$c = (setValue, duration, parameters) => {
+  const create$e = (setValue, duration, parameters) => {
     const { start, end } = parameters;
     const ease = parameters.easing || linear;
-    return create$6({
+    return create$8({
       duration,
-      onProgress: progress => setValue(lerp(start, end, ease(progress.ratio)))
+      onProgress: (progress) =>
+        setValue(lerp(start, end, ease(progress.ratio))),
     });
   };
   /**
@@ -3192,7 +3421,7 @@
     let startValue;
     let endValue;
     let ease;
-    return create$6({
+    return create$8({
       duration,
       onStart: () => {
         const { start, end, easing } = getParameters();
@@ -3200,8 +3429,8 @@
         endValue = end;
         ease = easing || linear;
       },
-      onProgress: progress =>
-        setValue(lerp(startValue, endValue, ease(progress.ratio)))
+      onProgress: (progress) =>
+        setValue(lerp(startValue, endValue, ease(progress.ratio))),
     });
   };
 
@@ -3212,20 +3441,20 @@
    * @param parameters `target`, `duration` and `easing`(linear by default).
    * @returns New `Timer` instance.
    */
-  const create$d = (vector, duration, parameters) => {
+  const create$f = (vector, duration, parameters) => {
     const { x: startX, y: startY } = vector;
     const { x: endX, y: endY } = parameters.target;
     const ease = parameters.easing || linear;
-    return create$6({
+    return create$8({
       duration,
-      onProgress: progress => {
+      onProgress: (progress) => {
         const ratio = ease(progress.ratio);
         setCartesian(
           vector,
           lerp(startX, endX, ratio),
           lerp(startY, endY, ratio)
         );
-      }
+      },
     });
   };
   /**
@@ -3240,7 +3469,7 @@
     let startX, startY;
     let endX, endY;
     let ease;
-    return create$6({
+    return create$8({
       duration,
       onStart: () => {
         const { target, easing } = getParameters();
@@ -3248,28 +3477,65 @@
         ({ x: endX, y: endY } = target);
         ease = easing || linear;
       },
-      onProgress: progress => {
+      onProgress: (progress) => {
         const ratio = ease(progress.ratio);
         setCartesian(
           vector,
           lerp(startX, endX, ratio),
           lerp(startY, endY, ratio)
         );
-      }
+      },
     });
   };
 
   const vector2d = /*#__PURE__*/ Object.freeze({
     __proto__: null,
-    create: create$d,
-    setCreate: setCreate$1
+    create: create$f,
+    setCreate: setCreate$1,
   });
 
-  const index$8 = /*#__PURE__*/ Object.freeze({
+  const index$9 = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     Vector2D: vector2d,
-    create: create$c,
-    setCreate: setCreate
+    create: create$e,
+    setCreate: setCreate,
+  });
+
+  /**
+   * Creates a `Repeater` unit.
+   * @param callback
+   * @param frequency Frequency per frame for running `callback`. Defaults to `1`.
+   * @returns A new `Repeater` unit.
+   */
+  const create$g = (callback, frequency = 1) => ({
+    callback,
+    frequency,
+    accumulation: 0,
+  });
+  /**
+   * Runs a `Repeater` unit.
+   * @param repeater
+   */
+  const run$1 = (repeater) => {
+    repeater.accumulation += repeater.frequency;
+    while (repeater.accumulation >= 1) {
+      repeater.accumulation -= 1;
+      repeater.callback();
+    }
+  };
+  /**
+   * Resets a `Repeater` unit.
+   * @param repeater
+   */
+  const reset$1 = (repeater) => {
+    repeater.accumulation = 0;
+  };
+
+  const repeater = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    create: create$g,
+    run: run$1,
+    reset: reset$1,
   });
 
   /**
@@ -3319,24 +3585,22 @@
     },
     outputInfo: outputInfo,
     outputWarn: outputWarn,
-    outputError: outputError
+    outputError: outputError,
   });
-
-  // この辺からquantity（物理量）
 
   const createQuantity = (x, y, vx, vy) => {
     return {
       x,
       y,
       vx: vx || 0,
-      vy: vy || 0
+      vy: vy || 0,
     };
   };
   /**
    * Updates the kinematic quantity naively by Euler method, i.e. adding velocity to position.
    * @param quantity
    */
-  const updateEuler = quantity => {
+  const updateEuler = (quantity) => {
     quantity.x += quantity.vx;
     quantity.y += quantity.vy;
   };
@@ -3399,13 +3663,13 @@
    * @param quantity
    * @returns The speed.
    */
-  const getSpeed = quantity => hypotenuse2D(quantity.vx, quantity.vy);
+  const getSpeed = (quantity) => hypotenuse2D(quantity.vx, quantity.vy);
   /**
    * Returns the velocity angle.
    * @param quantity
    * @returns The angle.
    */
-  const getVelocityAngle = quantity => atan2safe(quantity.vy, quantity.vx);
+  const getVelocityAngle = (quantity) => atan2safe(quantity.vy, quantity.vx);
   /**
    * Truncates the speed (magnitude of velocity) if it is greater than `maxSpeed`.
    * @param quantity
@@ -3504,7 +3768,7 @@
     setVelocity: setVelocity,
     setVelocityCartesian: setVelocityCartesian,
     setVelocityPolar: setVelocityPolar,
-    bounceInRectangleRegion: bounceInRectangleRegion
+    bounceInRectangleRegion: bounceInRectangleRegion,
   });
 
   const createQuantity$1 = (x, y, vx, vy) => {
@@ -3514,7 +3778,7 @@
       vx: vx || 0,
       vy: vy || 0,
       fx: 0,
-      fy: 0
+      fy: 0,
     };
   };
   const createVerletQuantity = (x, y, vx, vy) => {
@@ -3526,7 +3790,7 @@
       vx2: 0,
       vy2: 0,
       fx: 0,
-      fy: 0
+      fy: 0,
     };
   };
   /**
@@ -3538,7 +3802,7 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const updateEuler$1 = quantity => {
+  const updateEuler$1 = (quantity) => {
     updateEulerAccelerated(quantity, quantity.fx, quantity.fy);
     quantity.fx = 0;
     quantity.fy = 0;
@@ -3550,7 +3814,7 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const updateVerlet$1 = quantity => {
+  const updateVerlet$1 = (quantity) => {
     updateVerlet(quantity, quantity.fx, quantity.fy);
     quantity.fx = 0;
     quantity.fy = 0;
@@ -3561,10 +3825,8 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const postUpdateVerlet$1 = quantity => {
+  const postUpdateVerlet$1 = (quantity) => {
     postUpdateVerlet(quantity, quantity.fx, quantity.fy);
-    quantity.fx = 0;
-    quantity.fy = 0;
   };
   /**
    * Extracts force values to `target` vector.
@@ -3636,7 +3898,7 @@
     truncateForce: truncateForce,
     addForce: addForce,
     addForceCartesian: addForceCartesian,
-    addForcePolar: addForcePolar
+    addForcePolar: addForcePolar,
   });
 
   const createQuantity$2 = (x, y, mass, vx, vy) => {
@@ -3647,7 +3909,7 @@
       vy: vy || 0,
       fx: 0,
       fy: 0,
-      mass
+      mass,
     };
   };
   const createVerletQuantity$1 = (x, y, mass, vx, vy) => {
@@ -3660,7 +3922,7 @@
       vy2: 0,
       fx: 0,
       fy: 0,
-      mass
+      mass,
     };
   };
   /**
@@ -3672,7 +3934,7 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const updateEuler$2 = quantity => {
+  const updateEuler$2 = (quantity) => {
     const { mass } = quantity;
     updateEulerAccelerated(quantity, quantity.fx / mass, quantity.fy / mass);
     quantity.fx = 0;
@@ -3685,7 +3947,7 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const updateVerlet$2 = quantity => {
+  const updateVerlet$2 = (quantity) => {
     const { mass } = quantity;
     updateVerlet(quantity, quantity.fx / mass, quantity.fy / mass);
     quantity.fx = 0;
@@ -3697,11 +3959,9 @@
    * Not sure if this implementation is correct!
    * @param quantity
    */
-  const postUpdateVerlet$2 = quantity => {
+  const postUpdateVerlet$2 = (quantity) => {
     const { mass } = quantity;
     postUpdateVerlet(quantity, quantity.fx / mass, quantity.fy / mass);
-    quantity.fx = 0;
-    quantity.fy = 0;
   };
 
   const dynamics = /*#__PURE__*/ Object.freeze({
@@ -3710,12 +3970,12 @@
     createVerletQuantity: createVerletQuantity$1,
     updateEuler: updateEuler$2,
     updateVerlet: updateVerlet$2,
-    postUpdateVerlet: postUpdateVerlet$2
+    postUpdateVerlet: postUpdateVerlet$2,
   });
 
   let constant = 1;
   let minusConstant = -constant;
-  const setConstant = value => {
+  const setConstant = (value) => {
     constant = value;
     minusConstant = -constant;
   };
@@ -3833,7 +4093,7 @@
       addForce(
         attracted,
         calculateSimple(attractor, attracted, temporalGravitation)
-      )
+      ),
   };
   /**
    * Set of functions that calculate gravitation force and apply it on both bodies.
@@ -3885,7 +4145,7 @@
         bodyA,
         bodyB,
         calculateSimple(bodyA, bodyB, temporalGravitation)
-      )
+      ),
   };
 
   const gravitation = /*#__PURE__*/ Object.freeze({
@@ -3899,14 +4159,14 @@
     calculateCoreSimple: calculateCoreSimple,
     calculateSimple: calculateSimple,
     attract: attract,
-    attractEachOther: attractEachOther
+    attractEachOther: attractEachOther,
   });
 
   /**
    * Updates rotation by adding `rotationVelocity` to `rotationAngle`.
    * @param quantity
    */
-  const update = quantity => {
+  const update = (quantity) => {
     quantity.rotationAngle += quantity.rotationVelocity;
   };
   /**
@@ -3919,14 +4179,155 @@
   const createRandomQuantity = (minRotationSpeed, maxRotationSpeed) => {
     return {
       rotationAngle: angle$2(),
-      rotationVelocity: signed(between(minRotationSpeed, maxRotationSpeed))
+      rotationVelocity: signed(between(minRotationSpeed, maxRotationSpeed)),
     };
   };
 
   const rotation = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     update: update,
-    createRandomQuantity: createRandomQuantity
+    createRandomQuantity: createRandomQuantity,
+  });
+
+  /**
+   * Calculates the impulse force by the bounce.
+   * @param vx
+   * @param vy
+   * @param normalUnitVector The normal vector from the collision point.
+   * @param restitution
+   * @param target The target vector for storing the result.
+   * @returns The `target` vector with assigned values.
+   */
+  const calculateForce = (vx, vy, normalUnitVector, restitution, target) => {
+    const dotProduct = -(vx * normalUnitVector.x + vy * normalUnitVector.y);
+    multiply$2(normalUnitVector, (1 + restitution) * dotProduct, target);
+    return target;
+  };
+  /**
+   * Constrains the position and updates the velocity if the position is out of `region`
+   * so that it bounces at the region bounds.
+   * @param quantity
+   * @param region
+   * @param restitution
+   */
+  const withinRectangle = (quantity, region, restitution) => {
+    const { x, y } = quantity;
+    const {
+      topLeft: { x: minX, y: minY },
+      bottomRight: { x: maxX, y: maxY },
+    } = region;
+    if (x < minX) {
+      quantity.x = minX;
+      quantity.vx = -restitution * quantity.vx;
+    } else if (x >= maxX) {
+      quantity.x = maxX - 1;
+      quantity.vx = -restitution * quantity.vx;
+    }
+    if (y < minY) {
+      quantity.y = minY;
+      quantity.vy = -restitution * quantity.vy;
+    } else if (y >= maxY) {
+      quantity.y = maxY - 1;
+      quantity.vy = -restitution * quantity.vy;
+    }
+  };
+  /** A temporal vector for storing the impulsive force by the bounce. */
+  const bounceForce = create$6();
+  /**
+   * Calculates and adds the impulsive force by the bounce.
+   * @param quantity
+   * @param normalUnitVector
+   * @param restitution
+   */
+  const addForce$1 = (quantity, normalUnitVector, restitution) =>
+    addForce(
+      quantity,
+      calculateForce(
+        quantity.vx,
+        quantity.vy,
+        normalUnitVector,
+        restitution,
+        bounceForce
+      )
+    );
+  const normalUnitVector = create$6();
+  /**
+   * Calculates and adds the impulsive force by the bounce.
+   * Note that the penetration will not be fixed.
+   */
+  const addForceEachOther$1 = {
+    calculate: (quantityA, quantityB, restitution) => {
+      const bRelativeVelocityX = quantityB.vx - quantityA.vx;
+      const bRelativeVelocityY = quantityB.vy - quantityA.vy;
+      normalizeBetween$1(quantityA, quantityB, normalUnitVector);
+      calculateForce(
+        bRelativeVelocityX,
+        bRelativeVelocityY,
+        normalUnitVector,
+        restitution,
+        bounceForce
+      );
+      addForce(quantityB, bounceForce);
+      multiply$1(bounceForce, -1);
+      addForce(quantityA, bounceForce);
+    },
+    preCalculated: (
+      quantityA,
+      quantityB,
+      bRelativeVelocityX,
+      bRelativeVelocityY,
+      normalUnitVectorToB,
+      restitution
+    ) => {
+      calculateForce(
+        bRelativeVelocityX,
+        bRelativeVelocityY,
+        normalUnitVectorToB,
+        restitution,
+        bounceForce
+      );
+      addForce(quantityB, bounceForce);
+      multiply$1(bounceForce, -1);
+      addForce(quantityA, bounceForce);
+    },
+  };
+  /**
+   * Constrains the position and adds the force if the position is out of `region`
+   * so that it bounces at the region bounds.
+   * @param quantity
+   * @param region
+   * @param restitution
+   */
+  const addForceWithinRectangle = (quantity, region, restitution) => {
+    const { x, y } = quantity;
+    const {
+      topLeft: { x: minX, y: minY },
+      bottomRight: { x: maxX, y: maxY },
+    } = region;
+    const forceFactor = 1 + restitution;
+    if (x < minX) {
+      quantity.x = minX;
+      quantity.fx -= forceFactor * quantity.vx;
+    } else if (x >= maxX) {
+      quantity.x = maxX - 1;
+      quantity.fx -= forceFactor * quantity.vx;
+    }
+    if (y < minY) {
+      quantity.y = minY;
+      quantity.fy -= forceFactor * quantity.vy;
+    } else if (y >= maxY) {
+      quantity.y = maxY - 1;
+      quantity.fy -= forceFactor * quantity.vy;
+    }
+  };
+
+  const bounce = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    calculateForce: calculateForce,
+    withinRectangle: withinRectangle,
+    addForce: addForce$1,
+    addForceEachOther: addForceEachOther$1,
+    addForceWithinRectangle: addForceWithinRectangle,
   });
 
   /**
@@ -3938,7 +4339,7 @@
   const withRandomHue = (saturation, value$1) => [
     value(360),
     saturation,
-    value$1
+    value$1,
   ];
   /**
    * Converts HSV values (hue ∈ [0, 360], saturation ∈ [0, 1] and value ∈ [0, 1])
@@ -3946,7 +4347,7 @@
    * @param hsvValues
    * @returns New array of RGB values.
    */
-  const toRGB = hsvValues => {
+  const toRGB = (hsvValues) => {
     const [hue, saturation, value] = hsvValues;
     const c = value * saturation;
     const dividedHue = hue * INVERSE60;
@@ -3982,7 +4383,168 @@
   const hsv = /*#__PURE__*/ Object.freeze({
     __proto__: null,
     withRandomHue: withRandomHue,
-    toRGB: toRGB
+    toRGB: toRGB,
+  });
+
+  /**
+   * Applies display gamma correction to the given number.
+   * @param value - any number in a linear color space (0 - 1).
+   */
+  function degamma(value) {
+    if (value <= 0.0031308) return 12.92 * value;
+    return 1.055 * Math.pow(value, 1.0 / 2.4) - 0.055;
+  }
+
+  const color = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    degamma: degamma,
+  });
+
+  function createCielabToXyzFunc() {
+    const delta = 6 / 29;
+    const constantA = 16 / 116;
+    const constantB = 3 * delta * delta;
+    return (value) => {
+      if (value > delta) return value * value * value;
+      return (value - constantA) * constantB;
+    };
+  }
+  const cielabToXyzFunc = createCielabToXyzFunc();
+  /**
+   * Converts color values from CIELAB (D65) to XYZ.
+   * @param {number[]} cielabValue - Value array of L*, a*, b* (D65).
+   * @param {Illuminant} illuminant - Instance of Illuminant.
+   * @param {number[]} [target] - Target array for receiving the result.
+   * @returns {number[]} XYZ value array.
+   */
+  function cielabValueToXyzValue(cielabValue, illuminant, target) {
+    const yFactor = (cielabValue[0] + 16.0) / 116.0;
+    const xFactor = yFactor + cielabValue[1] / 500.0;
+    const zFactor = yFactor - cielabValue[2] / 200.0;
+    if (target) {
+      target[0] = illuminant.tristimulusValues[0] * cielabToXyzFunc(xFactor);
+      target[1] = illuminant.tristimulusValues[1] * cielabToXyzFunc(yFactor);
+      target[2] = illuminant.tristimulusValues[2] * cielabToXyzFunc(zFactor);
+      return target;
+    }
+    return [
+      illuminant.tristimulusValues[0] * cielabToXyzFunc(xFactor),
+      illuminant.tristimulusValues[1] * cielabToXyzFunc(yFactor),
+      illuminant.tristimulusValues[2] * cielabToXyzFunc(zFactor),
+    ];
+  }
+
+  /**
+   * Matrix for conversion color values from XYZ to linear RGB.
+   * Values from "7. Conversion from XYZ (D65) to linear sRGB values" in
+   * http://www.color.org/chardata/rgb/sRGB.pdf (April 2015)
+   * @constant {number[][]} xyzToLinearRgbConversionMatrix
+   * @ignore
+   */
+  const xyzToLinearRgbConversionMatrix = [
+    [3.2406255, -1.537208, -0.4986286],
+    [-0.9689307, 1.8757561, 0.0415175],
+    [0.0557101, -0.2040211, 1.0569959],
+  ];
+  /**
+   * CIE standard illuminant.
+   */
+  class Illuminant {
+    constructor(name, tristimulusValues) {
+      this.name = name;
+      this.tristimulusValues = tristimulusValues;
+    }
+  }
+  /**
+   * Map of illuminants.
+   */
+  const Illuminants = {
+    D50: new Illuminant("D50", [0.9642, 1.0, 0.8251]),
+    D55: new Illuminant("D55", [0.9568, 1.0, 0.9214]),
+    D65: new Illuminant("D65", [0.95047, 1.0, 1.08883]),
+    E: new Illuminant("E", [1, 1, 1]),
+  };
+
+  let currentIlluminant = Illuminants.D50;
+  /**
+   * Sets the current illuminant. (e.g. D50, D65 etc.)
+   * @param illuminant - Any Illuminant.
+   * @example setIlluminant(Illuminants.D65);
+   */
+  function setIlluminant(illuminant) {
+    currentIlluminant = illuminant;
+  }
+  const temporalArray1 = [0, 0, 0];
+  const temporalArray2 = [0, 0, 0];
+  const temporalArray3 = [0, 0, 0];
+  const temporalArray4 = [0, 0, 0];
+  function assignArray(array, v0, v1, v2) {
+    array[0] = v0;
+    array[1] = v1;
+    array[2] = v2;
+    return array;
+  }
+  /**
+   * Clips the given linear RGB factor to the valid range (0 - 1)
+   * and converts it to an sRGB value (0 - 255).
+   * @param factor - Factor of either red, green or blue in the linear RGB color space.
+   * @returns sRGB value.
+   * @ignore
+   */
+  function linearRgbFactorToSrgbValue(factor) {
+    return degamma(Math.min(Math.max(factor, 0), 1)) * 255;
+  }
+  /**
+   * Converts CIELAB values to an array of RGB values (0 - 255).
+   * @param {number} lValue - L*: Lightness (0 - 100)
+   * @param {number} aValue - a* (0 - ca. 100)
+   * @param {number} bValue - b* (0 - ca. 100)
+   * @param {number} [alphaValue] - Alhpa value (0 - 255)
+   * @returns New Array of sRGB values.
+   */
+  function cielabColor(lValue, aValue, bValue, alphaValue) {
+    const labValue = assignArray(temporalArray1, lValue, aValue, bValue);
+    const xyzValue = cielabValueToXyzValue(
+      labValue,
+      currentIlluminant,
+      temporalArray2
+    );
+    const rgbFactor = multiplyMatrixAndArray(
+      xyzToLinearRgbConversionMatrix,
+      xyzValue,
+      temporalArray3
+    );
+    const srgbValue = assignArray(
+      temporalArray4,
+      linearRgbFactorToSrgbValue(rgbFactor[0]),
+      linearRgbFactorToSrgbValue(rgbFactor[1]),
+      linearRgbFactorToSrgbValue(rgbFactor[2])
+    );
+    return alphaValue
+      ? [srgbValue[0], srgbValue[1], srgbValue[2], alphaValue]
+      : [srgbValue[0], srgbValue[1], srgbValue[2]];
+  }
+  /**
+   * Converts CIELCh values to an array of RGB values (0 - 255).
+   * @param {number} lValue - L*: Lightness (0 - 100)
+   * @param {number} cValue - C*: Chroma (0 - ca. 100)
+   * @param {number} hValue - h*: Hue (0 - 2PI)
+   * @param {number} [alphaValue] - Alhpa value (0 - 255)
+   */
+  function cielchColor(lValue, cValue, hValue, alphaValue) {
+    return cielabColor(
+      lValue,
+      cValue * Math.cos(hValue),
+      cValue * Math.sin(hValue),
+      alphaValue
+    );
+  }
+
+  const cielab = /*#__PURE__*/ Object.freeze({
+    __proto__: null,
+    setIlluminant: setIlluminant,
+    cielabColor: cielabColor,
+    cielchColor: cielchColor,
   });
 
   exports.Angle = angle;
@@ -3990,29 +4552,35 @@
   exports.ArrayQueue = index$2;
   exports.Arrays = index;
   exports.Bezier = bezier;
+  exports.Bounce = bounce;
+  exports.Cielab = cielab;
+  exports.Color = color;
   exports.ConstantFunction = constantFunction;
   exports.Coordinates2D = coordinates2d;
   exports.Dynamics = dynamics;
-  exports.Easing = index$4;
+  exports.Easing = index$5;
   exports.FitBox = fitBox;
   exports.Gravitation = gravitation;
   exports.HSV = hsv;
   exports.HtmlUtility = htmlUtility;
   exports.Kinematics = kinematics;
   exports.Lazy = lazy;
+  exports.LinkedQueue = index$3;
   exports.Log = log$1;
   exports.MathConstants = constants;
-  exports.MorseCode = index$7;
+  exports.Matrix = matrix;
+  exports.MorseCode = index$8;
   exports.Numeric = numeric;
-  exports.Random = index$5;
+  exports.Random = index$6;
   exports.RectangleRegion = rectangleRegion;
   exports.RectangleSize = rectangleSize;
+  exports.Repeater = repeater;
   exports.Rotation = rotation;
   exports.SimpleDynamics = simpleDynamics;
   exports.StructureOfArrays = structureOfArrays;
-  exports.Timer = index$6;
-  exports.Tween = index$8;
-  exports.Vector2D = index$3;
+  exports.Timer = index$7;
+  exports.Tween = index$9;
+  exports.Vector2D = index$4;
 
   Object.defineProperty(exports, "__esModule", { value: true });
 });
