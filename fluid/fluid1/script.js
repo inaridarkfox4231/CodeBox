@@ -98,6 +98,7 @@ if (!ext.supportLinearFiltering) {
 // ちょっといいですかね
 // supportされていますね
 // じゃあいいか
+/*
 let isSupported;
     if (gl.getExtension("WEBGL_color_buffer_float") === null) {
       console.log("noSupport");
@@ -118,6 +119,7 @@ let isSupported;
       console.log("support");
       isSupported = true;
     }
+*/
 // 参考：https://qiita.com/kyasbal_1994/items/4c401c402062abfcdb72
 // なんかよくわかんないけど組み合わせないとロードできたかどうかわからないらしい
 
@@ -335,10 +337,23 @@ class Material {
         let hash = 0;
         for (let i = 0; i < keywords.length; i++)
             hash += hashCode(keywords[i]);
-
+            // hash += keywords[i]; →フリーズした。やっちゃダメ。
         let program = this.programs[hash];
         if (program == null)
         {
+          // 要するに、defineオプションの種類によって8種類くらいプログラムができるんだけど、
+          // その都度作るのが無駄なので、ハッシュで分類して、
+          // 同じスタイルのシェーダーを2回以上作らないようにしているわけね。
+          // しかし別に足し算でも良さそうなもんだけど数にこだわる必要あるんかな...
+          // ...
+          // よくわかんないけど文字列でやったらフリーズした（文字列長い...）
+          // まあ文字列だとかぶっちゃいそうでもあるし
+          // 長すぎるとハッシュ作る際に問題が発生しそうだし？
+          // 区別できれば何でもいいけどその都度枠組み整えるのが面倒だから汎用性を考慮してこのような手法を
+          // 取ってると見た。
+          // 文字列ハッシュも万能ではないということね...
+          // 普通にuniformでいい気がするんだけどなぁ。別に同じシェーダーでよくないか？？
+          // そこちょっと書き換えてみたい。
             let fragmentShader = compileShader(gl.FRAGMENT_SHADER, this.fragmentShaderSource, keywords);
             program = createProgram(this.vertexShader, fragmentShader);
             this.programs[hash] = program;
