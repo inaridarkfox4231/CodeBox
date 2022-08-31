@@ -24,6 +24,8 @@
 // fps表示にbloomが適用されないように修正かけたよ
 // setTextureで指定する番号は0でいいみたいです
 
+// dither導入したけど正直わからん...まあいいや。
+
 // ------------------------------------------------------- //
 // config.
 
@@ -34,6 +36,7 @@ const MODE_BLURED = 2;
 let config = {
   BALL_HUE: 0.55,
   BLOOM: true,
+	BLOOM_DITHER: true,
   BLOOM_ITERATIONS: 8,
   BLOOM_RESOLUTION: 256,
   BLOOM_INTENSITY: 0.8,
@@ -47,6 +50,7 @@ let config = {
   var gui = new dat.GUI({ width: 280 });
   gui.add(config, 'BALL_HUE', 0, 1, 0.01).name('ball_hue');
   gui.add(config, 'BLOOM').name('bloom');
+	gui.add(config, 'BLOOM_DITHER').name('dither');
   gui.add(config, 'BLOOM_ITERATIONS', 1, 8, 1).name('iterations');
   gui.add(config, 'BLOOM_INTENSITY', 0, 5, 0.1).name('intensity');
   gui.add(config, 'BLOOM_THRESHOLD', 0, 1, 0.1).name('threshold');
@@ -104,6 +108,14 @@ const simpleVertexShader =
 "  gl_Position = vec4(aPosition, 0.0, 1.0);" +
 "}";
 
+/*
+ditheringの項
+	float noise = texture2D(uDithering, vUv * ditherScale).r;
+	noise = noise * 2.0 - 1.0;
+	bloom += noise / 255.0;
+uDitheringは64x64のditherから取得...これをlinearToGammaの直前にやるんだけど...
+*/
+
 // ディスプレイ用
 const displayShaderSource =
 "precision highp float;" +
@@ -114,10 +126,13 @@ const displayShaderSource =
 "varying vec2 vT;" +
 "varying vec2 vB;" +
 "uniform sampler2D uTexture;" +
+"uniform sampler2D uDithering;" +
+"uniform vec2 uDitherScale;" +
 "uniform sampler2D uBloom;" +
 "uniform int uMode;" + // 0,1,2
 // 各種フラグ
 "uniform bool uBloomFlag;" +
+"uniform bool uDitheringFlag;" +
 // リニア→ガンマ
 "vec3 linearToGamma (vec3 color) {" + // linearをGammaに変換・・
 "  color = max(color, vec3(0));" +
@@ -130,6 +145,11 @@ const displayShaderSource =
 "  vec3 bloom;" +
 "  if(uBloomFlag){" +
 "    bloom = texture2D(uBloom, vUv).rgb;" +
+"    if(uDitheringFlag){" +
+"      float noise = texture2D(uDithering, vUv * uDitherScale).r;" +
+"      noise = noise * 2.0 - 1.0;" +
+"      bloom += noise / 255.0;" +
+"    }" +
 "    bloom = linearToGamma(bloom);" +
 "    c += bloom;" +
 "  }" +
@@ -376,6 +396,14 @@ let vertexColorFrag=
 "}";
 
 // --------------------------------------------------------------- //
+// preload.
+
+let ditheringImg, ditheringTexture;
+function preload(){
+	ditheringImg = loadImage("https://inaridarkfox4231.github.io/assets/texture/dither.png");
+}
+
+// --------------------------------------------------------------- //
 // setup.
 
 function setup(){
@@ -391,11 +419,13 @@ function setup(){
 	const positions = [-1, -1, -1, 1, 1, -1, 1, 1]; // 板ポリ用
   let sh; // シェーダー用の汎用エイリアス
 
+	// 表示用。framebufferのbindをnullにしてこれを使って描画する。uTextureとuBloomでやる。
   sh = createShader(baseVertexShader, displayShaderSource);
   _node.regist('display', sh, 'board')
        .registAttribute('aPosition', positions, 2)
        .registUniformLocation('uTexture')
-       .registUniformLocation('uBloom');
+       .registUniformLocation('uBloom')
+	     .registUniformLocation('uDithering');
 
   sh = createShader(simpleVertexShader, bloomPrefilterShader);
   _node.regist('bloomPrefilter', sh, 'simple')
@@ -428,10 +458,18 @@ function setup(){
 	info.textSize(16);
 	info.textAlign(LEFT, TOP);
 	infoTex = new p5.Texture(_gl, info);
+	ditheringTexture = new p5.Texture(_gl, ditheringImg); // これ。64x64のモザイク。規則性は...無いように見える。
+
+	// ditheringTextureの用意。本家に倣ってパラメトリをいじる。
+	gl.bindTexture(gl.TEXTURE_2D, ditheringTexture.glTex);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
 }
 
 // --------------------------------------- //
-// initFrameBuffers.
+// initFramebuffers.
 
 function initFramebuffers(){
   const halfFloat = ext.textureHalfFloat.HALF_FLOAT_OES;
@@ -723,6 +761,9 @@ function drawDisplay(){
        .setUniform('uBloomFlag', config.BLOOM)
        .setUniform('uMode', config.MODE)
        .setFBO('uBloom', 'bloom_0')
+	     .setUniform('uDitheringFlag', config.BLOOM_DITHER)
+	     .setTexture('uDithering', ditheringTexture.glTex, 12) // やっぱ番号かぶるとまずいんだわ。0はだめだろ...
+	     .setUniform('uDitherScale', [width/ditheringImg.width, height/ditheringImg.height])
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear();
 
@@ -736,7 +777,7 @@ function drawDisplay(){
 
   _node.use('drawing', 'copy')
        .setAttribute()
-       .setTexture('uTex', infoTex.glTex, 0) // 0で問題ないみたい
+       .setTexture('uTex', infoTex.glTex, 11) // いいじゃん11で...
        .drawArrays(gl.TRIANGLE_STRIP)
        .clear()
 	     .flush();
