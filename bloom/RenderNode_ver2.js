@@ -1,62 +1,91 @@
 // RenderNode. ver2.2
+// やりたいこと
+// まずライブラリ化
+// _glを渡していろいろ定義したうえで返す感じで。
+// その、...描画の際にね。
+// まああれ、bindFBO(null)でコンテキストに描画されるわけだけど、
+// その際に今の形式だとcreateGraphicsで作ったやつに放り込むってことができないのよ
+// とはいえ
+// できなくても困らないっちゃ困らないんだけど
+// 次にその、textureを、あの、実装...UV彩色...
+// uniformで放り込んで0~1で読み取って描画、簡単なのでいいから。
+// あと動的更新を実装する
+// 今dataってなってるところを、面倒でも外側でFloat32Array作ってそれを入れる形にしたうえで、
+// Float32Arrayの配列に対するアクセスを可能にしつつ
+// DYNAMICを指示してメソッドで動的に更新すればいいと思う
+// まあ
+// 去年あれだけいじったわけだし難しくない...はず...
 
-// bloomの実験
+// シェーダーノイズはスマホの挙動があれなので扱いは慎重にしよかな...とりあえずやりたくない感じ。
 
-// bindFBO新しくなってなかった...
+// 20220827
+// つべこべいわないでライブラリ化しようよ
+// とりあえず直方体とgetNormals追加した
+// 文字とか用意したいけど気力が...
+// 動的更新...気力が...
+// 結局Three.jsでいいじゃんってなっちゃうと何も作る気しなくなる
 
-// めんどうだからあっちのRenderNode移したらバグ消えたが
-// 差分が分からん...
+// 大量描画にしてもそれのvertexShader芸にしても新年に作ったあれのバリエーションでしかない
+// もう作ってるのよ
+// まあでもそうね
+// んー
+// 河瀬ブルームと組み合わせたりしたらそれなりの見栄えのものにはなるかもね。
 
-// RenderNode相当更新しました（お騒がせしました）
-// resizeも持っていこう
-// 何とかできたぞ...！！
+// setMatrixが意図しない挙動をしてる...
+// 意図した挙動としては
+// まずclearでmatrixの内容がクリアされてほしい
+// あと呼び出さない場合はそのままデフォルトで使われてほしい
+// そこら辺ですかね...やっぱ自前で計算した方がいいな。横着しないで。
+// 頑張って独自実装しよう。setUniformもちゃんとさぼらずに独自実装したい。シェーダー作るところも、Programをコンパイルするところも...んー...
 
-// applyBloom(デフォルト：効果適用後)
-// brightness(輝度抽出部分のみ)
-// blured(ブラーかけた部分のみ)
-// 後者の場合はbloomだけ使う
+// というわけで、「あのシェーダー」を使う場合に、使うことを通知したうえで...
+// setMatrixを呼び出していない場合には、
+// setMatrix([{tr:[0,0,0]}])を呼び出すことにすればいいみたい。
+// まあそれでも...んー...
+// それで解決するけどもやるよねぇ
+// まああれ
+// 汎用的な処理のはずなのに特別なシェーダー（この場合ライティング）に内容が依存してるからいけないのよね
+// あと行列の計算がブラックブックスになってるのも問題なのよね（orthoでのよろしくとか完全にお任せしちゃってるし）
 
-// configの列挙体って===で判定するとバグるの？？？
-// なぜ...
+// 20220828
+// テクスチャの実装
+// aTexCoordを導入して...
+// uvにデータを詰め込んで
+// setTextureでbindして使う
+// p5.Texture使ってるんだけどね
+// オプション的なことは勉強中...
 
-// RenderNodeだいぶ更新したのでそのうちライブラリ化して分離します（やる気があれば）
+// 20220829
+// だからぁ、シェーダーをメインロジックから分離すればいいのよ
+// んで
+// それをいじる用のモジュールを独立させる感じで...
+// nodeを埋め込んで
+// それでいいと思う
+// んでattributeやuniformを自由に増やせるようにするとか
+// 位置、スケール、回転をいじるパートを独立させてカスタムできるようにしても良さそう
+// もしくはfsの方で色をいじるパートも...
+// varyingは両方で同じものが自動的に用意されるようにするなど
+// 夢は広がるね
 
-// fps表示にbloomが適用されないように修正かけたよ
-// setTextureで指定する番号は0でいいみたいです
+// 20220830
+// bindFBOが内部でsetVierportを実行しない古い仕様だったので直しました
+// nullをbindすると自動的に全画面になります
+// 全画面が嫌な場合は都度setViewportを呼び出してね！
 
-// ------------------------------------------------------- //
-// config.
+// 20220830
+// RenderNodeのfbo関連の処理が古かったので更新しました。
+// fbo慣れないといけないですね...ていうかライブラリ作らねば...
+// registIndexBufferでUnit32かUint16かを自動的に判断するように修正！
+// ああもう！！
+// fboがname-firstになってたので修正。
+// こういうのもうやめてくれ...
+// 20220831
+// resize関連は一旦消去
+// デフォルトのシェーダーを用意する必要が生じてきたら
+// 使いたいんだけど今は難しいわね
+// そしたら復活させたいところ
 
-const MODE_APPLY = 0;
-const MODE_BRIGHTNESS = 1;
-const MODE_BLURED = 2;
-
-let config = {
-  BALL_HUE: 0.55,
-  BLOOM: true,
-  BLOOM_ITERATIONS: 8,
-  BLOOM_RESOLUTION: 256,
-  BLOOM_INTENSITY: 0.8,
-  BLOOM_THRESHOLD: 0.6,
-  BLOOM_SOFT_KNEE: 0.7,
-  BLOOM_COLOR: "#fff",
-  MODE:MODE_APPLY,
-};
-
-(function(){
-  var gui = new dat.GUI({ width: 280 });
-  gui.add(config, 'BALL_HUE', 0, 1, 0.01).name('ball_hue');
-  gui.add(config, 'BLOOM').name('bloom');
-  gui.add(config, 'BLOOM_ITERATIONS', 1, 8, 1).name('iterations');
-  gui.add(config, 'BLOOM_INTENSITY', 0, 5, 0.1).name('intensity');
-  gui.add(config, 'BLOOM_THRESHOLD', 0, 1, 0.1).name('threshold');
-  gui.add(config, 'BLOOM_SOFT_KNEE', 0, 1, 0.1).name('soft_knee');
-  gui.addColor(config, 'BLOOM_COLOR').name('bloom_color');
-  gui.add(config, 'MODE', {'APPLY':MODE_APPLY, 'BRIGHTNESS':MODE_BRIGHTNESS, 'BLURED':MODE_BLURED}).name('mode');
-})();
-
-
-// -------------------------------------------------------- //
+// --------------------------------------------------------------- //
 // global.
 
 let _gl, gl;
@@ -64,140 +93,16 @@ let _gl, gl;
 let _node; // RenderSystemSetにアクセスするためのglobal.
 let ext = {};
 
-// 2D画像
+let testTexture; // テクスチャのテスト
+
+// 2D背景
 let bg, bgTex;
-let info, infoTex;
+let base, info;
 
-let pfm = 0;
+let properFrameCount = 0;
 
-// ------------------------------------------------------- //
-// shaders.
-
-// 基本バーテックスシェーダ
-const baseVertexShader =
-"precision highp float;" +
-"attribute vec2 aPosition;" +
-"varying vec2 vUv;" +
-"varying vec2 vL;" + // left  // 「//」は中に入れちゃ駄目です。
-"varying vec2 vR;" + // right
-"varying vec2 vT;" + // top
-"varying vec2 vB;" + // bottom
-"uniform vec2 uTexelSize;" +
-"void main () {" +
-// 0～1の0～1で上下逆なのでTがプラス
-"  vUv = aPosition * 0.5 + 0.5;" +
-"  vL = vUv - vec2(uTexelSize.x, 0.0);" +
-"  vR = vUv + vec2(uTexelSize.x, 0.0);" +
-"  vT = vUv + vec2(0.0, uTexelSize.y);" +
-"  vB = vUv - vec2(0.0, uTexelSize.y);" +
-"  gl_Position = vec4(aPosition, 0.0, 1.0);" +
-"}";
-
-// simple vertex shader.
-// vLやら何やらを使ってない場合はこっちを使いましょう。copyとか使ってないはず。
-const simpleVertexShader =
-"precision highp float;" +
-"attribute vec2 aPosition;" +
-"varying vec2 vUv;" +
-"void main () {" +
-"  vUv = aPosition * 0.5 + 0.5;" +
-"  gl_Position = vec4(aPosition, 0.0, 1.0);" +
-"}";
-
-// ディスプレイ用
-const displayShaderSource =
-"precision highp float;" +
-"precision highp sampler2D;" +
-"varying vec2 vUv;" +
-"varying vec2 vL;" +
-"varying vec2 vR;" +
-"varying vec2 vT;" +
-"varying vec2 vB;" +
-"uniform sampler2D uTexture;" +
-"uniform sampler2D uBloom;" +
-"uniform int uMode;" + // 0,1,2
-// 各種フラグ
-"uniform bool uBloomFlag;" +
-// リニア→ガンマ
-"vec3 linearToGamma (vec3 color) {" + // linearをGammaに変換・・
-"  color = max(color, vec3(0));" +
-"  return max(1.055 * pow(color, vec3(0.416666667)) - 0.055, vec3(0));" +
-"}" +
-// メインコード
-"void main () {" +
-"  vec4 tex = texture2D(uTexture, vUv);" +
-"  vec3 c = tex.rgb;" +
-"  vec3 bloom;" +
-"  if(uBloomFlag){" +
-"    bloom = texture2D(uBloom, vUv).rgb;" +
-"    bloom = linearToGamma(bloom);" +
-"    c += bloom;" +
-"  }" +
-"  vec3 result = c;" +
-"  if(uMode != 0){ result = bloom; }" + // 1,2の場合
-"  gl_FragColor = vec4(result, tex.a);" +
-"}";
-
-// どうも輝度抽出とかいうのをここでやってるっぽい
-// brがbrightness？というかまあc.r,c.g,c.bの最大値。
-// これがcurve.xより小さいと0になるのでそれで切ってる？
-// わからん.....
-const bloomPrefilterShader =
-"precision mediump float;" +
-"precision mediump sampler2D;" +
-"varying vec2 vUv;" +
-"uniform sampler2D uTexture;" +
-"uniform vec3 uCurve;" +
-"uniform float uThreshold;" +
-"void main () {" +
-"  vec3 c = texture2D(uTexture, vUv).rgb;" +
-"  float br = max(c.r, max(c.g, c.b));" +
-"  float rq = clamp(br - uCurve.x, 0.0, uCurve.y);" +
-"  rq = uCurve.z * rq * rq;" +
-"  c *= max(rq, br - uThreshold) / max(br, 0.0001);" +
-"  gl_FragColor = vec4(c, 0.0);" +
-"}";
-
-// bloomのメインシェーダ
-const bloomBlurShader =
-"precision mediump float;" +
-"precision mediump sampler2D;" +
-"varying vec2 vL;" +
-"varying vec2 vR;" +
-"varying vec2 vT;" +
-"varying vec2 vB;" +
-"uniform sampler2D uTexture;" +
-"void main () {" +
-"  vec4 sum = vec4(0.0);" +
-"  sum += texture2D(uTexture, vL);" +
-"  sum += texture2D(uTexture, vR);" +
-"  sum += texture2D(uTexture, vT);" +
-"  sum += texture2D(uTexture, vB);" +
-"  sum *= 0.25;" +
-"  gl_FragColor = sum;" +
-"}";
-
-// bloomの仕上げシェーダ
-// 最終的にブラーがかかったものができる！ようです！！
-const bloomFinalShader =
-"precision mediump float;" +
-"precision mediump sampler2D;" +
-"varying vec2 vL;" +
-"varying vec2 vR;" +
-"varying vec2 vT;" +
-"varying vec2 vB;" +
-"uniform sampler2D uTexture;" +
-"uniform float uIntensity;" +
-"uniform vec3 uBloomColor;" +
-"void main () {" +
-"  vec4 sum = vec4(0.0);" +
-"  sum += texture2D(uTexture, vL);" +
-"  sum += texture2D(uTexture, vR);" +
-"  sum += texture2D(uTexture, vT);" +
-"  sum += texture2D(uTexture, vB);" +
-"  sum *= 0.25;" +
-"  gl_FragColor = sum * uIntensity * vec4(uBloomColor, 1.0);" +
-"}";
+// --------------------------------------------------------------- //
+// shader.
 
 // copy. 2D背景付けたい場合にどうぞ。
 const copyVert =
@@ -376,6 +281,15 @@ let vertexColorFrag=
 "}";
 
 // --------------------------------------------------------------- //
+// preload.
+
+let oceanBG;
+function preload(){
+	oceanBG = loadImage("https://inaridarkfox4231.github.io/assets/backgrounds/ocean0.JPG");
+}
+
+
+// --------------------------------------------------------------- //
 // setup.
 
 function setup(){
@@ -383,84 +297,85 @@ function setup(){
   pixelDensity(1);
   gl = _gl.GL; // レンダリングコンテキストの取得
 
-  // nodeを用意
-  _node = new RenderNode();
   // extensionのチェック一通り
   confirmExtensions();
-	initFramebuffers();
-	const positions = [-1, -1, -1, 1, 1, -1, 1, 1]; // 板ポリ用
+
+  // カリングを使う場合の処理。
+  // 文字テキストとかの時、高速にするために多用してた。
+  // こういうのも落とし込みたいところ。
+  // gl.enable(gl.CULL_FACE);
+  // gl.cullFace(gl.FRONT);
+  // この場合背景用の頂点指定は[-1,-1,-1,1,1,-1,1,1]が正解。
+
+  // nodeを用意
+  _node = new RenderNode();
   let sh; // シェーダー用の汎用エイリアス
+  let _data; // トポロジーデータ用の汎用エイリアス
 
-  sh = createShader(baseVertexShader, displayShaderSource);
-  _node.regist('display', sh, 'board')
-       .registAttribute('aPosition', positions, 2)
-       .registUniformLocation('uTexture')
-       .registUniformLocation('uBloom');
-
-  sh = createShader(simpleVertexShader, bloomPrefilterShader);
-  _node.regist('bloomPrefilter', sh, 'simple')
-       .registAttribute('aPosition', positions, 2)
-       .registUniformLocation('uTexture');
-
-  sh = createShader(baseVertexShader, bloomBlurShader);
-  _node.regist('bloomBlur', sh, 'board')
-       .registAttribute('aPosition', positions, 2)
-       .registUniformLocation('uTexture');
-
-  sh = createShader(baseVertexShader, bloomFinalShader);
-  _node.regist('bloomFinal', sh, 'board')
-       .registAttribute('aPosition', positions, 2)
-       .registUniformLocation('uTexture');
-
+  // copyShader.
   sh = createShader(copyVert, copyFrag);
-  _node.regist('drawing', sh, 'copy')
-       .registAttribute('aPosition', positions, 2)
+  _node.regist('display', sh, 'board')
+       .registAttribute('aPosition', [-1,-1,-1,1,1,-1,1,1], 2)
        .registUniformLocation('uTex');
 
+  // 2D背景の準備
   bg = createGraphics(width, height);
-  bg.noStroke();
-  bg.colorMode(HSB,100);
+
+  base = createGraphics(width, height);
+  base.background(0);
+  base.noStroke();
+  base.blendMode(ADD);
+  base.fill(32);
+  for(let i=0; i<100; i++){ base.circle(random(width), random(height), 64); }
+
+	base.image(oceanBG, 0, 0, base.width, base.height, 0, 0, oceanBG.width, oceanBG.height);
+
+  info = createGraphics(width, height);
+  info.fill(0);
+  info.textSize(16);
+
   bgTex = new p5.Texture(_gl, bg);
-  // これをdyeに落としてbloomかける
 
-	info = createGraphics(width, height);
-	info.noStroke();
-	info.textSize(16);
-	info.textAlign(LEFT, TOP);
-	infoTex = new p5.Texture(_gl, info);
-}
+  // 寂しいのでポリゴンを回す
+  sh = createShader(lightVert, lightFrag);
+  // 同じシェーダで複数のトポロジーを描画する場合は
+  // まずregistRenderSystemで使うシェーダを決めてから
+  _node.registRenderSystem('light', sh);
+  // registTopologyで名前を指定して始める。そのあとは一緒。
 
-// --------------------------------------- //
-// initFrameBuffers.
+  // 三角形。
+  _data = getTriangleData();
+  _node.registTopology('triangle')
+       .registAttributes({aPosition:{data:_data.v, stride:3}, aVertexColor:{data:_data.c, stride:4}, aNormal:{data:_data.n, stride:3}})
+       .registIndexBuffer(_data.f);
 
-function initFramebuffers(){
-  const halfFloat = ext.textureHalfFloat.HALF_FLOAT_OES;
-  const linearFilterParam = (ext.textureHalfFloatLinear ? gl.LINEAR : gl.NEAREST);
+  // 正方形。
+  _data = getSquareData();
+  _node.registTopology('square')
+       .registAttributes({aPosition:{data:_data.v, stride:3}, aVertexColor:{data:_data.c, stride:4}, aNormal:{data:_data.n, stride:3}})
+       .registIndexBuffer(_data.f);
 
-  gl.disable(gl.BLEND);
+	// 直方体
+	_data = getRectData(60, 40, 5);
+	_node.registTopology('rect')
+       .registAttributes({aPosition:{data:_data.v, stride:3}, aVertexColor:{data:_data.c, stride:4}, aNormal:{data:_data.n, stride:3}})
+       .registIndexBuffer(_data.f);
 
-  // dyeは0,1を使います
-  _node.registDoubleFBO("dye", 0, width, height, halfFloat, linearFilterParam);
-
-  // bloomは2～10を使います。
-  initBloomFramebuffers(); // 2～10.
-  // 11にbgTexを使う予定...分けないといけない
-  // fboで使う番号とtextureで使う番号を分けているのです
-}
-
-function initBloomFramebuffers(){
-  let res = getResolution(config.BLOOM_RESOLUTION);
-  const halfFloat = ext.textureHalfFloat.HALF_FLOAT_OES;
-  const linearFilterParam = (ext.textureHalfFloatLinear ? gl.LINEAR : gl.NEAREST);
-  // bloom_0と、bloom_1～bloom_8を用意する感じ
-  _node.registFBO('bloom_0', 2, res.frameWidth, res.frameHeight, halfFloat, linearFilterParam);
-  // ITERATIONSは最大で8で...まあ8で。
-  // bloom_0を用意した。bloom_1～bloom_8が用意される（予定）
-  for(let i = 1; i <= config.BLOOM_ITERATIONS; i++){
-    let fw = (res.frameWidth >> i);
-    let fh = (res.frameHeight >> i);
-    _node.registFBO('bloom_' + i, 2 + i, fw, fh, halfFloat, linearFilterParam);
-  }
+  // テクスチャのテスト
+	const txgr = createGraphics(128,128);
+	txgr.textSize(96);
+	txgr.fill(0);
+	txgr.background(255);
+	txgr.textAlign(CENTER,CENTER);
+	txgr.text("龍", 64, 64);
+	testTexture = new p5.Texture(_gl, txgr);
+  _data = getSquareData();
+  _node.registTopology('texturedSquare')
+       .registAttributes({aPosition:{data:_data.v, stride:3}, aVertexColor:{data:_data.c, stride:4},
+													aTexCoord:{data:_data.uv, stride:2}, aNormal:{data:_data.n, stride:3}})
+       .registIndexBuffer(_data.f)
+	     .registUniformLocation("uTex");
+  // 複数のテクスチャを使いたい場合は然るべくカスタムすればOK
 }
 
 // ------------------------------------------------------------ //
@@ -582,186 +497,93 @@ function getRectData(sizeX, sizeY, sizeZ){
 // main loop.
 
 function draw(){
-  const _start = millis();
   clear();
+  // オフスクリーンでないのならばviewportはいじらなくてOK.
+  // 前後をDEPTH_TESTで挟むのはいつも通り。
+  let start = millis();
 
-  step();
-
-  render();
-  // 以上です！
-  pfm = (millis()-_start)*60/1000;
-}
-
-// -----------------------------------------------------------------
-// step.
-function step(){
-  gl.disable(gl.BLEND);
-
-  draw2DGraphics();
-
-  _node.bindFBO('dye');
-  _node.use('drawing', 'copy')
+  gl.disable(gl.DEPTH_TEST);
+  _node.use('display', 'board')
        .setAttribute()
-       .setTexture('uTex', bgTex.glTex, 11)
+       .setTexture('uTex', bgTex.glTex, 0)
        .drawArrays(gl.TRIANGLE_STRIP)
-       .swapFBO('dye')
        .clear();
-}
+  gl.enable(gl.DEPTH_TEST);
 
-function draw2DGraphics(){
-  bg.clear();
-  bg.background(0);
-  for(let i=0;i<10;i++){
-    for(let k=0;k<10;k++){
-      bg.fill(config.BALL_HUE*100, 100, i+k*10);
-      const x = bg.width * (i+0.5) * 0.1;
-      const y = bg.height * (k+0.5) * 0.1;
-      bg.circle(x, y, min(bg.width, bg.height) * 0.06);
-    }
-  }
+  // ライティングのシェーダを用意
+  _node.useRenderSystem('light')
+       .setDirectionalLight(_RGB(1), 0, 0, -1)
+       .setAmbientLight(_RGB(0.25));
+
+  // 三角形
+  _node.useTopology('triangle')
+       .setAttribute()
+       // setMatrixの中に配列の形でオブジェクトを並べると
+       // 然るべく計算してくれる。
+       .setMatrix([{rotY: properFrameCount*TAU/240}])
+       .setVertexColor()
+       .bindIndexBuffer()
+       .drawElements(gl.TRIANGLES)
+       .clear();
+
+  // 正方形
+  _node.useTopology('square')
+       .setAttribute()
+       // setMatrixの中に配列の形でオブジェクトを並べると
+       // 然るべく計算してくれる。
+       .setMatrix([{tr:[-100, -100, 0]}, {rotX: properFrameCount*TAU/240}])
+       .setVertexColor()
+       .bindIndexBuffer()
+       .drawElements(gl.TRIANGLES)
+       .clear();
+
+  // 直方体
+  _node.useTopology('rect')
+       .setAttribute()
+       // setMatrixの中に配列の形でオブジェクトを並べると
+       // 然るべく計算してくれる。
+       .setMatrix([{tr:[-20, 100, 0]}])
+       .setVertexColor()
+       .bindIndexBuffer()
+       .drawElements(gl.TRIANGLES)
+       .clear();
+
+  // テクスチャード正方形
+  _node.useTopology('texturedSquare')
+       .setAttribute()
+       // setMatrixの中に配列の形でオブジェクトを並べると
+       // 然るべく計算してくれる。
+       .setMatrix([{tr:[100, 100, 0]}, {rotY: properFrameCount*TAU/240}])
+       .setUVColor()
+	     .setTexture("uTex", testTexture.glTex, 0)
+       .bindIndexBuffer()
+       .drawElements(gl.TRIANGLES)
+       .clear();
+
+  properFrameCount++;
+
+  let end = millis();
+
+  updateInfo((end - start)*60/1000);
+  drawBackground();
   bgTex.update();
-
-	info.clear();
-	info.fill(0);
-	info.rect(0,0,56,24);
-	info.fill(255);
-	info.text(pfm.toFixed(3),2,2);
-	infoTex.update();
 }
 
 // ---------------------------------------------------------------
-// render.
-function render(){
-  if(config.BLOOM){
-    applyBloom();
-  }
-  drawDisplay(); // 仕上げ！！！
+// BG.
+
+function drawBackground(){
+  bg.clear();
+  bg.image(base, 0, 0);
+  bg.image(info, 0, 0);
 }
 
-function applyBloom(){
-  // dyeを元にしてbloomになんか焼き付ける
-  gl.disable(gl.BLEND);
-  let res = getResolution(256);
-
-  let knee = config.BLOOM_THRESHOLD * config.BLOOM_SOFT_KNEE + 0.0001;
-  let curve0 = config.BLOOM_THRESHOLD - knee;
-  let curve1 = knee * 2;
-  let curve2 = 0.25 / knee;
-  // ここの処理texelSize使ってない
-  // dyeの内容を初期値として埋め込んで
-  // 輝度抽出なるものを行なっているようです
-  _node.bindFBO('bloom_0');
-  _node.use('bloomPrefilter', 'simple')
-       .setAttribute()
-       .setFBO('uTexture', 'dye')
-       .setUniform('uCurve', [curve0, curve1, curve2])
-       .setUniform('uThreshold', config.BLOOM_THRESHOLD)
-       .drawArrays(gl.TRIANGLE_STRIP)
-       .clear(); // ここclear必須っぽいな
-  // ここで切ってどんな処理なのか確認したいわね
-  if(config.MODE == MODE_BRIGHTNESS){ return; }
-
-  // まあ本来はシェーダー切り替えるたびにclear必要だけどね...
-
-  // bloomやっぱ通し番号にするか...0,1,2,...,8みたいに。
-  // その方が良さそう。
-  _node.use('bloomBlur', 'board')
-       .setAttribute();
-  // FBOもuniformもbindやsetするあれごとに異なるので、
-  // その都度設定し直す。
-  // まず0→1, 1→2, ..., N-1→Nとする
-  for(let i = 1; i <= config.BLOOM_ITERATIONS; i++){
-    // i-1→iって感じ
-    const w = (res.frameWidth >> (i-1));
-    const h = (res.frameHeight >> (i-1));
-    _node.bindFBO('bloom_' + i);
-    _node.setUniform('uTexelSize', [1/w, 1/h])
-         .setFBO('uTexture', 'bloom_' + (i-1))
-         .drawArrays(gl.TRIANGLE_STRIP);
-  }
-
-  gl.blendFunc(gl.ONE, gl.ONE);
-  gl.enable(gl.BLEND);
-
-  // 次にN→N-1,...,2→1とする。
-  for(let i = config.BLOOM_ITERATIONS; i >= 2; i--){
-    const w = (res.frameWidth >> i);
-    const h = (res.frameHeight >> i);
-    _node.bindFBO('bloom_' + (i-1));
-    _node.setUniform('uTexelSize', [1/w, 1/h])
-         .setFBO('uTexture', 'bloom_' + i)
-         .drawArrays(gl.TRIANGLE_STRIP);
-  }
-
-  _node.clear();
-  gl.disable(gl.BLEND);
-
-  // 最後に1→0でおしまい
-  const w1 = (res.frameWidth >> 1);
-  const h1 = (res.frameHeight >> 1);
-  const col = getProperColor(config.BLOOM_COLOR);
-  //_node.setViewport(0, 0, res.frameWidth, res.frameHeight);
-  _node.bindFBO('bloom_0');
-  _node.use('bloomFinal', 'board')
-       .setAttribute()
-       .setFBO('uTexture', 'bloom_1')
-       .setUniform('uTexelSize', [1/w1, 1/h1])
-       .setUniform('uIntensity', config.BLOOM_INTENSITY)
-       .setUniform('uBloomColor', [col.r/255, col.g/255, col.b/255])
-       .drawArrays(gl.TRIANGLE_STRIP)
-       .clear();
-  // bloomについては以上。
-}
-
-function drawDisplay(){
-  // スクリーンへの描画
-  _node.bindFBO(null);
-
-  _node.use('display', 'board')
-       .setAttribute()
-       .setFBO('uTexture', 'dye')
-       .setUniform('uBloomFlag', config.BLOOM)
-       .setUniform('uMode', config.MODE)
-       .setFBO('uBloom', 'bloom_0')
-       .drawArrays(gl.TRIANGLE_STRIP)
-       .clear();
-
-	// これは何をしているかというとこれにより
-	// 計算式がsrc.rgba + dst.rgba * (1-src.a)となり
-	// src.aが0のところはsrc.rgbaが無視されてdstのみになるので
-	// ちゃんと透明なところが無視されて描画されるわけ
-	// シェーダの方をいじってもいいけど汎用性欲しいので
-	gl.enable(gl.BLEND);
-	gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-  _node.use('drawing', 'copy')
-       .setAttribute()
-       .setTexture('uTex', infoTex.glTex, 0) // 0で問題ないみたい
-       .drawArrays(gl.TRIANGLE_STRIP)
-       .clear()
-	     .flush();
-
-	gl.disable(gl.BLEND); // 戻しておく
-}
-
-// ----------------------------------------------------------//
-// utility for bloom.
-
-// ちょっとした工夫
-// 2べきに合わせるということらしい
-// 短い方がresolutionで長い方がそれに長/短を掛ける形
-function getResolution(resolution){
-  let aspectRatio = width / height;
-  //let aspectRatio = gl.drawingBufferWidth / gl.drawingBufferHeight;
-  if(aspectRatio < 1){ aspectRatio = 1.0 / aspectRatio; }
-  // 要するに縦横のでかい方÷小さい方
-  let _min = Math.round(resolution);
-  let _max = Math.round(resolution * aspectRatio);
-
-  if(width > height){
-    return {frameWidth: _max, frameHeight: _min};
-  }
-  return {frameWidth: _min, frameHeight: _max};
+function updateInfo(ratio){
+  info.clear();
+  info.textAlign(CENTER, CENTER);
+  info.text("background test", width*0.5, height*0.5);
+  info.textAlign(LEFT, TOP);
+  info.text(ratio.toFixed(3), 10, 10);
 }
 
 // --------------------------------------------------------------- //
@@ -782,7 +604,7 @@ function getResolution(resolution){
 // setFBOで第二引数がない場合や該当するフレームバッファが存在しない
 // 場合に警告を出すように修正（これで2時間くらいハマったので）
 
-// -----------------------------------------------------------//
+// --------------------------------------------------------------- //
 // extension check.
 
 // というわけでextensionsの確認メソッドにしました
@@ -808,7 +630,7 @@ function confirmExtensions(){
   }
 }
 
-// --------------------------------------------------------- //
+// --------------------------------------------------------------- //
 // global functions.
 
 // framebuffer.
