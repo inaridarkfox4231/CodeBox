@@ -49,6 +49,17 @@
 
 // 個数を決めてるの何処ですか？？
 
+/*
+まとめ
+とりあえず190の謎を残してだいたいわかった
+2000 * 4のところにあるようにこのくらいの塊で部分的にドローコールを発行すると無理が無いっぽいね
+動的更新については
+ArrayBufferを生成したうえでそれへのポインタを別に用意してそっちを変えてるわね
+だから特別なことはしてないみたいです
+まあでも分ける工夫は必要だわね
+以上
+*/
+
 // グローバルに「world」インスタンスを用意しなければならない
 let world = null;
 
@@ -185,11 +196,11 @@ function createPhysicsParticles() {
   // 粒子の発生領域
   const box = new b2PolygonShape();
 
-  //const w = performanceLevel === "high" ? 256 : 256;
-  //const h = performanceLevel === "high" ? 384 : 128;
+  const w = performanceLevel === "high" ? 256 : 256;
+  const h = performanceLevel === "high" ? 384 : 128;
 
-  const w = performanceLevel === "high" ? 16 : 16;
-  const h = performanceLevel === "high" ? 24 : 8;    // テストのために1/16にしました
+  //const w = performanceLevel === "high" ? 16 : 16;
+  //const h = performanceLevel === "high" ? 24 : 8;    // テストのために1/16にしました
   box.SetAsBoxXYCenterAngle(
     w / METER, // 幅
     h / METER, // 高さ
