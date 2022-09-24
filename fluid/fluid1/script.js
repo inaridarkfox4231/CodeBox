@@ -129,7 +129,7 @@ startGUI();
 function getWebGLContext (canvas) {
     const params = { alpha: true, depth: false, stencil: false, antialias: false, preserveDrawingBuffer: false };
 
-    let gl = canvas.getContext('webgl', params);
+    let gl = canvas.getContext('webgl', params); // webgl2に...
 
     let halfFloat;
     let supportLinearFiltering;
