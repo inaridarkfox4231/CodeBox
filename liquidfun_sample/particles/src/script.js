@@ -69,13 +69,13 @@ bufferSubDataの負荷はほとんど無いんだって。計算負荷がほぼ�
 // グローバルに「world」インスタンスを用意しなければならない
 let world = null;
 
-/** LiquidFunの単位はメートル。px換算の数値を設定します。 */
+/** LiquidFunの単位はメートル。px換算の数値を設定します。 */ // つまり「1m=100px」ということ
 const METER = 100;
 /** 時間のステップを設定します。60FPSを示します。 */
 const TIME_STEP = 1.0 / 60.0;
 /** 速度の計算回数です。回数が多いほど正確になりますが、計算負荷が増えます。 */
 const VELOCITY_ITERATIONS = 1;
-/** 位置の計算回数です。回数が多いほど正確になりますが、計算負荷が増えます。 */
+/** 位置の計算回数です。回数が多いほど正確になりますが、計算負荷が増えます。 */ // おそらく両方1なので重複を妥協しているのだろう
 const POSITION_ITERATIONS = 1;
 /** パーティクルのサイズです。 */
 const SIZE_PARTICLE = 4;
@@ -102,7 +102,7 @@ let _isDragging = false;
 let _b2ParticleSystem;
 /** [LiquidFun] ドラッグボール用のインスタンスです。 */
 let _b2DragBallFixutre;
-/** [LiquidFun] マクスジョイントです。 */
+/** [LiquidFun] マウスジョイントです。 */
 let _b2MouseJoint;
 /** [LiquidFun] ドラッグボール制御用のインスタンスです。 */
 let _b2GroundBody;
