@@ -245,7 +245,7 @@ let vertexColorFrag=
 
 function setup(){
   _gl = createCanvas(windowWidth, windowHeight, WEBGL);
-  pixelDensity(1);
+  // pixelDensityは無視する方向で作っていきます。
   gl = _gl.GL; // レンダリングコンテキストの取得
 
   // extensionのチェック一通り
