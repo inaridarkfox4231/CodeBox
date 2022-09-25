@@ -712,16 +712,7 @@ class RenderNode{
     this.framebufferObjects[targetName] = fbo;
     return this;
   }
-  resizeFBO(targetName, texId, w, h, textureFormat, filterParam){
-    // resizeもメソッド化しないと...
-    let fbo = this.framebufferObjects[targetName];
-    this.framebufferObjects[targetName] = resize_fbo(fbo, texId, w, h, textureFormat, filterParam);
-  }
-  resizeDoubleFBO(targetName, texId, w, h, textureFormat, filterParam){
-    // リサイズダブル。これらはreturn thisしなくていいでしょうね
-    let fbo = this.framebufferObjects[targetName];
-    this.framebufferObjects[targetName] = resize_double_fbo(fbo, texId, w, h, textureFormat, filterParam);
-  }
+  // resizeは一旦廃止でお願いします
   bindFBO(target){
     // FBOをbindもしくはnullで初期化。ダブルの場合はwriteをセット。viewport設定機能を追加。
     if(typeof(target) == 'string'){
@@ -800,7 +791,9 @@ class RenderNode{
     return this;
   }
   registIndexBuffer(data){
-    // 65535より大きい場合にUint32Arrayを指定する。
+    // 65535より大きい場合にUint32Arrayを指定する。って思ったけど...
+    // 65536を越えちゃいけないのってインデックスの中身の数字であってインデックス配列の長さじゃないでしょ...
+    // だからこの書き方はいけないわけ。だってUnit32Arrayってそういうことでしょ？メモリ考えたら基本Unit16がいいよね。
     let type = Uint16Array;
     if(data.length > 65535){ type = Uint32Array; }
     this.currentTopology.registIndexBuffer(data, type);
@@ -964,7 +957,7 @@ class Topology{
   constructor(name){
     this.name = name;
     this.attributes = {}; // Object.keysでフェッチ。delete a[name]で削除。
-    this.attrSize = 0;
+    this.attrSize = 0; // 使ってないから廃止でいいよね...？
     this.ibo = undefined;
     this.iboType = undefined;
     this.iboSize = 0;
