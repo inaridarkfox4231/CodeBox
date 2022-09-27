@@ -21,6 +21,19 @@
 // 動的更新は今んとこ実行する方法...まあそのうち用意するつもり。Float32の配列を渡してそれ使って...
 // グローバルで...とかいう感じで。
 // 行列も含めて検証することが山積み。大変だ～。
+// webgl2表記でシェーダー書いたりとか。色々ね。
+
+// 手始めに「createShader」と「shader」、これを移してしまう。
+// _glでアクセスできないので...（意外だった）まあ仕方ないわね。setUniformもおいおい移していくけど...（未定）
+
+// setUniform、中でuseProgramしてるのか...分けたいんだよな～
+// ていうかこの方法でshader作っちゃうとsetUniformが付与されないわけね。まずいわな。
+
+// キャッシュデータのは多分、同じ内容を毎フレームsetUniformするのが無駄が多いんだと思う。でもなぁ...
+// テクスチャとか考えるとそれ別に要らないんじゃ...って思ってしまう（いいけど）
+// あとこれで網羅したわけじゃないってのはちょっと気になるかも。
+
+// 中でしか使わない関数(private)は_で始めた方がいいと思う。ちょっと修正が必要かも。
 
 // --------------------------- //
 // まず、...
@@ -104,6 +117,51 @@ const p5wgex = (function(){
   // ---------------------------------------------------------------------------------------------- //
   // utility for RenderNode.
 
+  // シェーダーを作る
+  function getShader(gl, source, type){
+    if(type !== "vs" && type !== "fs"){
+      console.log("invalid type");
+      return null;
+    }
+
+    // シェーダーを代入
+    let _shader;
+    if(type === "vs"){ _shader = gl.createShader(gl.VERTEX_SHADER); }
+    if(type === "fs"){ _shader = gl.createShader(gl.FRAGMENT_SHADER); }
+
+    // コンパイル
+    gl.shaderSource(_shader, source);
+    gl.compileShader(_shader);
+
+    // 結果のチェック
+    if(!gl.getShaderParameter(_shader, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(_shader));
+      return null;
+    }
+
+    return _shader;
+  }
+
+  // プログラムを作る
+  function getProgram(gl, sourceV, sourceF){
+    const vShader = getShader(gl, sourceV, "vs");
+    const fShader = getShader(gl, sourceF, "fs");
+
+    // プログラムの作成
+    let _program = gl.createProgram();
+    // シェーダーにアタッチ → リンク
+    gl.attachShader(_program, vShader);
+    gl.attachShader(_program, fShader);
+    gl.linkProgram(_program);
+
+    // 結果のチェック
+    if(!gl.getProgramParameter(_program, gl.LINK_STATUS)){
+      console.error('Could not initialize shaders');
+      return null;
+    }
+    return _program;
+  }
+
   // loadAttributes. glを引数として。最初からそうしろよ...って今更。
   // sizeとtypeは意図した挙動をしなかったので廃止。
   // sizeはなぜかvec2なのに1とか出してくるし
@@ -135,16 +193,129 @@ const p5wgex = (function(){
     for(let i = 0; i < numUniforms; i++){
       const uniform = {};
       const uniformInfo = gl.getActiveUniform(pg, i); // ほぼ一緒ですね
-      const name = uniformInfo.name;
-      uniform.name = name;
+      let name = uniformInfo.name;
+      // このnameはuniform変数が配列の場合"uColor[0]"のようにおしりに[0]が付くという（そうなんだ）
+      // p5jsはこれをトリミングでカットしているのでそれに倣う（sizeで保持するので情報は失われない）
+      if(uniformInfo.size > 1){
+        name = name.substring(0, name.indexOf('[0]'));
+      }
+      uniform.name = name; // 改めて名前を設定
+      uniform.size = uniformInfo.size; // 配列の場合はこれが2とか3とか10になる感じ
       uniform.location = gl.getUniformLocation(pg, name);
       uniform.type = uniformInfo.type; // gl.FLOATなどの型情報
       if(uniform.type === gl.SAMPLER_2D){
         uniform.samplerIndex = samplerIndex++; // 名前からアクセスして...setTextureで使う
       }
+      // isArrayの情報...は、いいや。普通に書く。それで問題が生じないか見る。
       uniforms[name] = uniform;
     }
     return uniforms;
+  }
+
+  // setUniformの移植。size>1の場合にvを使うのとか注意。uniform[1234][fi][v]もしくはuniformMatrix[234]fv.
+  // 引数のuniformは名前とcurrentPainterから取得して渡す
+  // この流れで行くと最終的にcurrentShaderの概念無くなる可能性あるな...あれsetUniformしやすいからって残してただけだし
+  // あとサンプラは扱う予定無いのでそれ以外ですね。まとめて扱うなんて無理。
+  // あとwebgl2はuiっていってunsignedのintも扱えるらしいですね...
+  function _setUniform(gl, uniform, data){
+    const location = uniform.location;
+
+    switch(uniform.type){
+      case gl.BOOL:
+        if(data === true){ gl.uniform1i(location, 1); }else{ gl.uniform1i(location, 0); } break;
+      case gl.INT:
+        if(uniform.size > 1){
+          gl.uniform1iv(location, data);
+        }else{
+          gl.uniform1i(location, data);
+        }
+        break;
+      case gl.FLOAT:
+        if(uniform.size > 1){
+          gl.uniform1fv(location, data);
+        }else{
+          gl.uniform1f(location, data);
+        }
+        break;
+      case gl.UNSIGNED_INT:
+        if(uniform.size > 1){
+          gl.uniform1uiv(location, data);
+        }else{
+          gl.uniform1ui(location, data);
+        }
+      case gl.FLOAT_MAT3:
+        gl.uniformMatrix3fv(location, false, data); // falseは転置オプションなので常にfalseだそうです
+        break;
+      case gl.FLOAT_MAT4:
+        gl.uniformMatrix4fv(location, false, data); // しかしなんで常にfalseなのに用意したのか...
+        break;
+      case gl.FLOAT_VEC2:
+        if (uniform.size > 1) {
+          gl.uniform2fv(location, data);
+        } else {
+          gl.uniform2f(location, data[0], data[1]);
+        }
+        break;
+      // floatです。
+      case gl.FLOAT_VEC3:
+        if (uniform.size > 1) {
+          gl.uniform3fv(location, data);
+        } else {
+          gl.uniform3f(location, data[0], data[1], data[2]);
+        }
+        break;
+      case gl.FLOAT_VEC4:
+        if (uniform.size > 1) {
+          gl.uniform4fv(location, data);
+        } else {
+          gl.uniform4f(location, data[0], data[1], data[2], data[3]);
+        }
+        break;
+      // intです。
+      case gl.INT_VEC2:
+        if (uniform.size > 1) {
+          gl.uniform2iv(location, data);
+        } else {
+          gl.uniform2i(location, data[0], data[1]);
+        }
+        break;
+      case gl.INT_VEC3:
+        if (uniform.size > 1) {
+          gl.uniform3iv(location, data);
+        } else {
+          gl.uniform3i(location, data[0], data[1], data[2]);
+        }
+        break;
+      case gl.INT_VEC4:
+        if (uniform.size > 1) {
+          gl.uniform4iv(location, data);
+        } else {
+          gl.uniform4i(location, data[0], data[1], data[2], data[3]);
+        }
+        break;
+      // 使う日は来るのだろうか
+      case gl.UNSIGNED_INT_VEC2:
+        if (uniform.size > 1) {
+          gl.uniform2uiv(location, data);
+        } else {
+          gl.uniform2ui(location, data[0], data[1]);
+        }
+        break;
+      case gl.UNSIGNED_INT_VEC3:
+        if (uniform.size > 1) {
+          gl.uniform3uiv(location, data);
+        } else {
+          gl.uniform3ui(location, data[0], data[1], data[2]);
+        }
+        break;
+      case gl.UNSIGNED_INT_VEC4:
+        if (uniform.size > 1) {
+          gl.uniform4uiv(location, data);
+        } else {
+          gl.uniform4ui(location, data[0], data[1], data[2], data[3]);
+        }
+        break;
+    }
   }
 
   // attrの構成例：{name:"aPosition", size:2, data:[-1,-1,-1,1,1,-1,1,1], usage:"static"}
@@ -361,27 +532,44 @@ const p5wgex = (function(){
   // Painter.
 
   class Painter{
-    constructor(_gl, name, _shader){
+    constructor(_gl, name, vs, fs){
       this._gl = _gl;
       this.gl = _gl.GL;
       this.name = name;
-      this.shader = _shader;
+      //this.shader = _shader;
       //_gl.shader(_shader); // これでコンパイルとかやってくれる
-      this.program = _shader._glProgram;
+      this.program = getProgram(this.gl, vs, fs); // プログラムだけでいいのよね
       this.attributes = loadAttributes(this.gl, this.program); // 属性に関するshader情報
       this.uniforms = loadUniforms(this.gl, this.program); // ユニフォームに関するshader情報
+    }
+    use(){
+      // これでいいはず。ただ以前GPUパーティクルでこれやったとき変なちらつきが起きたのよね。
+      // それが気になったのでやめたんですよね。今回はどうかな...
+      this.gl.useProgram(this.program);
     }
     getProgram(){
       return this.program;
     }
-    getShader(){
-      return this.shader;
-    }
+    //getShader(){
+    //  return this.shader;
+    //}
     getAttributes(){
       return this.attributes;
     }
+    getAttribute(name){
+      return this.attributes[name];
+    }
     getUniforms(){
       return this.uniforms;
+    }
+    getUniform(name){
+      // ピンポイントでuniformを取得する個別の関数。あると便利かもしれない。
+      return this.uniforms[name];
+    }
+    setUniform(name, data){
+      // ていうかsetUniformこいつの仕事だろ。
+      // texture以外です。
+      _setUniform(this.gl, this.uniforms[name], data);
     }
     setTexture2D(name, _texture){
       const uniform = this.uniforms[name];
@@ -531,12 +719,12 @@ const p5wgex = (function(){
       this.fbos = {};
       this.ibos = {};
       this.currentPainter = undefined;
-      this.currentShader = undefined;
+      //this.currentShader = undefined;
       this.currentFigure = undefined;
       this.currentIBO = undefined; // このくらいはいいか。
     }
-    registPainter(name, _shader){
-      const newPainter = new Painter(this._gl, name, _shader);
+    registPainter(name, vs, fs){
+      const newPainter = new Painter(this._gl, name, vs, fs);
       this.painters[name] = newPainter;
       return this;
     }
@@ -565,8 +753,9 @@ const p5wgex = (function(){
     }
     usePainter(name){
       this.currentPainter = this.painters[name];
-      this.currentShader = this.currentPainter.getShader();
-      this.currentShader.useProgram();
+      this.currentPainter.use();
+      //this.currentShader = this.currentPainter.getShader();
+      //this.currentShader.useProgram();
       return this;
     }
     drawFigure(name){
@@ -581,6 +770,7 @@ const p5wgex = (function(){
     use(info){
       // オブジェクト表記にします。順番考えるのめんどくさい。
       this.usePainter(info.painterName);
+      // Painterが定義されていないと属性の有効化が出来ないのでこの順番でないといけない
       this.drawFigure(info.figureName);
       return this;
     }
@@ -608,7 +798,8 @@ const p5wgex = (function(){
     }
     setUniform(name, data){
       // 有効になってるシェーダにuniformをセット（テクスチャ以外）
-      this.currentShader.setUniform(name, data);
+      //this.currentShader.setUniform(name, data);
+      this.currentPainter.setUniform(name, data);
       return this;
     }
     setViewport(x, y, w, h){

@@ -44,16 +44,13 @@ function setup(){
 
   // さてと...
   let meshData = [] // 汎用エイリアス。
-  let _shader; // シェーダーエイリアス。
 
   // 板を登録
   meshData = [{name:"aPosition", size:2, data:[-1,-1,-1,1,1,-1,1,1]}];
   _node.registFigure("board", meshData);
 
   // 板ポリ芸を登録
-  _shader = createShader(copyVert, copyFrag);
-  shader(_shader); // こっちで...やるしかなさそう。
-  _node.registPainter("copy", _shader);
+  _node.registPainter("copy", copyVert, copyFrag);
   // 以上。準備終わり。ほんまか...ほんまか？？
 
   // テスト用背景
