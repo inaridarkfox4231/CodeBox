@@ -30,11 +30,40 @@ const copyVert =
 const copyFrag =
 "precision mediump float;" +
 "precision mediump sampler2D;" +
-"varying highp vec2 vUv;" +
+"varying vec2 vUv;" +
 "uniform sampler2D uTex;" +
 "void main () {" +
 "  gl_FragColor = texture2D(uTex, vUv);" +
 "}";
+
+// webgl2なのでESSL300で書いてみる。
+// 見ての通り、バージョン指定は1行目なら問題ないみたいです。
+let copyVertw2 =
+`#version 300 es
+precision mediump float;
+
+in vec2 aPosition;
+out vec2 vUv;
+
+void main(void){
+  vUv = aPosition * 0.5 + 0.5;
+  vUv.y = 1.0 - vUv.y;
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}`;
+
+// texture関数はtexture2Dとか不要で、textureとだけ書けば勝手に判断してくれるようですね...
+let copyFragw2 =
+`#version 300 es
+precision mediump float;
+
+in vec2 vUv;
+uniform sampler2D uTex;
+out vec4 fragColor;
+
+void main(void){
+  fragColor = texture(uTex, vUv); // なんとtextureでいいらしい...！
+}
+`;
 
 // ------------------------------------------------------------------------------------------------------------ //
 // main code.
@@ -52,7 +81,7 @@ function setup(){
   _node.registFigure("board", meshData);
 
   // 板ポリ芸を登録
-  _node.registPainter("copy", copyVert, copyFrag);
+  _node.registPainter("copy", copyVertw2, copyFragw2);
   // 以上。準備終わり。ほんまか...ほんまか？？
 
   // テスト用背景

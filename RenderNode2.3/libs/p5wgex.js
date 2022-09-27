@@ -264,6 +264,9 @@ const p5wgex = (function(){
         }else{
           gl.uniform1ui(location, data);
         }
+      case gl.FLOAT_MAT2:
+        gl.uniformMatrix2fv(location, false, data); // 2次元で使い道ないかな～（ないか）
+        break;
       case gl.FLOAT_MAT3:
         gl.uniformMatrix3fv(location, false, data); // falseは転置オプションなので常にfalseだそうです
         break;
@@ -374,9 +377,11 @@ const p5wgex = (function(){
     if(info.usage === undefined){ info.usage = "static"; } // これも基本STATICですね...
     if(info.large === undefined){ info.large = false; } // largeでT/F指定しよう. 指定が無ければUint16.
     if(info.large){
-      info.type = Uint32Array; info.drawType = gl.UNSIGNED_INT;
+      info.type = Uint32Array;
+      info.intType = gl.UNSIGNED_INT; // drawElementsで使う
     }else{
-      info.type = Uint16Array; info.drawType = gl.UNSIGNED_SHORT;
+      info.type = Uint16Array;
+      info.intType = gl.UNSIGNED_SHORT; // drawElementsで使う
     }
   }
 
@@ -385,7 +390,7 @@ const p5wgex = (function(){
   // 任意：usageは"static"か"dynamic"を指定
   function _createIBO(gl, info){
     _validateForIBO(gl, info);
-    const _usage = (attr.usage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
+    const _usage = (info.usage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
 
     const ibo = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
@@ -395,6 +400,7 @@ const p5wgex = (function(){
       name: info.name,
       buf: ibo,
       type: info.type,
+      intType: info.intType,
       data: info.data,
       count: info.data.length, // countに変更
       usage: info.usage,
@@ -894,11 +900,12 @@ const p5wgex = (function(){
     bindIBO(name){
       // iboをbindする。
       const ibo = this.ibos[name];
-      this.gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo.buf);
+      this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ibo.buf);
       this.currentIBO = ibo;
       return this;
     }
     bindFBO(target){
+      const gl = this.gl;
       // targetは名前、もしくはnull.
       if(typeof(target) == 'string'){
         let fbo = this.fbos[target];
@@ -910,24 +917,24 @@ const p5wgex = (function(){
         }
         if(fbo.double){
           // doubleの場合はwriteをbind
-          this.gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f);
-          this.gl.viewport(0, 0, fbo.w, fbo.h);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.write.f);
+          gl.viewport(0, 0, fbo.w, fbo.h);
           return this;
         }
         // 通常時
-        this.gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.f);
-        this.gl.viewport(0, 0, fbo.w, fbo.h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.f);
+        gl.viewport(0, 0, fbo.w, fbo.h);
         return this;
       }
       if(target == null){
         // nullの場合はスクリーンに直接
-        this.gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        this.gl.viewport(0, 0, width, height);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, width, height);
         return this;
       }
       // targetがfboそのものの場合。
-      this.gl.bindFramebuffer(gl.FRAMEBUFFER, target.f);
-      this.gl.viewport(0, 0, target.w, target.h);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.f);
+      gl.viewport(0, 0, target.w, target.h);
       return this;
     }
     clearFBO(){
@@ -992,8 +999,8 @@ const p5wgex = (function(){
     drawElements(mode, count){
       // typeとsizeがそのまま使えると思う
       const ibo = this.currentIBO;
-      mode = parseMode(this.gl, mode);
-      this.gl.drawElements(mode, ibo.count, ibo.type, 0);
+      mode = _parseDrawMode(this.gl, mode);
+      this.gl.drawElements(mode, ibo.count, ibo.intType, 0);
       return this;
     }
     unbind(){
@@ -1049,7 +1056,7 @@ const p5wgex = (function(){
     }
     transpose(){
       // 転置。
-      const data = getTranspose(this.m);
+      const data = getTranspose4x4(this.m);
       this.set(data);
     }
   }
@@ -1092,7 +1099,7 @@ const p5wgex = (function(){
     // というか知能高くないので無理です
     for(let k=0; k<16; k++){
       const a = 4*Math.floor(k/4);
-      const b = a % 4;
+      const b = k % 4; // kのとこaって...間違えた！
       result[k] += s[a] * m[b];
       result[k] += s[a+1] * m[b+4];
       result[k] += s[a+2] * m[b+8];
@@ -1101,12 +1108,36 @@ const p5wgex = (function(){
     return result;
   }
 
-  function getTranspose(m){
+  // 3x3バージョン
+  function getMult3x3(s, m){
+    const result = new Array(9).fill(0);
+    for(let k=0; k<9; k++){
+      const a = 3*Math.floor(k/3);
+      const b = k % 3;
+      result[k] += s[a] * m[b];
+      result[k] += s[a+1] * m[b+3];
+      result[k] += s[a+2] * m[b+6];
+    }
+    return result;
+  }
+
+  function getTranspose4x4(m){
     // mは長さ16の配列でこれを行列とみなしたうえでその転置であるような配列を返す感じ（わかる？）
     const result = new Array(16).fill(0);
     for(let i=0; i<4; i++){
       for(let k=0; k<4; k++){
         result[4*i+k] = m[i+4*k];
+      }
+    }
+    return result;
+  }
+
+  // 3x3バージョン
+  function getTranspose3x3(m){
+    const result = new Array(9).fill(0);
+    for(let i=0; i<3; i++){
+      for(let k=0; k<3; k++){
+        result[3*i+k] = m[i+3*k];
       }
     }
     return result;
@@ -1170,6 +1201,36 @@ const p5wgex = (function(){
     return [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, sz, 0, 0, 0, 0, 1];
   }
 
+  // 最後に、Transformとビュー行列を（モデル、ビュー）で掛けたやつ(4x4)から
+  // その左上の3x3の逆転置を取り出してuNmatrixとして使うっていうのをやるのでそれをやります
+  // 対象は3x3で（テストのため）
+  // テスト成功しました。OKです。これでノーマルを取れるね。
+  function getInverseTranspose3x3(m){
+    // mは長さ9の配列で3x3とみなされている
+    const n = new Array(9).fill(0);
+    n[0] = m[0]; n[3] = m[1]; n[6] = m[2];
+    n[1] = m[3]; n[4] = m[4]; n[7] = m[5];
+    n[2] = m[6]; n[5] = m[7]; n[8] = m[8];
+    // nを転置するのは終わってるので逆行列を取って終わり。
+    // n[0] n[1] n[2]  48-57  27-18  15-24
+    // n[3] n[4] n[5]  56-38  08-26  23-05
+    // n[6] n[7] n[8]  37-46  16-07  04-13
+    const result = new Array(9).fill(0);
+    const det = n[0]*n[4]*n[8] + n[1]*n[5]*n[6] + n[2]*n[3]*n[7] - n[2]*n[4]*n[6] - n[1]*n[3]*n[8] - n[0]*n[5]*n[7];
+    const indices = [4,8,5,7, 2,7,1,8, 1,5,2,4,
+                     5,6,3,8, 0,8,2,6, 2,3,0,5,
+                     3,7,4,6, 1,6,0,7, 0,4,1,3];
+    for(let i=0; i<9; i++){
+      const offset = i*4;
+      const a0 = indices[offset];
+      const a1 = indices[offset+1];
+      const a2 = indices[offset+2];
+      const a3 = indices[offset+3];
+      result[i] = (n[a0] * n[a1] - n[a2] * n[a3]) / det;
+    }
+    return result;
+  }
+
   // ベースにあるのが射影のPでそこにビューのVを掛けてさらにモデルのMを掛けていく
   // 例えば離れたところで回転させる場合は単純に平行移動→回転、と考えてOK
   // それが内部ではまず回転、次いで平行移動、のように作用する。
@@ -1192,7 +1253,7 @@ const p5wgex = (function(){
       if(h === undefined){ h = window.innerHeight; }
       this.viewMat = new Mat4();
       this.projMat = new Mat4();
-      this.initialize();
+      this.initialize(w, h);
     }
     initialize(w, h){
       this.projType = "perse";
@@ -1216,8 +1277,8 @@ const p5wgex = (function(){
       this.top = 0;
       this.bottom = 0;
 
-      this.setViewMat4();
-      this.setPersepectiveMat4();
+      this.setViewMat();
+      this.setPerspectiveMat();
     }
     getViewMat(){
       return this.viewMat;
@@ -1242,9 +1303,9 @@ const p5wgex = (function(){
         this.upY = info.up.y;
         this.upZ = info.up.z;
       }
-      this.setViewMat4();
+      this.setViewMat();
     }
-    setViewMat4(){
+    setViewMat(){
       // ちょっと長くなるが...
       // まずcenterからeyeに向かうtopベクトルを用意する。正規化する。新しいz軸になる。
       let z0 = this.eyeX - this.centerX;
@@ -1271,18 +1332,19 @@ const p5wgex = (function(){
       y1 /= yLen;
       y2 /= yLen;
       // これらを縦に並べる。そこら辺の理屈を説明するのはまあ、大変です...
-      const data = [x0, y0, z0, 0, x1, y1, z1, 0, x2, y2, z2, 0, 0, 0, 0, 1];
+      // そしてeyeの分だけ平行移動しないといけないんですね...なるほど。eyeの位置が原点に来るように。
+      const data = [x0, y0, z0, 0, x1, y1, z1, 0, x2, y2, z2, 0, -this.eyeX, -this.eyeY, -this.eyeZ, 1];
       this.viewMat.set(data);
     }
-    persepective(info){
+    setPersepective(info){
       if(info.fov !== undefined){ this.fov = info.fov; }
       if(info.aspect !== undefined){ this.aspect = info.aspect; }
       if(info.near !== undefined){ this.near = info.near; }
       if(info.far !== undefined){ this.far = info.far; }
       this.projType = "perse";
-      this.setPerspectiveMat4();
+      this.setPerspectiveMat();
     }
-    setPerspectiveMat4(){
+    setPerspectiveMat(){
       // fov, aspect, near, farから行列を計算してセットする。
       // 理屈はめんどくさいので結果だけ。
       const factor = 1.0 / Math.tan(this.fov/2);
@@ -1294,7 +1356,7 @@ const p5wgex = (function(){
       const data = [c0, 0, 0, 0, 0, c5, 0, 0, 0, 0, c10, c11, 0, 0, c14, 0];
       this.projMat.set(data);
     }
-    ortho(info){
+    setOrtho(info){
       if(info.right !== undefined){ this.right = info.right; }
       if(info.left !== undefined){ this.left = info.left; }
       if(info.top !== undefined){ this.top = info.top; }
@@ -1302,9 +1364,9 @@ const p5wgex = (function(){
       if(info.near !== undefined){ this.near = info.near; }
       if(info.far !== undefined){ this.far = info.far; }
       this.projType = "ortho";
-      this.setOrthoMat4();
+      this.setOrthoMat();
     }
-    setOrthoMat4(){
+    setOrthoMat(){
       // left, right, top, bottom, near, farから行列を計算してセットする。
       // 理屈は簡単で、要はleftとrightを-1～1に、top～bottom（ただしupベクトルが示す正方向がtopという形）
       // を-1～1に、near～farを-1～1にマッピングするわけ。行列の掛け算も2次の逆行列でちょちょいっと。
@@ -1332,42 +1394,65 @@ const p5wgex = (function(){
     }
     initialize(){
       this.mat.initialize();
+      return this;
     }
     getModelMat(){
       // モデル行列を取り出す。これを...渡す。
       return this.mat;
     }
-    applyRotX(t){
+    rotateX(t){
       // x軸の周りにtラジアン回転の行列を掛ける
       const data = getRotX(t);
       this.mat.mult(data);
+      return this;
     }
-    applyRotY(t){
+    rotateY(t){
       // y軸の周りにtラジアン回転の行列を掛ける
       const data = getRotY(t);
       this.mat.mult(data);
+      return this;
     }
-    applyRotZ(t){
+    rotateZ(t){
       // z軸の周りにtラジアン回転の行列を掛ける
       const data = getRotZ(t);
       this.mat.mult(data);
+      return this;
     }
-    applyRot(t, a, b, c){
+    rotate(t, a, b, c){
       // 単位軸ベクトル(a, b, c)の周りにtラジアン回転の行列
       const data = getRot(t, a, b, c);
       this.mat.mult(data);
+      return this;
     }
-    applyTranslate(a, b, c){
+    translate(a, b, c){
       // a, b, cの平行移動の行列を掛ける
       const data = getTranslate(a, b, c);
       this.mat.mult(data);
+      return this;
     }
-    applyScale(sx, sy, sz){
+    scale(sx, sy, sz){
       // sx, sy, sz倍の行列を掛ける
       const data = getScale(sx, sy, sz);
       this.mat.mult(data);
+      return this;
     }
   }
+
+  // getNormalMatrix.
+  // モデルビューは既に4x4の配列として計算済み。それに対し左上の3x3から逆転置を作って返す。
+  // この中で掛け算するのはいろいろと二度手間になりそうだったので却下。
+  function getNormalMat(modelView){
+    const result = new Array(9).fill(0);
+    result[0] = modelView[0]; result[1] = modelView[1]; result[2] = modelView[2];
+    result[3] = modelView[4]; result[4] = modelView[5]; result[5] = modelView[6];
+    result[6] = modelView[8]; result[7] = modelView[9]; result[8] = modelView[10];
+    return getInverseTranspose3x3(result);
+  }
+
+  // 順番としては
+  // TransformExとCameraExを用意 → モデルとビューでモデルビュー作って法線も作って
+  // プロジェも作ってモデルビューとプロジェと法線を送り込んで計算。
+  // 現時点でTransformExの便利な書き方がないので困ったね～...（後回し）
 
   const ex = {};
 
@@ -1376,7 +1461,7 @@ const p5wgex = (function(){
   ex.getMult4x4 = getMult4x4;
   ex.hsv2rgb = hsv2rgb;
   ex.hsvArray = hsvArray;
-
+  ex.getNormalMat = getNormalMat;
 
   // class.
   ex.Painter = Painter;
