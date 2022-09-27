@@ -139,7 +139,7 @@ const p5wgex = (function(){
   // utility for RenderNode.
 
   // シェーダーを作る
-  function getShader(gl, source, type){
+  function _getShader(gl, source, type){
     if(type !== "vs" && type !== "fs"){
       console.log("invalid type");
       return null;
@@ -164,9 +164,9 @@ const p5wgex = (function(){
   }
 
   // プログラムを作る
-  function getProgram(gl, sourceV, sourceF){
-    const vShader = getShader(gl, sourceV, "vs");
-    const fShader = getShader(gl, sourceF, "fs");
+  function _getProgram(gl, sourceV, sourceF){
+    const vShader = _getShader(gl, sourceV, "vs");
+    const fShader = _getShader(gl, sourceF, "fs");
 
     // プログラムの作成
     let _program = gl.createProgram();
@@ -183,12 +183,12 @@ const p5wgex = (function(){
     return _program;
   }
 
-  // loadAttributes. glを引数として。最初からそうしろよ...って今更。
+  // _loadAttributes. glを引数として。最初からそうしろよ...って今更。
   // sizeとtypeは意図した挙動をしなかったので廃止。
   // sizeはなぜかvec2なのに1とか出してくるし
   // typeはgl.FLOATとかじゃなくてFLOAT_VEC2とかだしでbindに使えない
   // まあそういうわけでどっちも廃止。
-  function loadAttributes(gl, pg){
+  function _loadAttributes(gl, pg){
     // 属性の総数を取得
     const numAttributes = gl.getProgramParameter(pg, gl.ACTIVE_ATTRIBUTES);
     const attributes = {};
@@ -204,8 +204,8 @@ const p5wgex = (function(){
     return attributes;
   }
 
-  // loadUniforms. glを引数に。
-  function loadUniforms(gl, pg){
+  // _loadUniforms. glを引数に。
+  function _loadUniforms(gl, pg){
     // ユニフォームの総数を取得
     const numUniforms = gl.getProgramParameter(pg, gl.ACTIVE_UNIFORMS);
     const uniforms = {};
@@ -342,7 +342,7 @@ const p5wgex = (function(){
   // attrの構成例：{name:"aPosition", size:2, data:[-1,-1,-1,1,1,-1,1,1], usage:"static"}
   // ああそうか隠蔽するからこうしないとまずいわ...修正しないと。"static"とか。
   // 今staticとdynamicしかないからstatic意外はdynamicってやっておきますか。
-  function createVBO(gl, attr){
+  function _createVBO(gl, attr){
     const _usage = (attr.usage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
 
     const vbo = gl.createBuffer();
@@ -362,15 +362,15 @@ const p5wgex = (function(){
   }
 
   // attrsはattrの配列
-  function createVBOs(gl, attrs){
+  function _createVBOs(gl, attrs){
     const vbos = {};
     for(let attr of attrs){
-      vbos[attr.name] = createVBO(gl, attr);
+      vbos[attr.name] = _createVBO(gl, attr);
     }
     return vbos;
   }
 
-  function validateForIBO(gl, info){
+  function _validateForIBO(gl, info){
     if(info.usage === undefined){ info.usage = "static"; } // これも基本STATICですね...
     if(info.large === undefined){ info.large = false; } // largeでT/F指定しよう. 指定が無ければUint16.
     if(info.large){
@@ -383,8 +383,8 @@ const p5wgex = (function(){
   // infoの指定の仕方
   // 必須: dataにインデックス配列を入れる。nameは渡すときに付与されるので要らない。
   // 任意：usageは"static"か"dynamic"を指定
-  function createIBO(gl, info){
-    validateForIBO(gl, info);
+  function _createIBO(gl, info){
+    _validateForIBO(gl, info);
     const _usage = (attr.usage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW);
 
     const ibo = gl.createBuffer();
@@ -405,7 +405,7 @@ const p5wgex = (function(){
   // nearest: gl.NEAREST, linear: gl.LINEAR
   // clamp: gl.CLAMP_TO_EDGE, repeat: gl.REPEAT, mirror: gl.MIRRORED_REPEAT. ミラーもいいよね。使ってみたい。
   // テクスチャ作る関数も作るつもり。そのうち...
-  function validateForFBO(gl, info){
+  function _validateForFBO(gl, info){
     // textureFormat. "uint", "half_float", "float"で指定
     if(info.textureFormat === undefined){ info.textureFormat = "uint"; }
     // textureFilter. "nearest", "linear"で指定
@@ -415,7 +415,7 @@ const p5wgex = (function(){
   }
 
   // 文字列をgl定数に変換
-  function parseParam(gl, info){
+  function _parseTextureParam(gl, info){
     switch(info.textureFormat){
       case "float":
         info.textureFormat = gl.FLOAT; break;
@@ -447,9 +447,9 @@ const p5wgex = (function(){
   // 学術計算とかなら"linear"使うかも
   // textureWrap: 境界処理。デフォルトは"clamp"だが"repeat"や"mirror"を指定する場合もあるかも。
   // 色として普通に使うなら全部指定しなくてOK. 点情報の格納庫として使うなら"float"だけ要ると思う
-  function createFBO(gl, info){
-    validateForFBO(gl, info);
-    parseParam(gl, info);
+  function _createFBO(gl, info){
+    _validateForFBO(gl, info);
+    _parseTextureParam(gl, info);
 
     // framebufferを生成
     let framebuffer = gl.createFramebuffer();
@@ -500,12 +500,12 @@ const p5wgex = (function(){
     // infoの役割終了
   }
 
-  function createDoubleFBO(gl, info){
+  function _createDoubleFBO(gl, info){
     // assignでコピーしないと多分infoの内容が正しく伝わらないので
     const info0 = Object.assign({}, info);
-    let fbo0 = createFBO(gl, info0);
+    let fbo0 = _createFBO(gl, info0);
     const info1 = Object.assign({}, info);
-    let fbo1 = createFBO(gl, info1);
+    let fbo1 = _createFBO(gl, info1);
     // 各種情報は生成にしか使わないのでこれでいい。
     return {
       read: {f:fbo0.f, d:fbo0.d, t:fbo0.t},  // f,d,tしか要らないので。
@@ -522,7 +522,7 @@ const p5wgex = (function(){
   }
 
   // drawModeを文字列から生成する
-  function parseMode(gl, mode){
+  function _parseDrawMode(gl, mode){
     switch(mode){
       case "points": // [0], [1], [2], ... 点描画。点ごと。ドット打ち。
         return gl.POINTS;
@@ -546,7 +546,7 @@ const p5wgex = (function(){
 
   // blendFactorを文字列で指定するためのパーサー...配列でいい気がしてきた。
   // とりあえず必要なものだけ。
-  function parseBlendFactor(gl, name){
+  function _parseBlendFactor(gl, name){
     switch(name){
       case "one": return gl.ONE;
       case "src_color": return gl.SRC_COLOR;
@@ -576,9 +576,9 @@ const p5wgex = (function(){
       this._gl = _gl;
       this.gl = _gl.GL;
       this.name = name;
-      this.program = getProgram(this.gl, vs, fs); // プログラムだけでいいのよね
-      this.attributes = loadAttributes(this.gl, this.program); // 属性に関するshader情報
-      this.uniforms = loadUniforms(this.gl, this.program); // ユニフォームに関するshader情報
+      this.program = _getProgram(this.gl, vs, fs); // プログラムだけでいいのよね
+      this.attributes = _loadAttributes(this.gl, this.program); // 属性に関するshader情報
+      this.uniforms = _loadUniforms(this.gl, this.program); // ユニフォームに関するshader情報
     }
     use(){
       // これでいいはず。ただ以前GPUパーティクルでこれやったとき変なちらつきが起きたのよね。
@@ -607,11 +607,12 @@ const p5wgex = (function(){
       _setUniform(this.gl, this.uniforms[name], data);
     }
     setTexture2D(name, _texture){
+      const gl = this.gl;
       const uniform = this.uniforms[name];
       // activateする番号とuniform1iで登録する番号は一致しており、かつsamplerごとに異なる必要があるということ
-      this.gl.activeTexture(this.gl.TEXTURE0 + uniform.samplerIndex);
-      this.gl.bindTexture(this.gl.TEXTURE_2D, _texture);
-      this.gl.uniform1i(uniform.location, uniform.samplerIndex);
+      gl.activeTexture(gl.TEXTURE0 + uniform.samplerIndex);
+      gl.bindTexture(gl.TEXTURE_2D, _texture);
+      gl.uniform1i(uniform.location, uniform.samplerIndex);
     }
     unbind(){
       // 2Dや3Dのテクスチャがbindされていたら解除(今は2D only.)
@@ -631,7 +632,7 @@ const p5wgex = (function(){
       this.name = name;
       const gl = this._gl.GL;
       this.validate(attrs);
-      this.vbos = createVBOs(gl, attrs);
+      this.vbos = _createVBOs(gl, attrs);
     }
     validate(attrs){
       // attrsは配列です。各成分の形：{name:"aPosition",data:[-1,-1,-1,1,1,-1,1,1]}とか。場合によってはusage:gl.DYNAMIC_DRAWなど
@@ -793,8 +794,8 @@ const p5wgex = (function(){
       // 描画色＝描画元の色 * sFactor + 描画先の色 * dFactor
       // ですね。なのでたとえば、ONEとONE_MINUS_SRC_ALPHAにすると、ソースアルファが1のところはソースが維持されるため、
       // すでに塗った色への上書きができるというわけ。そんな感じ。ONEーONEで通常のADDになったりする。
-      sFactor = parseBlendFactor(this.gl, sFactor);
-      dFactor = parseBlendFactor(this.gl, dFactor);
+      sFactor = _parseBlendFactor(this.gl, sFactor);
+      dFactor = _parseBlendFactor(this.gl, dFactor);
       this.gl.blendFunc(sFactor, dFactor);
       return this;
     }
@@ -821,26 +822,24 @@ const p5wgex = (function(){
     }
     registIBO(name, info){
       info.name = name; // infoは{data:[0,1,2,2,1,3]}みたいなので問題ないです。配列渡すのでもいいんだけど...柔軟性考えるとね...
-      const newIBO = createIBO(this.gl, info);
+      const newIBO = _createIBO(this.gl, info);
       this.ibos[name] = newIBO;
       return this;
     }
     registFBO(name, info){
       // doubleは生成時に付与するので要らんわな
-      const newFBO = createFBO(this.gl, info);
+      const newFBO = _createFBO(this.gl, info);
       this.fbos[name] = newFBO;
       return this;
     }
     registDoubleFBO(name, info){
-      const newFBO = createDoubleFBO(this.gl, info);
+      const newFBO = _createDoubleFBO(this.gl, info);
       this.fbos[name] = newFBO;
       return this;
     }
     usePainter(name){
       this.currentPainter = this.painters[name];
       this.currentPainter.use();
-      //this.currentShader = this.currentPainter.getShader();
-      //this.currentShader.useProgram();
       return this;
     }
     drawFigure(name){
@@ -985,7 +984,7 @@ const p5wgex = (function(){
         count = vbos[name].count / vbos[name].size;
       }
       // modeの文字列からgl定数を取得
-      mode = parseMode(this.gl, mode);
+      mode = _parseDrawMode(this.gl, mode);
       // 実行
       this.gl.drawArrays(mode, first, count);
       return this;
