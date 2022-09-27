@@ -35,9 +35,39 @@
 
 // 中でしか使わない関数(private)は_で始めた方がいいと思う。ちょっと修正が必要かも。
 
+// background(~~~)だっけ
+// 単色で塗りつぶすのとか欲しいかも
+
+// 20220927
+// clearをunbindに改称（clearは別の意味で使いたいので）
+// こっちでしか使わない関数に_を付ける（エクスポートしない関数）
+
 // --------------------------- //
 // まず、...
 // うまくいくんかいな。まあ別に死ぬわけじゃないし。死にかけたし。気楽にやろ。死ぬことが無いなら何でもできる。
+
+// まるごと移してしまえ。えいっ
+// でもってalphaをtrueで上書き。えいっ（どうなっても知らないよ...）
+p5.RendererGL.prototype._setAttributeDefaults = function(pInst) {
+  // See issue #3850, safer to enable AA in Safari
+  var applyAA = navigator.userAgent.toLowerCase().includes('safari');
+  var defaults = {
+    alpha: true, // ここ。いいのかなあ...
+    depth: true,
+    stencil: true,
+    antialias: applyAA,
+    premultipliedAlpha: false,
+    preserveDrawingBuffer: true,
+    perPixelLighting: true
+  };
+
+  if (pInst._glAttributes === null) {
+    pInst._glAttributes = defaults;
+  } else {
+    pInst._glAttributes = Object.assign(defaults, pInst._glAttributes);
+  }
+  return;
+};
 
 // その前に卍解やっとこう。ばん！かい！
 p5.RendererGL.prototype._initContext = function() {
@@ -69,17 +99,8 @@ const p5wgex = (function(){
   // ---------------------------------------------------------------------------------------------- //
   // utility.
 
-  // RGBをRGBのまま返す関数. 指定は自由。
-  function _RGB(r, g, b){
-    if(arguments.length === 1){
-      g = r;
-      b = r;
-    }
-    return {r:r, g:g, b:b};
-  }
-
   // HSVをRGBにしてくれる関数. ただし0～1で指定してね
-  function _HSV(h, s, v){
+  function hsv2rgb(h, s, v){
     h = constrain(h, 0, 1);
     s = constrain(s, 0, 1);
     v = constrain(v, 0, 1);
@@ -97,7 +118,7 @@ const p5wgex = (function(){
   }
 
   // 直接配列の形で返したい場合はこちら
-  function _HSVArray(h, s, v){
+  function hsvArray(h, s, v){
     const obj = _HSV(h, s, v);
     return [obj.r, obj.g, obj.b];
   }
@@ -523,6 +544,24 @@ const p5wgex = (function(){
     return gl.TRIANGLES;
   }
 
+  // blendFactorを文字列で指定するためのパーサー...配列でいい気がしてきた。
+  // とりあえず必要なものだけ。
+  function parseBlendFactor(gl, name){
+    switch(name){
+      case "one": return gl.ONE;
+      case "src_color": return gl.SRC_COLOR;
+      case "dst_color": return gl.DST_COLOR;
+      case "one_minus_src_color": return gl.ONE_MINUS_SRC_COLOR;
+      case "one_minus_dst_color": return gl.ONE_MINUS_DST_COLOR;
+      case "src_alpha": return gl.SRC_ALPHA;
+      case "dst_alpha": return gl.DST_ALPHA;
+      case "one_minus_src_alpha": return gl.ONE_MINUS_SRC_ALPHA;
+      case "one_minus_dst_alpha": return gl.ONE_MINUS_DST_ALPHA;
+      default: return gl.ZERO;
+    }
+    return gl.ZERO;
+  }
+
   // あとはp5の2D,webgl画像からテクスチャを作るのとか用意したいね.
   // 登録しておいてそこから取り出して編集とか。そうね。それでもいいかも。bgManagerの後継機みたいな。さすがにクラスにしないと...
 
@@ -531,13 +570,12 @@ const p5wgex = (function(){
   // ---------------------------------------------------------------------------------------------- //
   // Painter.
 
+  // shaderは廃止。いいのかどうかは知らない。
   class Painter{
     constructor(_gl, name, vs, fs){
       this._gl = _gl;
       this.gl = _gl.GL;
       this.name = name;
-      //this.shader = _shader;
-      //_gl.shader(_shader); // これでコンパイルとかやってくれる
       this.program = getProgram(this.gl, vs, fs); // プログラムだけでいいのよね
       this.attributes = loadAttributes(this.gl, this.program); // 属性に関するshader情報
       this.uniforms = loadUniforms(this.gl, this.program); // ユニフォームに関するshader情報
@@ -550,9 +588,6 @@ const p5wgex = (function(){
     getProgram(){
       return this.program;
     }
-    //getShader(){
-    //  return this.shader;
-    //}
     getAttributes(){
       return this.attributes;
     }
@@ -578,7 +613,7 @@ const p5wgex = (function(){
       this.gl.bindTexture(this.gl.TEXTURE_2D, _texture);
       this.gl.uniform1i(uniform.location, uniform.samplerIndex);
     }
-    clear(){
+    unbind(){
       // 2Dや3Dのテクスチャがbindされていたら解除(今は2D only.)
       if(this.gl.getParameter(this.gl.TEXTURE_BINDING_2D) !== null){
         this.gl.bindTexture(this.gl.TEXTURE_2D, null);
@@ -723,6 +758,56 @@ const p5wgex = (function(){
       this.currentFigure = undefined;
       this.currentIBO = undefined; // このくらいはいいか。
     }
+    clearColor(r, g, b, a){
+      // clearに使う色を決めるところ
+      this.gl.clearColor(r, g, b, a);
+      return this;
+    }
+    clear(){
+      // 通常のクリア。対象はスクリーンバッファ、もしくはその時のフレームバッファ
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+      return this;
+    }
+    enable(name){
+      const gl = this.gl;
+      // 文字列で有効化指定（ドローコールに合わせてスネークで）
+      switch(name){
+        case "blend": gl.enable(gl.BLEND); break;
+        case "cull_face": gl.enable(gl.CULL_FACE); break;
+        case "depth_test": gl.enable(gl.DEPTH_TEST); break;
+      }
+      return this;
+    }
+    cullFace(mode){
+      const gl = this.gl;
+      // カルフェイスのデフォはbackなんだそうです。
+      switch(mode){
+        case "front": gl.cullFace(gl.FRONT); break;
+        case "back": gl.cullFace(gl.BACK); break;
+        case "front_and_back": gl.cullFace(gl.FRONT_AND_BACK); break;
+      }
+      return this;
+    }
+    blendFunc(sFactor, dFactor){
+      // blend関数について...
+      // 描画色＝描画元の色 * sFactor + 描画先の色 * dFactor
+      // ですね。なのでたとえば、ONEとONE_MINUS_SRC_ALPHAにすると、ソースアルファが1のところはソースが維持されるため、
+      // すでに塗った色への上書きができるというわけ。そんな感じ。ONEーONEで通常のADDになったりする。
+      sFactor = parseBlendFactor(this.gl, sFactor);
+      dFactor = parseBlendFactor(this.gl, dFactor);
+      this.gl.blendFunc(sFactor, dFactor);
+      return this;
+    }
+    disable(name){
+      const gl = this.gl;
+      // 非有効化
+      switch(name){
+        case "blend": gl.disable(gl.BLEND); break;
+        case "cull_face": gl.disable(gl.CULL_FACE); break;
+        case "depth_test": gl.disable(gl.DEPTH_TEST); break;
+      }
+      return this;
+    }
     registPainter(name, vs, fs){
       const newPainter = new Painter(this._gl, name, vs, fs);
       this.painters[name] = newPainter;
@@ -767,11 +852,11 @@ const p5wgex = (function(){
       this.enableAttributes();
       return this;
     }
-    use(info){
-      // オブジェクト表記にします。順番考えるのめんどくさい。
-      this.usePainter(info.painterName);
+    use(painterName, figureName){
+      // painter, figureの順に...さすがにめんどくさい。
+      this.usePainter(painterName);
       // Painterが定義されていないと属性の有効化が出来ないのでこの順番でないといけない
-      this.drawFigure(info.figureName);
+      this.drawFigure(figureName);
       return this;
     }
     enableAttributes(){
@@ -912,12 +997,12 @@ const p5wgex = (function(){
       this.gl.drawElements(mode, ibo.count, ibo.type, 0);
       return this;
     }
-    clear(){
+    unbind(){
       // 各種bind解除
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
       this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, null);
       this.currentIBO = undefined;
-      this.currentPainter.clear();
+      this.currentPainter.unbind();
     }
     flush(){
       this.gl.flush();
@@ -1290,6 +1375,9 @@ const p5wgex = (function(){
   // utility.
   ex.getNormals = getNormals;
   ex.getMult4x4 = getMult4x4;
+  ex.hsv2rgb = hsv2rgb;
+  ex.hsvArray = hsvArray;
+
 
   // class.
   ex.Painter = Painter;

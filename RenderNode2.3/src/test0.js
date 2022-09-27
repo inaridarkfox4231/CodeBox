@@ -2,6 +2,8 @@
 
 // はぁーどこまでいけるのやら。
 
+// 何から実験しよう。ドローコール？か。とりあえず。
+
 // ------------------------------------------------------------------------------------------------------------ //
 // global.
 
@@ -76,7 +78,7 @@ function draw(){
   _node.drawFigure("board");
   _node.setTexture2D("uTex", bgTex.glTex);
   _node.drawArrays("triangle_strip");
-  _node.clear();
+  _node.unbind();
   _node.flush();
 }
 
