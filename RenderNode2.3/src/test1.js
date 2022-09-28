@@ -127,7 +127,7 @@ function draw(){
   _node.blendFunc("one", "one"); // 加算合成的な
 
   _node.use("simple", "points");
-  _node.setUniform("uTint", [1,1,1]);
+  _node.setUniform("uTint", [1,0.5,0.25]);
   _node.drawArrays("points");
   _node.setUniform("uTint", [0.7,0.6,0,5]);
   _node.drawArrays("triangle_strip");

@@ -4,6 +4,18 @@
 
 // 何から実験しよう。ドローコール？か。とりあえず。
 
+// 20220927
+// ESSL300で書いてみました。いい感じですね。
+// 1行目に#version 300 esを持ってくればOKのようです。
+// attributeは廃止で、inでいいみたい。vertexShaderでしか使わないので後述の問題は発生しない。
+// というのは、varyingが廃止、というか使用は任意で、vertexShaderでinで宣言し、
+// fragmentShaderでoutで宣言すると呼応してつながる仕組みになったのです。分かりやすいですね。
+// さらにgl_FragColorも廃止で、fragmentShaderでout vec4で宣言したものに放り込めばいいみたいです。
+// またtexture2Dとかは不要でtextureとだけ書けば勝手に判断してくれると。
+
+// 他にもいろいろあるんですけどね...試してる時間が...まあぼちぼち、って感じで。texelFetchとか気になるのよ。
+// あとはビット演算ができるのとか勾配関数とかも。ブレンドのMINとMAXも気になる...あ、shader関係ないわ。
+
 // ------------------------------------------------------------------------------------------------------------ //
 // global.
 
@@ -43,7 +55,7 @@ let copyVertw2 =
 precision mediump float;
 
 in vec2 aPosition;
-out vec2 vUv;
+out vec2 vUv; // vertexStageのvaryingはoutで、
 
 void main(void){
   vUv = aPosition * 0.5 + 0.5;
@@ -56,7 +68,7 @@ let copyFragw2 =
 `#version 300 es
 precision mediump float;
 
-in vec2 vUv;
+in vec2 vUv; // fragmentStageのinと呼応するシステム。vertexStageのinはattributeなので
 uniform sampler2D uTex;
 out vec4 fragColor;
 

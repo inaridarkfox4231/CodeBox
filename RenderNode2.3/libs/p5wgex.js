@@ -42,6 +42,31 @@
 // clearをunbindに改称（clearは別の意味で使いたいので）
 // こっちでしか使わない関数に_を付ける（エクスポートしない関数）
 
+// 20220928
+// webgl2ではtexImage2Dでの指定の仕方について、typeがgl.FLOATの場合、ちょっとややこしいようで...
+// 具体的には「https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texImage2D」のInternalFormatのとこに
+// リンクが：「https://registry.khronos.org/webgl/specs/latest/2.0/#TEXTURE_TYPES_FORMATS_FROM_DOM_ELEMENTS_TABLE」
+// 張ってあってこの組み合わせじゃないといけない。つまりgl.RGBAーgl.RGBAの場合UNSIGNED_BYTE(0～255)を含む3通りで
+// gl.FLOATは対象外！
+// webgl1のようにやりたかったら下から2番目の「gl.RGBA32Fーgl.RGBAーgl.FLOAT」にしないといけないのだ。
+// ...適宜修正しないとね...
+
+// それ以前に
+// https://stackoverflow.com/questions/69016956/webgl2-incomplete-framebuffer
+// RGBA32Fは書き込み不可能？？「https://registry.khronos.org/OpenGL/specs/es/3.0/es_spec_3.0.pdf#page=143&zoom=100,168,666」
+// renderableではない、ということ。つまり書き込めるテクスチャとして使えないと...で、調べたらtexStorage2Dというのが
+// でてきました。こっちを使え...？というかwebgl2においてそもそもtexImage2Dが非推奨なんだそうです。
+// 参考：https://ics.media/web3d-maniacs/webgl2_texture2darray/
+// でもpavelさんの流体のは普通にtexImage2Dで取得してたし、書き込んでたし。つじつま合わないんですよね...
+
+// pavelさんこれ使ってた：
+// https://developer.mozilla.org/en-US/docs/Web/API/EXT_color_buffer_float
+// 拡張機能です。gl.getExtension('EXT_color_buffer_float');
+// これで使えるようになるとのこと。はぁ...なるほどね...これでcolor-renderableになるわけだ...
+// webgl2だから拡張無しでOKかと思ったらそういうわけにはいかないわけだ。
+
+// gl定数の辞書は...リスト作っておいて文字列でアクセスできるようにしましょうね...汎用性考えるとね。
+
 // --------------------------- //
 // まず、...
 // うまくいくんかいな。まあ別に死ぬわけじゃないし。死にかけたし。気楽にやろ。死ぬことが無いなら何でもできる。
@@ -139,7 +164,7 @@ const p5wgex = (function(){
   // utility for RenderNode.
 
   // シェーダーを作る
-  function _getShader(gl, source, type){
+  function _getShader(name, gl, source, type){
     if(type !== "vs" && type !== "fs"){
       console.log("invalid type");
       return null;
@@ -157,6 +182,7 @@ const p5wgex = (function(){
     // 結果のチェック
     if(!gl.getShaderParameter(_shader, gl.COMPILE_STATUS)){
       console.error(gl.getShaderInfoLog(_shader));
+      console.log("name: " + name + ", " + type + ", compile failure.");
       return null;
     }
 
@@ -164,9 +190,9 @@ const p5wgex = (function(){
   }
 
   // プログラムを作る
-  function _getProgram(gl, sourceV, sourceF){
-    const vShader = _getShader(gl, sourceV, "vs");
-    const fShader = _getShader(gl, sourceF, "fs");
+  function _getProgram(name, gl, sourceV, sourceF){
+    const vShader = _getShader(name, gl, sourceV, "vs");
+    const fShader = _getShader(name, gl, sourceF, "fs");
 
     // プログラムの作成
     let _program = gl.createProgram();
@@ -178,6 +204,7 @@ const p5wgex = (function(){
     // 結果のチェック
     if(!gl.getProgramParameter(_program, gl.LINK_STATUS)){
       console.error('Could not initialize shaders');
+      console.log("name: " + name + ", program link failure.");
       return null;
     }
     return _program;
@@ -407,35 +434,64 @@ const p5wgex = (function(){
     };
   }
 
-  // uint: gl.UNSIGNED_INT, float: gl.FLOAT, half_float: gl.HALF_FLOAT
+  // ubyte: gl.UNSIGNED_BYTE, float: gl.FLOAT, half_float: gl.HALF_FLOAT
   // nearest: gl.NEAREST, linear: gl.LINEAR
   // clamp: gl.CLAMP_TO_EDGE, repeat: gl.REPEAT, mirror: gl.MIRRORED_REPEAT. ミラーもいいよね。使ってみたい。
   // テクスチャ作る関数も作るつもり。そのうち...
+  // r32fとか使ってみたいわね。効率性よさそう
   function _validateForFBO(gl, info){
-    // textureFormat. "uint", "half_float", "float"で指定
-    if(info.textureFormat === undefined){ info.textureFormat = "uint"; }
+    // textureType. "ubyte", "half_float", "float"で指定
+    if(info.textureType === undefined){ info.textureType = "ubyte"; }
+    // textureInternalFormatとtextureFormatについて
+    if(info.textureInternalFormat === undefined){
+      switch(info.textureType){
+        case "ubyte":
+          info.textureInternalFormat = "rgba"; break;
+        case "float":
+          info.textureInternalFormat = "rgba32f"; break;
+        case "half_float":
+          info.textureInternalFormat = "rgba16f"; break;
+      }
+    }
+    if(info.textureFormat === undefined){ info.textureFormat = "rgba"; } // とりあえずこれで。あの3種類みんなこれ。
     // textureFilter. "nearest", "linear"で指定
     if(info.textureFilter === undefined){ info.textureFilter = "nearest"; }
     // textureWrap. "clamp", "repeat", "mirror"で指定
     if(info.textureWrap === undefined){ info.textureWrap = "clamp"; }
   }
 
+  // gl定数は文字列から変換する辞書を作ってそれ使った方が速いわね、おそらく。というかこれただの数字だから、
+  // 極端な話...全部数字でいいのよね。それも記録する必要はなくて、グローバルで...あれすればいい。
+
   // 文字列をgl定数に変換
   function _parseTextureParam(gl, info){
-    switch(info.textureFormat){
+    switch(info.textureType){
       case "float":
-        info.textureFormat = gl.FLOAT; break;
+        info.textureType = gl.FLOAT; break;
       case "half_float":
-        info.textureFormat = gl.HALF_FLOAT; break;
+        info.textureType = gl.HALF_FLOAT; break;
       default:
-        info.textureFormat = gl.UNSIGNED_INT;
+        info.textureType = gl.UNSIGNED_BYTE; // 色はUNSIGNED_BYTEですね...
     }
+
+    switch(info.textureInternalFormat){
+      case "rgba16f":
+        info.textureInternalFormat = gl.RGBA16F; break;
+      case "rgba32f":
+        info.textureInternalFormat = gl.RGBA32F; break;
+      default:
+        info.textureInternalFormat = gl.RGBA;
+    }
+
+    info.textureFormat = gl.RGBA; // 単純に。
+
     switch(info.textureFilter){
       case "linear":
         info.textureFilter = gl.LINEAR; break;
       default:
         info.textureFilter = gl.NEAREST;
     }
+
     switch(info.textureWrap){
       case "repeat":
         info.textureWrap = gl.REPEAT; break;
@@ -446,13 +502,20 @@ const p5wgex = (function(){
     }
   }
 
+  // というわけでややこしいんですが、
+  // 「gl.RGBAーgl.RGBAーgl.UNSIGNED_BYTE」「gl.RGBA32Fーgl.RGBAーgl.FLOAT」「gl.RGBA16Fーgl.RGBAーgl.HALF_FLOAT」
+  // という感じなので、Typeの種類にInternalFormatとFormatが左右されるのですね。
+  // ていうかFormatだと思ってた引数の正式名称はTypeでしたね。色々間違ってる！！textureTypeに改名しないと...
+
   // infoの指定の仕方
-  // 必須：name, w, h.
-  // 任意：textureFormat: テクスチャの種類。色なら"uint"(デフォルト), 浮動小数点数なら"float"や"half_float"
+  // 必須：name, w, h. ？あ、name要らないわ。あっちで付けるわ。
+  // 任意：textureType: テクスチャの種類。色なら"ubyte"(デフォルト), 浮動小数点数なら"float"や"half_float"
+  // 他のパラメータとか若干ややこしいのでそのうち何とかしましょう...webgl2はややこしいのだ...
+  // pavelさんのあれは対応してたと思うよ。きちんと見なきゃね...
   // textureFilter: テクスチャのフェッチの仕方。通常は"nearest"（点集合など正確にフェッチする場合など）、
   // 学術計算とかなら"linear"使うかも
   // textureWrap: 境界処理。デフォルトは"clamp"だが"repeat"や"mirror"を指定する場合もあるかも。
-  // 色として普通に使うなら全部指定しなくてOK. 点情報の格納庫として使うなら"float"だけ要ると思う
+  // 色として普通に使うなら全部指定しなくてOK. 点情報の格納庫として使うなら"float"だけ要ると思う。
   function _createFBO(gl, info){
     _validateForFBO(gl, info);
     _parseTextureParam(gl, info);
@@ -477,7 +540,12 @@ const p5wgex = (function(){
     // フレームバッファ用のテクスチャをバインド
     gl.bindTexture(gl.TEXTURE_2D, fTexture);
     // フレームバッファ用のテクスチャにカラー用のメモリ領域を確保
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, info.w, info.h, 0, gl.RGBA, info.textureFormat, null);
+    // こっちがInvalid Internal Formatで...
+    // わかりました。webgl2ならではの事情だそうです。上記：↑
+    // ちなみに3つの引数の正式名称はInternalFormat, Format, Typeです。「textureType」の方が正しいようで。
+    // textureInternalFormatとtextureFormatはundefinedなら自動決定、という方向で。
+    // 手動でも決定できるようにするか。最終的にgl変数は辞書使って何でも指定可能にするつもり...
+    gl.texImage2D(gl.TEXTURE_2D, 0, info.textureInternalFormat, info.w, info.h, 0, info.textureFormat, info.textureType, null);
 
     // テクスチャパラメータ
     // このNEARESTのところを可変にする
@@ -485,7 +553,9 @@ const p5wgex = (function(){
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, info.textureFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, info.textureWrap);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, info.textureWrap);
+
     // フレームバッファにテクスチャを関連付ける
+    // こっちがFramebuffer is incompleteか。
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fTexture, 0);
 
     // 中身をクリアする(clearに相当する)
@@ -499,7 +569,7 @@ const p5wgex = (function(){
 
     // オブジェクトを返して終了。
     return {
-      f: framebuffer, d: depthRenderbuffer, t: texture,
+      f: framebuffer, d: depthRenderbuffer, t: fTexture,
       name: info.name, w: info.w, h: info.h,
       texelSizeX: 1/info.w, texelSizeY: 1/info.h, double: false,
     }
@@ -577,12 +647,13 @@ const p5wgex = (function(){
   // Painter.
 
   // shaderは廃止。いいのかどうかは知らない。
+  // getProgramで名前を渡す。理由は原因追及をしやすくするため。
   class Painter{
     constructor(_gl, name, vs, fs){
       this._gl = _gl;
       this.gl = _gl.GL;
       this.name = name;
-      this.program = _getProgram(this.gl, vs, fs); // プログラムだけでいいのよね
+      this.program = _getProgram(name, this.gl, vs, fs); // プログラムだけでいいのよね
       this.attributes = _loadAttributes(this.gl, this.program); // 属性に関するshader情報
       this.uniforms = _loadUniforms(this.gl, this.program); // ユニフォームに関するshader情報
     }
@@ -764,6 +835,14 @@ const p5wgex = (function(){
       //this.currentShader = undefined;
       this.currentFigure = undefined;
       this.currentIBO = undefined; // このくらいはいいか。
+      this.enableExtensions(); // 拡張機能
+    }
+    enableExtensions(){
+      // color_buffer_floatのEXT処理。pavelさんはこれ使ってwebgl2でもfloatへの書き込みが出来るようにしてた。
+      // これによりframebufferはFRAMEBUFFER_COMPLETEを獲得する：https://developer.mozilla.org/en-US/docs/Web/API/EXT_color_buffer_float
+      // 書き込み可能になるInternalFormatは「gl.R16F, gl.RG16F, gl.RGBA16F, gl.R32F, gl.RG32F, gl.RGBA32F, gl.R11FG11FB10F」？
+      // 最後のはなんじゃい...
+      this.gl.getExtension('EXT_color_buffer_float');
     }
     clearColor(r, g, b, a){
       // clearに使う色を決めるところ
@@ -833,12 +912,15 @@ const p5wgex = (function(){
       return this;
     }
     registFBO(name, info){
-      // doubleは生成時に付与するので要らんわな
+      // nameはここで付けるので要らないね。doubleは生成時に付与するので要らんわな。
+      info.name = name;
       const newFBO = _createFBO(this.gl, info);
       this.fbos[name] = newFBO;
       return this;
     }
     registDoubleFBO(name, info){
+      // nameは以下略
+      info.name = name;
       const newFBO = _createDoubleFBO(this.gl, info);
       this.fbos[name] = newFBO;
       return this;
