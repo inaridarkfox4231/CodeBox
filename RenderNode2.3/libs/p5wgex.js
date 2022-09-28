@@ -66,6 +66,7 @@
 // webgl2だから拡張無しでOKかと思ったらそういうわけにはいかないわけだ。
 
 // gl定数の辞書は...リスト作っておいて文字列でアクセスできるようにしましょうね...汎用性考えるとね。
+// 辞書作らないとキリがないので。
 
 // --------------------------- //
 // まず、...
@@ -1011,7 +1012,9 @@ const p5wgex = (function(){
       if(target == null){
         // nullの場合はスクリーンに直接
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.viewport(0, 0, width, height);
+        // drawingBufferWidthとdrawingBufferHeightってやらないとpixelDensityに邪魔されて
+        // 全画面になってくれないようです...気を付けないと。これも確かpavelさんやってたな...
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         return this;
       }
       // targetがfboそのものの場合。

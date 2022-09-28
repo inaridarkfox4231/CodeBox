@@ -10,6 +10,45 @@
 // できるかな...やるしかないんじゃ...正規化デバイスで計算しましょう。
 
 // エラー出なくなってようやく本番。点は未だ動かず...厳しいね。
+// pixelDensity(1)を宣言しないとなぜか正規化デバイス座標系で指定した位置に表示されないバグが発生してる。
+
+// 原因はフレームバッファを用意するときの何らかの処理と
+// bindFBO(null)するときの何らかの処理のようです。詳細は調査中...ですがこれらを外したらうまくいったので
+// そういうことかと。viewport関連ということですね。困ったね。何だろ...
+
+// bindFBO(null)の方は単純にwidth,heightってやってたのをgl.drawingBufferWidth, gl.drawingBufferHeightにしたら
+// pixelDensityの影響を受けなくなった。そういうことですね。
+
+// もうひとつは...？
+// データが書き込まれてないです。
+// そりゃそうでしょ
+// gl_PointSize = 1.0;
+// 書いてないんだもん。上手く指定されるわけないわ。
+
+// さ、次のフェイズ。サクサク行こう。
+// あっさり終わってしまった...（なんじゃい）
+
+// ただ、注意点が山ほどあった。ほんとうに山ほど。webgl2は難しいのだ。
+
+// まず
+// フレームバッファにアタッチするテクスチャを作るtexImage2Dにおいて
+// InternalFormat, Format, Typeってのがあってね
+// TypeにUNISIGNED_BYTE以外のFLOATやHALF_FLOATを使う場合
+// 前の2つは限定される、まあそうはいってもgl.RGBA32Fとか一部ではあるんだけど。いろいろ。
+
+// 次に
+// それとbindFBO(null)する場合はp5jsの変数width, heightを使うのはまずいとのこと。
+// gl.drawingBufferWidthとHeightを使う。これらはpixelDensityを考慮した値となっている。
+// これ渡さないとおかしなことになるわけ。pixelDensityを1にする力技は反則なのでやめましょう。
+
+// 最後に
+// データを書き込む場合の点描画ではpointSizeを1.0にしないといけません
+// これ去年もハマったよね？？
+
+// これで位置はいいんだけど
+// ポイントスプライトの大きさってdevicePixelRatioに依存するのよね
+// だから使えないのよね...難しいところ。使えなくもないんだけどそれを考慮した値になるわけで。
+// それもあってかpixi.jsでは全部rectにtexture貼り付けてる。まあ当然か。
 
 // --------------------------------------------------------------------------- //
 // global.
@@ -42,8 +81,9 @@ const dataVert =
 "  vec2 coord = (vec2(x, y) + 0.5) / uSize;" + // これで0～1に入る
 "  coord = (coord - 0.5) * 2.0;" + // これで-1～1に入る。
 "  coord.y = -coord.y;" +
-"  vData = vec4(coord, aData.zw);" +
+"  vData = aData;" +
 "  gl_Position = vec4(coord, 0.0, 1.0);" +
+"  gl_PointSize = 1.0;" + // これ書かないとデータの書き込みできないんですよ...
 "}";
 
 const dataFrag =
@@ -85,19 +125,34 @@ const colorVert =
 "uniform float uSize;" + // 32.0です。
 "uniform float uPointSize;" + // 暫定8.0で。
 "uniform sampler2D uTex;" + // readサイドです。
+"varying vec2 vVelocity;" +
 "void main(){" +
 "  vec2 coord = vec2(mod(aIndex, uSize), floor(aIndex / uSize));" + // これで0～31になった。
 "  coord = (coord + 0.5) / uSize;" + // これでテクスチャ座標
 "  vec4 data = texture2D(uTex, coord);" + // pとvの組。
 "  gl_Position = vec4(data.xy, 0.0, 1.0);" + // data.xyに位置情報が入ってるのでそこにおく。
 "  gl_PointSize = uPointSize;" +
+"  vVelocity = data.zw;" +
 "}";
 
 // gl_PointCoord使って円かなんかにするのがいいと思うんだけどね。
 const colorFrag =
 "precision mediump float;" +
+"varying vec2 vVelocity;" +
+// getRGB(HSBをRGBに変換する関数)
+"vec3 getRGB(float h, float s, float b){" +
+"  vec3 c = vec3(h, s, b);" +
+"  vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);" +
+"  rgb = rgb * rgb * (3.0 - 2.0 * rgb);" +
+"  return c.z * mix(vec3(1.0), rgb, c.y);" +
+"}" +
+// メインコード
 "void main(){" +
-"  gl_FragColor = vec4(1.0);" + // 終了！
+"  vec2 p = (gl_PointCoord.xy - 0.5) * 2.0;" +
+"  if(length(p) > 1.0){ discard; }" +
+"  vec3 col = getRGB(0.55, length(vVelocity) * 64.0, 1.0);" +
+"  col *= pow(1.0 - length(p), 2.0);" +
+"  gl_FragColor = vec4(col, 1.0);" + // 終了！
 "}";
 
 // --------------------------------------------------------------------------- //
@@ -124,7 +179,7 @@ function setup(){
   for(let i = 0; i < SIZE * SIZE; i++){
     const x = (Math.random()<0.5 ? 1 : -1) * 0.999 * Math.random();
     const y = (Math.random()<0.5 ? 1 : -1) * 0.999 * Math.random();
-    const _speed = 0.005 + 0.02 * Math.random();
+    const _speed = 0.002 + 0.01 * Math.random();
     const _direction = Math.PI * 2.0 * Math.random();
     dataArray.push(x, y, _speed * Math.cos(_direction), _speed * Math.sin(_direction));
     indexArray.push(i);
@@ -142,6 +197,7 @@ function setup(){
   // そうか。データの格納1回だけだったわ。
 
   // 最初にデータの格納. FBOをバインド。
+
   _node.bindFBO("sprites");
   _node.use("data", "data");
   _node.setUniform("uSize", SIZE);
@@ -153,27 +209,30 @@ function setup(){
 function draw(){
 
   // 次にデータの更新。FBOをバインド。同時に同じFBOのテクスチャをセット。
-  /*
+
   _node.bindFBO("sprites");
   _node.use("update", "board");
   _node.setFBOtexture2D("uTex", "sprites");
   _node.drawArrays("triangle_strip"); // 板ポリ芸なので
   _node.swapFBO("sprites"); // writeに書いた内容をreadに浮上させる
   _node.unbind();
-  */
+
+  _node.enable("blend");
+  _node.blendFunc("one", "one");
 
   // 最後にスクリーンに描画
   _node.bindFBO(null);
   _node.clear(); // スクリーンを黒で初期化
   _node.use("color", "indices");
   _node.setUniform("uSize", SIZE);
-  _node.setUniform("uPointSize", 8.0);
+  _node.setUniform("uPointSize", 32.0);
   _node.setFBOtexture2D("uTex", "sprites");
   _node.drawArrays("points");
   _node.unbind();
   _node.flush();
 
-  noLoop();
+  _node.disable("blend");
 
   // 問題なければいいね。まずありえないが...（もう怖くない！！）
+  // お騒がせしました...
 }
