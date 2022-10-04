@@ -66,6 +66,8 @@ bufferSubDataの負荷はほとんど無いんだって。計算負荷がほぼ�
 やられた！！
 */
 
+// パーティクルの数でしたっけ
+
 // グローバルに「world」インスタンスを用意しなければならない
 let world = null;
 
@@ -212,22 +214,29 @@ function createPhysicsParticles() {
     h / METER, // 高さ
     new b2Vec2(
       windowW / 2 / METER, // 発生X座標
-      -windowH / 2 / METER
+      -windowH / 2 / METER // さっぱりわからんけどここプラスにしたらなんか中心が画面の中心になったよ。Oh!で、なんか、縦長領域がパーティクルで
     ), // 発生Y座標
     0
   );
+  // 埋め尽くされた。ということは...多分横256で縦384だと思う。個数？10880個？？
+  // 粒子の半径が4/100だから直径は8/100で...
+  // 1535, 746, 10880.
+  // わかんねーーー
+
+
   const particleGroupDef = new b2ParticleGroupDef();
   particleGroupDef.shape = box; // 発生矩形を登録
   _b2ParticleSystem.CreateParticleGroup(particleGroupDef);
 }
 
+// ここで赤いでっかいのを作ってるわけだ。なるほど...
 function createPhysicsBall() {
   // 属性を設定
   const bd = new b2BodyDef();
-  bd.type = b2_dynamicBody;
+  bd.type = b2_dynamicBody;  // b2_dynamicBodyはグローバル変数のようです
   bd.position.Set(
     windowW / 2 / METER, // 発生X座標
-    (-windowH * 1.5) / METER // 発生Y座標
+    (-windowH * 1.5) / METER // 発生Y座標：やや上の方。だから降ってくるわけね。だんだん分かってきた。
   );
   // 形状を設定
   const circle = new b2CircleShape();
@@ -279,7 +288,7 @@ function createPixiWorld() {
 
   // パーティクルの作成
   const length = _b2ParticleSystem.GetPositionBuffer().length / 2;
-  console.log("length:"+length); // 48個になりました。コンパクト！！少ないことはいいことだ。
+  console.log(window.innerWidth, window.innerHeight, "length:"+length); // 48個になりました。コンパクト！！少ないことはいいことだ。
   for (let i = 0; i < length; i++) {
     const shape = new PIXI.Sprite(texture); // シェイプを作成
     shape.scale.set(1 / dpi);
@@ -353,9 +362,10 @@ function setupDragEvent() {
     const aabb = new b2AABB();
     aabb.lowerBound.Set(p.x - 0.001, p.y - 0.001);
     aabb.upperBound.Set(p.x + 0.001, p.y + 0.001);
-    const queryCallback = new QueryCallback(p);
-    world.QueryAABB(queryCallback, aabb);
+    const queryCallback = new QueryCallback(p); // ここで使っていますね。pはマウスの位置座標のようです。
+    world.QueryAABB(queryCallback, aabb); // そしてコールバックのt/fをaabbとともにQueryAABBに渡していますね。...
 
+    // fixtureになんか放り込まれるっぽいな
     if (queryCallback.fixture) {
       const body = queryCallback.fixture.body;
       const md = new b2MouseJointDef();
@@ -365,7 +375,7 @@ function setupDragEvent() {
       md.maxForce = 1000 * body.GetMass();
       // マウスジョイントを作成
       _b2MouseJoint = world.CreateJoint(md);
-      body.SetAwake(true);
+      body.SetAwake(true); // そしてそのbodyにAwakeがsetされるわけだ。？？
     }
   }
 
@@ -386,6 +396,7 @@ function setupDragEvent() {
       world.DestroyJoint(_b2MouseJoint);
       _b2MouseJoint = null;
     }
+    // よくわかんないけどここでsleepにしないといけないのでは？？
   }
 }
 
