@@ -249,24 +249,54 @@ function isMobile () {
 }
 */
 // ----------- ここからスクショ関連 ----------- //
-// ぶっちゃけ理解は後回しでいい
+
+// 改変前の方が参考になるかも？
 
 // スクリーンショット関数
+
+// 4つくらいあるわね
+
+// パターン0: スクリーンに描画している内容を保存する → フレームバッファを一時的に生成する必要あり
+// パターン1： framebufferにセットされたtextureを保存する（サイズ指定）→ フレームバッファ生成以降だけでOK？
+// パターン2: textureをそのまま保存する（サイズ指定） → normalizeTexture以降の処理だけで問題ない
+// というかもとからRGBAならその必要はないはず（framebufferの画像の扱いがRGBAの場合など）
+// パターン3: canvas2Dの内容を保存する → キャンバス要素を取得した後のパートのみでOK
+// ただしpixelDensityの問題がある場合は一時的にcanvasを生成したうえでそこに落とす必要がある
+// こんな感じでどれにも対応していますね。パターン0の場合はcopyShader必須なのでモジュール内に作らないといけないな...
+
 function captureScreenshot () {
+  // 縦横のうち小さい方を512とし大きい方を画面サイズの大/小を掛けたものとしてそういう形でサイズを取得
     let res = getResolution(config.CAPTURE_RESOLUTION);
     // 即時的にフレームバッファを生成して
+    // さっき作った縦横の大きさで作る、これが最終的にサイズになる。チェックすると小さい方が512にちゃんとなってるでしょ。
+    // 要はframebufferを生成してその内容を保存しているわけね。
+
+    // ぶっちゃけ何が入ってるの？？
+    // これオリジナルではwebgl2の場合はgl.HALF_FLOATで...要するにその場でframebufferを一時的に、
+    // 具体的には、framebufferのtextureを保存するわけですけど、それと同じframebufferを使うということね。
+    // 同じフォーマットで生成して、そこに直接レンダリングして、ということ。
+    // 毎フレーム書き込まれるtextureは使えないのか？調べ中...
+
+    // ああーそうか。あ、そうか。。画面のキャプチャの場合、いわゆる「スクリーンフレームバッファ」にアクセスできないからか。
+    // スクリーンフレームバッファのテクスチャを直接取得することはできない。オフスクリーンレンダリングするしかないと。
+    // 加えてこれ、サイズ指定してるでしょ。512とかって。それでこうするしかないってわけだ、サイズいじれないからな。
+    // そういうことだそうです。
+    // だから内容が用意したフレームバッファの場合はそれをそのまま使えるはずです。
     let target = createFBO(res.width, res.height, ext.formatRGBA.internalFormat, ext.formatRGBA.format, ext.halfFloatTexType, gl.NEAREST);
     // 即レンダリング
     render(target);
     // フレームバッファをテクスチャに変換？
     // フレームバッファ・・んー。んー・・
     let texture = framebufferToTexture(target);
-    texture = normalizeTexture(texture, target.width, target.height);
+    // ここ以降はtextureの内容を直接保存する形になる...出来るのか知らないけど
+    texture = normalizeTexture(texture, target.width, target.height); // そしてnormalizeとはFloat32をUInt8にするという意味なのね。
     // なんかよくわかんないけど最終的に保存されます（雑）
+    // ここまでがtextureのsaveになる感じなんかね。
     let captureCanvas = textureToCanvas(texture, target.width, target.height);
-    let datauri = captureCanvas.toDataURL();
-    downloadURI('fluid.png', datauri);
-    URL.revokeObjectURL(datauri);
+    // これ以降は通常の2Dのsaveって感じ。
+    let datauri = captureCanvas.toDataURL(); // 引数はデフォだと「'image/png'」だけど「'image/jpeg'」も指定できるとか
+    downloadURI('fluid.png', datauri); // それとファイル名を用いて...
+    URL.revokeObjectURL(datauri); // 解放してるけどcreateの記述が無い...
 }
 
 // テクスチャって配列だったの・・？ていうかまあ、確かに配列なんだけれど。そうなんだ。へぇ・・知らなかった。
@@ -274,13 +304,19 @@ function framebufferToTexture (target) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
     let length = target.width * target.height * 4;
     let texture = new Float32Array(length);
+    // readPixelsを使って一列のFloat32Arrayに落とす。これが、textureですね...（ほんまか）
     gl.readPixels(0, 0, target.width, target.height, gl.RGBA, gl.FLOAT, texture);
+    // これおそらく中で扱ってるのがRGBAならそのまま落としてOKですね...float扱ってるからfloatって書いてるけど。
+    // UInt8であれば直接そこに落とせるはず。このプログラムではFLOAT使ってるからこうしてるけど。
     return texture;
 }
 // と思ったらnormalizeって何？？ってああ、色に変換するのね。Uint8じゃないとまずいものね。
+// そんでFloat32Arrayではどうしようもないので8bitずつ区切って色情報に変換してるのさ
 function normalizeTexture (texture, width, height) {
     let result = new Uint8Array(texture.length);
     let id = 0;
+    // 4つずつ、該当するtextureの値を0～1に落として、それに255を掛けて0～255のunsigned byteにしているわけ。
+    // ざっくりいうと Float32 → UInt8 の変換をしているのね。
     for (let i = height - 1; i >= 0; i--) {
         for (let j = 0; j < width; j++) {
             let nid = i * width * 4 + j * 4;
@@ -291,6 +327,8 @@ function normalizeTexture (texture, width, height) {
             id += 4;
         }
     }
+    // ここで作ってるのってあれか、pixelsだ。loadPixelsでアクセスできるようになるやつだ。あれUInt8Arrayだったんだ。
+    // textureの正体はUInt8Array...！
     return result;
 }
 // 補助関数
@@ -298,6 +336,10 @@ function clamp01 (input) {
     return Math.min(Math.max(input, 0), 1);
 }
 // さらにキャンバスに？？キャンバス要素を取得してそこから直接・・
+// ここで2Dを作ってるってことはこれを使えば2Dのsaveが実現可能ということ
+// 加えてtextureのsaveも可能になるわけだな！便利！！
+
+// さらにUInt8Arrayの形であればそれを2DCanvasに貼り付けることができるわけだな
 function textureToCanvas (texture, width, height) {
     let captureCanvas = document.createElement('canvas'); // キャンバス要素。戻り値。
     let ctx = captureCanvas.getContext('2d');
@@ -306,19 +348,33 @@ function textureToCanvas (texture, width, height) {
 
     let imageData = ctx.createImageData(width, height);
     imageData.data.set(texture); // レンダリング結果から作ったテクスチャをここで貼り付けているわけです
+    // 具体的には0~255の値をRGBA,RGBAって感じで左上から右上、上から下に登録していってるんだと思う。足りないところは...って感じ。
+    // だからぴったりじゃないといけない。なるほど。
     ctx.putImageData(imageData, 0, 0);
 
     return captureCanvas;
 }
+// もしサイズが問題なら...this.canvas.widthとかすると普通に2倍の値になるものね...そりゃ無理だわ。
+// だから馬鹿正直にcanvas以降をコピペすると同じ結果になる。
+
+// どうしてもというなら一時的に指定サイズのcanvas要素を生成して（pixelDensity関係ないこっちがcreateCanvasで指定したサイズのそれ）
+// getImageDataでpixelDensityが考慮された画面内のpixelの値をそこに格納して、（関数「get」は内部でgetImageDataを使っている）
+// それを使ってsave云々をやればいいんだと思う。
+
+// 普通にctxを取得してctx.getImageData(x,y,1,1).dataを見れば長さ4の配列でRGBAが1つずつ入っている。
+// これを上記のようにUInt8Arrayにぶち込めばいい、そのtextureをimageData.data.set(texture)ではめればOK.
+// 1.25でもいいし、2でもいい、やっぱそういうのに左右されないコードを書きたいわよね。2なら4つの平均でもいいんだろうけど、
+// 1.25じゃ無理でしょう。
+
 // おそらくp5.jsのsaveってこういうことやってるんだろうな・・という想像。
 // 調べたらdownloadFileって関数で似たようなことやってますね
 function downloadURI (filename, uri) {
     let link = document.createElement('a');
-    link.download = filename;
-    link.href = uri;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.download = filename; // ダウンロードはファイル名を指定する
+    link.href = uri; // hrefにはアドレスを指定する
+    document.body.appendChild(link); // ツリーにぶら下げる
+    link.click(); // クリックイベントを発火
+    document.body.removeChild(link); // もう用済みなので破棄する
 }
 // ------------ ここまでスクショ関連 ------------- //
 

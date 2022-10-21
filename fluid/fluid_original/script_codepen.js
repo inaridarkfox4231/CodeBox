@@ -466,6 +466,7 @@ function createDoubleFBO (texId, w, h, internalFormat, format, type, param) {
     let fbo1 = createFBO(texId    , w, h, internalFormat, format, type, param);
     let fbo2 = createFBO(texId + 1, w, h, internalFormat, format, type, param);
 
+    // read[0]とかread[2]っていうのはなんですかね。。。
     return {
         get read () {
             return fbo1;

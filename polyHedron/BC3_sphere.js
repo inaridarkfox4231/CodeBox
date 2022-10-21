@@ -1,49 +1,24 @@
 // 3Dのfoldやってみたい
+// Polyhedron again: https://www.shadertoy.com/view/XlX3zB
+// ロジックは分かったし基本領域も出た。ncの意味も完全に理解した。
+// しかしどう説明したもんかな・・・・
+// 内積を取って2次元のfoldで解釈して基本関係式が・・とかそんな感じ。
+// 要は3次元の鏡映群が実質この3つ(2, 3, 3), (2, 3, 4), (2, 3, 5)しか
+// ないので、それらを順繰りにやってるだけなのね。
+
+// やるか。
+// pとかqとかvとか一文字をグローバルにするのは行儀が悪いので
+// 2文字以上にしようね。普通でしょ。
 
 // A3, BC3, H3. 参考：https://ja.wikipedia.org/wiki/コクセター群
 
 // 球面タイリングどうやるんだっけ。
 // 普通に原点中心でやる。ただ、色をイテレーションの反射回数で分ける。
 
-// 20221004
-
-// 120の部屋があります。変形十二面体を作りたい場合は対称性が落ちるので60部屋になりますが。
-// あっちの、変形立方体も部屋の数が48→24になるだけでやることは同じなんですよ、多分。そうです、はい。部屋数24.
-// めんどくさいなら鏡映2つずつでやればいいんじゃね（雑）
-
-// は、そっすね...
-
-// さてと戯言は楽しいが本題だ。
-// ...
-// なるほど、qcaで正十二面体...見えた！
-// まず同じように、とはいかないんだなこれが。
-// qab,qbc,qcaをどこにおくか。まあ図を描くしかないんだよな...で、図を描くと、正二十面体の一つの面の6分割のひとつが
-// 上の方の右の方にちょこんと出来るってわけ。で、今回はnaとncで同じ面のどこかに映るんだが、nbの時に隣の面に行く。
-// ここA3,BC3と事情が違うので混乱するんだが、まあおなじことさ。つまり今回はqcaが面の重心になる。
-// 多分角度が大きいことによる影響だと思う。
-// で、qcaは面の重心。これ全部用意すると(nbで映りあうんですけど)正十二面体。で、これですけどそのうちの8つ、8つと12個に分かれてて、
-// 8つが立方体を作るんですよね。で、立方体から正十二面体を作る有名な構成あるじゃないですか。あれに当てはめる形で頂点の座標を
-// はめ込むことができるんですよね。そういうことです。で、そのうちのひとつの部屋がqab,qbc,qcaでできるというわけです。
-
-// いつものように、qbcの場合通常の正二十面体、qcaの場合面の重心を結ぶので正十二面体。そしてqabの場合は辺をつないでできるわけですが、
-// まあ明らかなんですけど正三角形と正五角形になるじゃないですか。これ、二十・十二面体って名前が付いてるんですよ。
-
-// 以上です。
-
-// 頂点を出した後にやること。
-// まず法線ベクトルをいっぱい出す。
-// 次に鏡映を2回ずつ実行するにあたり面倒なのでrotateで書いてそれでfoldまがいのことをする。
-// おわり。
-// 方程式は難しくないです。おわったらQiitaでも書くか。
-
-// どっちも三次方程式じゃん...
-
-// 補足1:pixivの情報は使うの難しいと思う...テンプレに落とせないから。座標が分かればいいってもんじゃないのよ。
-// まあ落とすための努力をすればいいんだけどね。
-// 補足2:3枚の鏡映を2つずつ取ってrotationを作ればそれによる移しあいで回転による埋め尽くしはできるはず。んー。
-// 2次元だと1つになるでしょ。回転で埋め尽くす感じ。それの3次元版。3つから2つずつ選ぶと3つ出来るでしょ。そういう話かと。
-// これが4次元になると...想像したくないな。
-
+// 20221007
+// イテレーションの回数で色付け、部屋は48ある。
+// 変形立方体に使う回転イテレーションの場合部屋は24となるが、
+// 隣接する部屋は違う色で塗ることが可能である。
 
 let myShader;
 
@@ -111,13 +86,12 @@ let fs =
 // 初期化処理。gCoordは重心座標(全部足して1ですべて0.0以上)。
 // まず正四面体の鏡映群(A3)の場合。
 "void initialize(vec3 gCoord, float size){" +
-"  float ratio = (1.0 + sqrt(5.0)) * 0.5;" + // 黄金比
 "  na = vec3(1.0, 0.0, 0.0);" +
 "  nb = vec3(0.0, 1.0, 0.0);" +
-"  nc = vec3(-0.5, -ratio * 0.5, (ratio - 1.0) * 0.5);" +
-"  pab = vec3(0.0, 0.0, ratio * 0.5) * size;" +
-"  pbc = vec3(0.5, 0.0, ratio * 0.5) * size;" +
-"  pca = vec3(0.0, ratio / 6.0, (2.0 * ratio + 1.0) / 6.0) * size;" +
+"  nc = vec3(-0.5, -1.0 / sqrt(2.0), 0.5);" +
+"  pab = vec3(0.0, 0.0, 1.0) * size;" +
+"  pbc = vec3(0.5, 0.0, 0.5) * size;" +
+"  pca = vec3(0.0, 1.0 / sqrt(2.0), 1.0) * size;" +
 "  uniqueP = gCoord.x * pab + gCoord.y * pbc + gCoord.z * pca;" +
 "  pab = normalize(pab);" +
 "  pbc = normalize(pbc);" +
@@ -127,7 +101,7 @@ let fs =
 // 具体的にはna, nb, ncのそれぞれについてそれと反対にあるときだけ
 // 面で鏡写しにする。
 "void fold(inout vec3 p){" +
-"  for(int i = 0; i < 5; i++){" +
+"  for(int i = 0; i < 4; i++){" +
 "    p -= 2.0 * min(0.0, dot(p, na)) * na;" +
 "    p -= 2.0 * min(0.0, dot(p, nb)) * nb;" +
 "    p -= 2.0 * min(0.0, dot(p, nc)) * nc;" +
@@ -137,7 +111,7 @@ let fs =
 "float countFold(inout vec3 p){" +
 "  float n = 0.0;" +
 "  float q;" +
-"  for(int i = 0; i < 5; i++){" +
+"  for(int i = 0; i < 4; i++){" +
 "    q = dot(p, na);" +
 "    if(q < 0.0){ n += 1.0; p -= 2.0 * q * na; }" +
 "    q = dot(p, nb);" +
@@ -200,11 +174,11 @@ let fs =
 "  vec3 color = blue;" +
 "  float n = countFold(p);" +
 "  if(mod(n, 2.0) == 1.0){ color = skyblue; }" +
-"  float t = sphere(p, 1.0);" +
-"  updateDist(color, t, turquoise, sphere(p - uniqueP, 0.05), 0);" +
-"  updateDist(color, t, red, halfBar(p - uniqueP, na, 0.02), 0);" +
-"  updateDist(color, t, green, halfBar(p - uniqueP, nb, 0.02), 0);" +
-"  updateDist(color, t, orange, halfBar(p - uniqueP, nc, 0.02), 0);" +
+"  float t = sphere(p, 0.6);" +
+"  updateDist(color, t, turquoise, sphere(p - uniqueP, 0.1), 0);" +
+"  updateDist(color, t, red, halfBar(p - uniqueP, na, 0.03), 0);" +
+"  updateDist(color, t, green, halfBar(p - uniqueP, nb, 0.03), 0);" +
+"  updateDist(color, t, orange, halfBar(p - uniqueP, nc, 0.03), 0);" +
 "  return vec4(color, t);" +
 "}" +
 // 法線ベクトルの取得
@@ -264,6 +238,8 @@ let fs =
 "vec3 getBaryCoord(){" +
 "  float t = mod(u_time, 6.0);" +
 "  float f = fract(u_time * 0.5);" +
+"  float k = sqrt(2.0);" +
+"  return vec3(k, k, 1.0) * (2.0 * k - 1.0) / 7.0;" +
 "  if(t < 2.0){ return vec3(1.0 - f, f, 0.0); }" +
 "  else if(t < 4.0){ return vec3(0.0, 1.0 - f, f); }" +
 "  return vec3(f, 0.0, 1.0 - f);" +
@@ -289,7 +265,7 @@ let fs =
 "  transform(camera);" +
 "  transform(light);" +
 // 初期化処理。
-"  initialize(getBaryCoord(), 2.0);" +
+"  initialize(getBaryCoord(), 1.8);" +
 // マーチングの結果を取得。
 "  float t = march(ray, camera);" +
 // tはマーチングに失敗すると-1.0が返る仕組みでその場合colorは
