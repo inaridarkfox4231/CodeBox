@@ -26,6 +26,9 @@
 
 // outputをmasterにしたけど、decayとsustainを長めにしたらsin波についてはいい感じになりました。ノイズ系は調査中！
 
+// 20221101
+// 1.3.1でいいよ。それより例のあれは気にしなくていい、だって
+
 var backgroundColor;
 
 var metronome;
@@ -43,16 +46,17 @@ var EnvelopedOscillator = function(oscillatorType, envelopeParameter) {
     case 'triangle':
     case 'sawtooth':
     case 'square':
-      this.oscillator = new p5.Oscillator();
+      this.oscillator = new p5.Oscillator(); // オシレーターを追加
       break;
     case 'white':
     case 'pink':
     case 'brown':
-      this.oscillator = new p5.Noise();
+      this.oscillator = new p5.Noise(); // ノイズを追加
       break;
   }
-  this.oscillator.setType(oscillatorType);
-  this.envelope = new p5.Env();
+  this.oscillator.setType(oscillatorType); // ここはp5.Soundのメソッドでどうもタイプを指定するみたい。
+  this.envelope = new p5.Env(); // 何でしょうね...
+  // envelopeにパラメータを設定していますね。
   this.envelope.setADSR(envelopeParameter.attackTime, envelopeParameter.decayTime, envelopeParameter.susPercent, envelopeParameter.releaseTime);
   this.envelope.setRange(envelopeParameter.attackLevel, envelopeParameter.releaseLevel);
 };
@@ -68,19 +72,33 @@ EnvelopedOscillator.prototype.stop = function() {
   this.oscillator.amp(0);
   this.oscillator.stop();
 };
+// ノイズをpanさせていますね（微妙に）
 EnvelopedOscillator.prototype.pan = function(value) {
   this.oscillator.pan(value);
 };
+// connectは使われてないですね...
+/*
 EnvelopedOscillator.prototype.connect = function(unit) {
   this.connectedUnit = unit;
   this.oscillator.disconnect();
   this.oscillator.connect(unit);
 };
+*/
 
+// 複数バージョンですねぇ。capacityは8が設定されてて8つ
+// なぜ複数？？
+// 調べると分かりますが1でも8でも変わんないのよね
+// これおそらく和音...かなぁ、想定してる？
+// じゃなくてあれ、多分非同期...というか、複数のオシレータにかわるがわる任せる感じでやることによって
+// 同じオシレータが担当するとずれとかおきちゃうからそれを防いでるんだろ
+// それぞれのあれが発動して終わってみたいな。
+// だから和音やりたかったらこれ使って複数同時にやれば
+// いけるかもだね
 
+// metronomeが120msなんですが...
 var ParallelEnvelopedOscillatorSet = function(oscillatorType, envelopeParameter, capacity) {
   this.envelopedOscillatorArray = [];
-  this.capacity = capacity;
+  this.capacity = capacity; // 個数合計
   this.currentIndex = 0;
   for (var i = 0; i < this.capacity; i++) {
     this.envelopedOscillatorArray.push(new EnvelopedOscillator(oscillatorType, envelopeParameter));
@@ -116,7 +134,7 @@ var Metronome = {
     var newObject = Object.create(Metronome.prototype);
     newObject.intervalMillisecond = intervalMillisecond;
     newObject.lastNoteTimeStamp = millis();
-    newObject.clickCount = 0; // 使われてない
+    //newObject.clickCount = 0; // 使われてない
     return newObject;
   },
   prototype: {
@@ -135,7 +153,7 @@ var Metronome = {
         // BPMを指定するとそれが四分音符の長さになるから適宜それを4倍とか1/4倍とかして
         // あるいはチャンネルを増やして然るべきタイミングで和音用に発火させる、自由自在、何でもできる。
         if (currentTimeStamp >= this.lastNoteTimeStamp + this.intervalMillisecond) this.lastNoteTimeStamp = currentTimeStamp;
-        this.clickCount++;
+        //this.clickCount++; // あとこれは使われてないですね...
         return true;
       }
       return false;
@@ -475,8 +493,6 @@ function setup() {
   backgroundColor = color(240);
   ellipseMode(CENTER);
   rectMode(CENTER);
-
-	//frameRate(30);
 
   masterVolume(0.7);
   // 120ミリ秒ごとに発火。

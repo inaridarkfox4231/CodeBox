@@ -1,0 +1,1737 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,height=device-height">
+<link rel="stylesheet" type="text/css" href="../../catincat.css">
+<title>WebGLシェーダーデモ</title>
+<style>
+
+html {
+	height:100%;
+}
+
+body {
+	height:100%;
+}
+
+#header {
+}
+
+#canvas {
+	width:100vw;
+	height:80vh;
+	margin-top:8px;
+	margin-left:-8px;
+	margin-right:-8px;
+	background:black;
+}
+
+</style>
+</head>
+<body class="fullscreen">
+<div id="header">
+<div class="breadcrumb"><a href="../../index.html">ねこいりねこ</a> : <a href="../index.html">JavaScript</a></div>
+<select id="material">
+	<option disabled>入力</option>
+	<option value="position">座標</option>
+	<option value="normal">法線</option>
+	<option value="occlusion">遮蔽率</option>
+	<option value="curvature">曲率</option>
+	<option value="noise">ノイズ</option>
+	<option disabled>基本</option>
+	<option value="diffuse" selected>拡散反射</option>
+	<option value="specular">鏡面反射</option>
+	<option value="shadow">影</option>
+	<option value="reflect">反射マップ</option>
+	<option value="refract">屈折マップ</option>
+	<option value="ambient">大域照明</option>
+	<option value="toon">トゥーン</option>
+	<option disabled>応用</option>
+	<option value="soap">石鹸</option>
+	<option value="chocolate">チョコ</option>
+	<option value="agate">陶磁器</option>
+	<option value="sand">砂</option>
+	<option value="wood">木</option>
+	<option value="gypsum">石膏</option>
+	<option value="snow">雪</option>
+	<option value="skin">肌</option>
+	<option value="water">水</option>
+	<option value="glass">ガラス</option>
+	<option value="ruby">ルビー</option>
+	<option value="gold">金</option>
+	<option value="iron">鉄</option>
+	<option value="fire">炎</option>
+	<option value="wax">蝋</option>
+	<option value="fur">毛</option>
+</select>
+<select id="shape">
+	<option value="cube" selected>立方体</option>
+	<option value="sphere">球</option>
+	<option value="torus">トーラス</option>
+	<option value="teapot">ポット</option>
+	<option value="teacup">カップ</option>
+	<option value="teaspoon">スプーン</option>
+	<option value="bunny">バニー</option>
+	<option value="dragon">ドラゴン</option>
+	<option value="buddha">ブッダ</option>
+</select>
+<span id="loading" style="visibility:hidden">読み込み中...</span>
+</div>
+<canvas id="canvas">WebGLによる質感表現をいろいろ試します。</canvas>
+<script type="text/javascript" src="geometry.js"></script>
+<script>
+
+if (!Math.hypot) {
+	Math.hypot = function(x, y) {
+		return Math.sqrt(x * x + y * y);
+	}
+}
+
+var vertices = {};
+var indices = {};
+var debug = !!window.location.search;
+var timestamp = Date.now();
+
+window.onload = function() {
+	var canvas = document.getElementById('canvas');
+	var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+	if (!gl) {
+		canvas.innerText += 'WebGLが無効です。';
+		return;
+	}
+	var WEBGL_depth_texture = gl.getExtension('WEBGL_depth_texture');
+
+	canvas.onmousedown = function(event) {
+		onmousedown(event || window.event);
+		return false;
+	};
+	canvas.onmousemove = function(event) {
+		onmousemove(event || window.event);
+		return false;
+	};
+	canvas.onmouseup = function(event) {
+		onmouseup(event || window.event);
+		return false;
+	};
+	canvas.ontouchstart = function(event) {
+		var touches = event.changedTouches;
+		for (var i = 0; i < touches.length; i++) {
+			onmousedown(touches[i]);
+		}
+		return false;
+	};
+	canvas.ontouchmove = function(event) {
+		var touches = event.changedTouches;
+		for (var i = 0; i < touches.length; i++) {
+			onmousemove(touches[i]);
+		}
+		return false;
+	};
+	canvas.ontouchend = function(event) {
+		var touches = event.changedTouches;
+		for (var i = 0; i < touches.length; i++) {
+			onmouseup(touches[i]);
+		}
+		return false;
+	};
+	canvas.ontouchcancel = function(event) {
+		var touches = event.changedTouches;
+		for (var i = 0; i < touches.length; i++) {
+			onmouseup(touches[i]);
+		}
+		return false;
+	};
+
+	document.getElementById('material').onchange = onmaterial;
+	document.getElementById('shape').onchange = onshape;
+
+	var loading = 0;
+	function beginLoading() {
+		if (!loading) {
+			document.getElementById('loading').style.visibility = 'visible';
+		}
+		loading++;
+	}
+	function endLoading() {
+		loading--;
+		if (!loading) {
+			document.getElementById('loading').style.visibility = 'hidden';
+		}
+	}
+
+	var classicProgram = createProgram('classic-vertex', 'classic-fragment');
+	var toonProgram = createProgram('toon-vertex', 'toon-fragment');
+	var depthProgram = createProgram('depth-vertex', 'depth-fragment');
+	var outlineProgram = createProgram('outline-vertex', 'outline-fragment');
+	var furProgram = createProgram('fur-vertex', 'fur-fragment');
+	var lightProgram = createProgram('light-vertex', 'light-fragment');
+	var shadowProgram = createProgram('shadow-vertex', 'shadow-fragment');
+	var ambientProgram = createProgram('ambient-vertex', 'ambient-fragment');
+	var softProgram = createProgram('soft-vertex', 'soft-fragment');
+	var solidProgram = createProgram('solid-vertex', 'solid-fragment');
+	var blurProgram = createProgram('blur-vertex', 'blur-fragment');
+	var colorProgram = createProgram('color-vertex', 'color-fragment');
+	var normalProgram = createProgram('normal-vertex', 'normal-fragment');
+	var projectionProgram = createProgram('projection-vertex', 'projection-fragment');
+	var noiseProgram = createProgram('noise-vertex', 'noise-fragment');
+	var reflectProgram = createProgram('reflect-vertex', 'reflect-fragment');
+	var refractProgram = createProgram('refract-vertex', 'refract-fragment');
+	var lusterProgram = createProgram('luster-vertex', 'luster-fragment');
+	var liquidProgram = createProgram('liquid-vertex', 'liquid-fragment');
+	var woodProgram = createProgram('wood-vertex', 'wood-fragment');
+	var sandProgram = createProgram('sand-vertex', 'sand-fragment');
+	var metalProgram = createProgram('metal-vertex', 'metal-fragment');
+	var environmentProgram = createProgram('environment-vertex', 'environment-fragment');
+	var globalProgram = createProgram('global-vertex', 'global-fragment');
+
+	var canvasWidth = Math.round(canvas.offsetWidth);
+	var canvasHeight = Math.round(document.body.offsetHeight - canvas.offsetTop);
+	var canvasRadius = 0.25 * Math.hypot(canvasWidth, canvasHeight);
+	canvas.width = canvasWidth;
+	canvas.height = canvasHeight;
+	canvas.style.width = canvasWidth + 'px';
+	canvas.style.height = canvasHeight + 'px';
+	var framebufferWidth = 1 << Math.ceil(Math.log(canvasWidth) / Math.log(2));
+	var framebufferHeight = 1 << Math.ceil(Math.log(canvasHeight) / Math.log(2));
+	var framebuffer = createFramebuffer(framebufferWidth, framebufferHeight);
+	var arrayBuffer = gl.createBuffer();
+	var elementArrayBuffer = gl.createBuffer();
+	var rectData = [-32767, -32767, 32766, 0, 0, 0, 32767, 32767,
+					-32767, 32767, 32766, 0, 0, 0, 32767, 32767,
+					32767, -32767, 32766, 0, 0, 0, 32767, 32767,
+					32767, 32767, 32766, 0, 0, 0, 32767, 32767];
+	var rectBuffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, rectBuffer);
+	gl.bufferData(gl.ARRAY_BUFFER, new Int16Array(rectData), gl.STATIC_DRAW);
+	var noiseTextureSize = Math.min(framebufferWidth, framebufferHeight);
+	var noiseTextureData = new Uint8Array(4 * noiseTextureSize * noiseTextureSize);
+	for (var i = 0; i < noiseTextureData.length; i++) {
+		noiseTextureData[i] = Math.floor(Math.random() * 256) | 1;
+	}
+	var noiseTexture = createTexture(noiseTextureSize, noiseTextureSize, gl.RGBA, noiseTextureData);
+	var environmentTexture = createTextureFromImage('sphere.jpg');
+	var woodTexture = createTextureFromImage('wood.jpg');
+
+	function createShader(type, id) {
+		var shader = gl.createShader(type);
+		var source = document.getElementById(id).textContent;
+		gl.shaderSource(shader, source);
+		gl.compileShader(shader);
+		var infoLog = gl.getShaderInfoLog(shader);
+		if (infoLog && !infoLog.match(/^WARNING:/)) console.log(infoLog);
+		return shader;
+	}
+
+	function createProgram(vertexShaderId, fragmentShaderId, requires) {
+		var program = gl.createProgram();
+		var vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderId);
+		gl.attachShader(program, vertexShader);
+		gl.deleteShader(vertexShader);
+		var fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderId);
+		gl.attachShader(program, fragmentShader);
+		gl.deleteShader(fragmentShader);
+		gl.linkProgram(program);
+		var infoLog = gl.getProgramInfoLog(program);
+		if (infoLog) console.log(infoLog);
+		var numberOfUniforms = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+		for (var index = 0; index < numberOfUniforms; index++) {
+			var uniform = gl.getActiveUniform(program, index);
+			program[uniform.name] = gl.getUniformLocation(program, uniform.name);
+		}
+		var numberOfAttributes = gl.getProgramParameter(program, gl.ACTIVE_ATTRIBUTES);
+		for (var index = 0; index < numberOfAttributes; index++) {
+			var attribute = gl.getActiveAttrib(program, index);
+			program[attribute.name] = gl.getAttribLocation(program, attribute.name);
+		}
+		program.requires = requires;
+		return program;
+	}
+
+	function createFramebuffer(width, height) {
+		var framebuffer = gl.createFramebuffer();
+		var colorTexture = createTexture(width, height, gl.RGBA, null);
+		var depthTexture;
+		if (WEBGL_depth_texture) {
+			depthTexture = createTexture(width, height, gl.DEPTH_COMPONENT, null);
+		} else {
+			var depthData = new Uint8Array(width * height);
+			for (var i = 0; i < depthData.length; i++) {
+				depthData[i] = 255;
+			}
+			depthTexture = createTexture(width, height, gl.LUMINANCE, depthData);
+		}
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, 0);
+		if (WEBGL_depth_texture) {
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+		} else {
+			var renderbuffer = gl.createRenderbuffer();
+			gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
+			gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+			gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer);
+		}
+		var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		if (status == gl.FRAMEBUFFER_COMPLETE) {
+			framebuffer.color = colorTexture;
+			framebuffer.depth = depthTexture;
+			framebuffer.width = width;
+			framebuffer.height = height;
+			return framebuffer;
+		} else {
+			document.write(status);
+			gl.deleteFramebuffer(framebuffer);
+			return null;
+		}
+	}
+
+	function createTexture(width, height, format, data) {
+		var texture = gl.createTexture();
+		var type = format == gl.DEPTH_COMPONENT ? gl.UNSIGNED_SHORT : gl.UNSIGNED_BYTE;
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		if (data) {
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		} else {
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		}
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		gl.texImage2D(gl.TEXTURE_2D, 0, format, width, height, 0, format, type, data);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		texture.width = width;
+		texture.height = height;
+		return texture;
+	}
+
+	function createTextureFromImage(src) {
+		var texture = gl.createTexture();
+		var image = new Image();
+		image.onload = function() {
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+			gl.generateMipmap(gl.TEXTURE_2D);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+			texture.width = image.width;
+			texture.height = image.height;
+			draw();
+			endLoading();
+		};
+		texture.load = function() {
+			image.src = src;
+			beginLoading();
+		};
+		texture.width = 0;
+		texture.height = 0;
+		return texture;
+	}
+
+	function createBuffer(type, data) {
+		var buffer = gl.createBuffer();
+		gl.bindBuffer(type, buffer);
+		gl.bufferData(type, new Float32Array(data), gl.STATIC_DRAW);
+		gl.bindBuffer(type, null);
+		return buffer;
+	}
+
+	function getMouse(event) {
+		var x = (event.clientX - canvas.offsetLeft - canvas.offsetWidth / 2) / canvasRadius;
+		var y = (event.clientY - canvas.offsetTop - canvas.offsetHeight / 2) / canvasRadius;
+		return {
+			i: event.identifier || null,
+			x: x,
+			y: y,
+			z: -Math.exp(-2 * (x * x + y * y)),
+		};
+	}
+
+	var mice = {};
+	var light = {w:0, x:0.36, y:0.80, z:0.48};
+	var distance = 2.5 * Math.max(canvasHeight / canvasWidth, 1);
+	var quaternion = {w:0.9, x:-0.1, y:-0.42, z:-0.06};
+	var translation = {x:0, y:0, z:0};
+	var scale = 1;
+	var material;
+
+	function onmousedown(event) {
+		var mouse = getMouse(event);
+		mice[mouse.i] = mouse;
+	}
+
+	function onmousemove(event) {
+		var nextMouse = getMouse(event);
+		var prevMouse = mice[nextMouse.i];
+		if (prevMouse) {
+			var mass = 0;
+			var inertia = {xx:1e-4, yy:1e-4, zz:1e-4, xy:0, yz:0, zx:0};
+			for (var i in mice) {
+				var mouse = mice[i];
+				mass += 1;
+				inertia.xx += mouse.y * mouse.y + mouse.z * mouse.z;
+				inertia.yy += mouse.z * mouse.z + mouse.x * mouse.x;
+				inertia.zz += mouse.x * mouse.x + mouse.y * mouse.y;
+				inertia.xy -= mouse.x * mouse.y;
+				inertia.yz -= mouse.y * mouse.z;
+				inertia.zx -= mouse.z * mouse.x;
+			}
+			var torque = {
+				x: prevMouse.z * nextMouse.y - prevMouse.y * nextMouse.z,
+				y: prevMouse.x * nextMouse.z - prevMouse.z * nextMouse.x,
+				z: prevMouse.y * nextMouse.x - prevMouse.x * nextMouse.y,
+			};
+			var spin = applyInverseMatrix(inertia, torque);
+			var angle = Math.sqrt(spin.x * spin.x + spin.y * spin.y + spin.z * spin.z);
+			if (angle > 0) {
+				var spinq = {
+					w: Math.cos(angle / 2),
+					x : Math.sin(angle / 2) * spin.x / angle,
+					y : Math.sin(angle / 2) * spin.y / angle,
+					z : Math.sin(angle / 2) * spin.z / angle,
+				};
+				if (event.metaKey || mass > 2) {
+					light = multiplyQuaternion(multiplyQuaternion(conjugateQuaternion(spinq), light), spinq);
+				} else if (event.shiftKey || mass > 1) {
+					var center = {x:0, y:0};
+					var variance = 0.01;
+					for (var i in mice) {
+						var mouse = mice[i];
+						center.x += mouse.x;
+						center.y += mouse.y;
+						variance += mouse.x * mouse.x + mouse.y * mouse.y;
+					}
+					center.x /= mass;
+					center.y /= mass;
+					variance /= mass;
+					variance -= center.x * center.x + center.y * center.y;
+					translation.x += (prevMouse.x - nextMouse.x) / mass;
+					translation.y += (prevMouse.y - nextMouse.y) / mass;
+					translation.x = Math.max(-1, Math.min(translation.x, 1));
+					translation.y = Math.max(-1, Math.min(translation.y, 1));
+					scale *= 1 - ((prevMouse.x - nextMouse.x) * (prevMouse.x - center.x) + (prevMouse.y - nextMouse.y) * (prevMouse.y - center.y)) / (mass * variance);
+					scale = Math.max(0.5, Math.min(scale, 1.5));
+				} else {
+					quaternion = normalizeQuaternion(multiplyQuaternion(quaternion, spinq));
+				}
+			}
+			mice[nextMouse.i] = nextMouse;
+			draw();
+		}
+	}
+
+	function onmouseup(event) {
+		var mouse = getMouse(event);
+		delete mice[mouse.i];
+	}
+
+	function onmaterial(event) {
+		material = document.getElementById('material').value;
+		draw();
+	}
+
+	function onshape(event) {
+		var name = document.getElementById('shape').value;
+		if (name in vertices && name in indices) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, arrayBuffer);
+			gl.bufferData(gl.ARRAY_BUFFER, new Int16Array(vertices[name]), gl.STATIC_DRAW);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementArrayBuffer);
+			if (vertices[name].length / 8 < 65536) {
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices[name]), gl.STATIC_DRAW);
+				elementArrayBuffer.type = gl.UNSIGNED_SHORT;
+			} else {
+				gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices[name]), gl.STATIC_DRAW);
+				elementArrayBuffer.type = gl.UNSIGNED_INT;
+			}
+			elementArrayBuffer.count = indices[name].length;
+		} else {
+			vertices[name] = [];
+			indices[name] = [];
+			var script = document.createElement('script');
+			beginLoading();
+			script.onload = function() {
+				onshape();
+				endLoading();
+			}
+			script.type = 'text/javascript';
+			script.src = name + '.js';
+			document.body.appendChild(script);
+		}
+		draw();
+	}
+
+	function makeProjectionMatrix() {
+		var aspect = canvas.offsetWidth / canvas.offsetHeight;
+		var matrix = makeIdentityMatrix();
+		matrix = concatPerspectiveMatrix(matrix, Math.PI / 4, -aspect, distance - 1.8, distance + 1.8);
+		matrix = concatLookAtMatrix(matrix, 0, 0, distance, 0, 0, 0, 0, 1, 0);
+		return matrix;
+	}
+
+	function useProgram(program) {
+		var textureUnit = 0;
+		function uniformTexture(location, texture) {
+			if (texture.load) {
+				texture.load();
+				texture.load = null;
+			}
+			gl.activeTexture(gl.TEXTURE0 + textureUnit);
+			gl.bindTexture(gl.TEXTURE_2D, texture);
+			gl.uniform1i(location, textureUnit);
+			gl.activeTexture(gl.TEXTURE0);
+			textureUnit++;
+		}
+		gl.useProgram(program);
+		if ('u_InverseProjection' in program) {
+			gl.uniformMatrix4fv(program.u_InverseProjection, false, invertMatrix(makeProjectionMatrix()));
+			gl.bindBuffer(gl.ARRAY_BUFFER, rectBuffer);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+		} else {
+			gl.bindBuffer(gl.ARRAY_BUFFER, arrayBuffer);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, elementArrayBuffer);
+		}
+		if ('u_Rotation' in program) {
+			var matrix = makeRotationMatrixWithQuaternion(quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+			gl.uniformMatrix4fv(program.u_Rotation, false, matrix);
+		}
+		if ('u_Modelview' in program) {
+			var matrix = makeIdentityMatrix();
+			matrix = translateMatrix(matrix, translation.x, translation.y, translation.z);
+			matrix = scaleMatrix(matrix, scale, scale, scale);
+			matrix = rotateMatrixWithQuaternion(matrix, quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+			gl.uniformMatrix4fv(program.u_Modelview, false, matrix);
+		}
+		if ('u_Projection' in program) {
+			gl.uniformMatrix4fv(program.u_Projection, false, makeProjectionMatrix());
+		}
+		if ('u_TextureMatrix' in program) {
+			gl.uniformMatrix4fv(program.u_TextureMatrix, false, makeRotationMatrix(Math.PI / 2, 1, 0, 0));
+		}
+		if ('u_JitterMatrix' in program) {
+			var matrix = makeRotationMatrixWithQuaternion(0.62, 0.58, 0.46, 0.26);
+			matrix = translateMatrix(matrix, 0.424, 0.480, 0.768);
+			matrix = scaleMatrix(matrix, 437.585453123, 437.585453123, 437.585453123);
+			gl.uniformMatrix4fv(program.u_JitterMatrix, false, matrix);
+		}
+		if ('u_LightMatrix' in program) {
+			var matrix = makeIdentityMatrix();
+			matrix = scaleMatrix(matrix, 0.9, 0.9, 0.9);
+			matrix = concatLookAtMatrix(matrix, 0, 0, 0, light.x, light.y, light.z, 0, 0, 1);
+			matrix = rotateMatrixWithQuaternion(matrix, quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+			gl.uniformMatrix4fv(program.u_LightMatrix, false, matrix);
+		}
+		if ('u_ColorMatrix' in program) {
+			gl.uniformMatrix4fv(program.u_ColorMatrix, false, makeIdentityMatrix());
+		}
+		if ('u_ColorBuffer' in program) {
+			uniformTexture(program.u_ColorBuffer, framebuffer.color);
+		}
+		if ('u_DepthBuffer' in program) {
+			uniformTexture(program.u_DepthBuffer, framebuffer.depth);
+		}
+		if ('u_Environment' in program) {
+			uniformTexture(program.u_Environment, environmentTexture);
+		}
+		if ('u_Wood' in program) {
+			uniformTexture(program.u_Wood, woodTexture);
+		}
+		if ('u_Noise' in program) {
+			uniformTexture(program.u_Noise, noiseTexture);
+		}
+		if ('u_Eye' in program) {
+			gl.uniform3f(program.u_Eye, 0, 0, distance);
+		}
+		if ('u_Light' in program) {
+			gl.uniform3f(program.u_Light, light.x, light.y, light.z);
+		}
+		if ('u_Ambient' in program) {
+			gl.uniform4f(program.u_Ambient, 0.4, 0.4, 0.4, 1);
+		}
+		if ('u_Red' in program) {
+			gl.uniformMatrix4fv(program.u_Red, false, [-0.7408, 0.0563, 0.0912, 0.0446, 0.0563, -0.5388, 0.1503, -0.0157, 0.0912, 0.1503, -0.6964, -0.0415, 0.0446, -0.0157, -0.0415, 1]);
+		}
+		if ('u_Green' in program) {
+			gl.uniformMatrix4fv(program.u_Green, false, [-0.7396, 0.0590, 0.0851, 0.0418, 0.0590, -0.4647, 0.1057, 0.0359, 0.0851, 0.1057, -0.7254, -0.0193, 0.0418, 0.0359, -0.0193, 1]);
+		}
+		if ('u_Blue' in program) {
+			gl.uniformMatrix4fv(program.u_Blue, false, [-0.7459, 0.0213, 0.0689, 0.0315, 0.0213, -0.3063, 0.0336, 0.1130, 0.0689, 0.0336, -0.7874, -0.0037, 0.0315, 0.1130, -0.0037, 1]);
+		}
+		if ('u_Diffuse' in program) {
+			gl.uniform4f(program.u_Diffuse, 0.6, 0.6, 0.6, 0);
+		}
+		if ('u_Specular' in program) {
+			gl.uniform4f(program.u_Specular, 0.5, 0.5, 0.5, 0);
+		}
+		if ('u_Shininess' in program) {
+			gl.uniform1f(program.u_Shininess, 5);
+		}
+		if ('u_Global' in program) {
+			gl.uniform1f(program.u_Global, 1);
+		}
+		if ('u_Soft' in program) {
+			gl.uniform4f(program.u_Soft, 0, 0, 0, 0);
+		}
+		if ('u_SoftRadius' in program) {
+			gl.uniform1f(program.u_SoftRadius, 1);
+		}
+		if ('u_Refraction' in program) {
+			gl.uniform1f(program.u_Refraction, 0.75);
+		}
+		if ('u_Decay' in program) {
+			gl.uniform4f(program.u_Decay, 1, 1, 1, 0);
+		}
+		if ('u_Fresnel' in program) {
+			gl.uniform1f(program.u_Fresnel, 5);
+		}
+		if ('u_FramebufferDelta' in program) {
+			gl.uniform4f(program.u_FramebufferDelta, 1 / framebufferWidth, 1 / framebufferHeight, 0, - 1 / framebufferWidth);
+		}
+		if ('u_Jitter' in program) {
+			gl.uniform1f(program.u_Jitter, 0);
+		}
+		if ('a_Position' in program) {
+			gl.enableVertexAttribArray(program.a_Position);
+			gl.vertexAttribPointer(program.a_Position, 3, gl.SHORT, true, 2 * 8, 2 * 0);
+		}
+		if ('a_Curvature' in program) {
+			gl.enableVertexAttribArray(program.a_Curvature);
+			gl.vertexAttribPointer(program.a_Curvature, 1, gl.SHORT, true, 2 * 8, 2 * 3);
+		}
+		if ('a_Normal' in program) {
+			gl.enableVertexAttribArray(program.a_Normal);
+			gl.vertexAttribPointer(program.a_Normal, 3, gl.SHORT, true, 2 * 8, 2 * 4);
+		}
+		if ('a_Ambient' in program) {
+			gl.enableVertexAttribArray(program.a_Ambient);
+			gl.vertexAttribPointer(program.a_Ambient, 1, gl.SHORT, true, 2 * 8, 2 * 7);
+		}
+		if ('a_Color' in program) {
+			gl.enableVertexAttribArray(program.a_Color);
+			gl.vertexAttribPointer(program.a_Color, 3, gl.SHORT, true, 2 * 8, 2 * 0);
+		}
+	}
+
+	function drawShadowMap() {
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		gl.viewport(0, 0, framebufferWidth, framebufferHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		useProgram(lightProgram);
+		gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.viewport(0, 0, canvasWidth, canvasHeight);
+	}
+
+	function drawVolumeMap() {
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		gl.viewport(0, 0, framebufferWidth, framebufferHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		useProgram(depthProgram);
+		gl.disable(gl.DEPTH_TEST);
+		gl.enable(gl.CULL_FACE);
+		gl.enable(gl.BLEND);
+		gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+		gl.cullFace(gl.FRONT);
+		gl.blendEquation(gl.FUNC_REVERSE_SUBTRACT);
+		gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+		gl.cullFace(gl.BACK);
+		gl.blendEquation(gl.FUNC_ADD);
+		gl.disable(gl.BLEND);
+		gl.disable(gl.CULL_FACE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.viewport(0, 0, canvasWidth, canvasHeight);
+	}
+
+	function drawNormalMap(cull) {
+		gl.clearColor(0.5, 0.5, 1, 0);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		gl.viewport(0, 0, framebufferWidth, framebufferHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		useProgram(normalProgram);
+		gl.uniformMatrix4fv(normalProgram.u_Projection, false, makeScaleMatrix(-1, -1, -1));
+		if (cull) {
+			gl.enable(gl.CULL_FACE);
+			gl.cullFace(gl.FRONT);
+		}
+		gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+		if (cull) {
+			gl.cullFace(gl.BACK);
+			gl.disable(gl.CULL_FACE);
+		}
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.clearColor(0, 0, 0, 0);
+		gl.viewport(0, 0, canvasWidth, canvasHeight);
+	}
+
+	var drawable = false;
+
+	function draw() {
+		if (!drawable) return;
+		gl.depthFunc(gl.LEQUAL);
+		gl.blendFunc(gl.ONE, gl.ONE);
+		gl.viewport(0, 0, canvasWidth, canvasHeight);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.enable(gl.DEPTH_TEST);
+		switch (material) {
+			case 'position':
+			useProgram(colorProgram);
+			gl.uniformMatrix4fv(colorProgram.u_ColorMatrix, false, [0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0.5, 0.5, 0.5, 1]);
+			gl.vertexAttribPointer(colorProgram.a_Color, 3, gl.SHORT, true, 2 * 8, 2 * 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'normal':
+			useProgram(colorProgram);
+			gl.uniformMatrix4fv(colorProgram.u_ColorMatrix, false, [0.5, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0.5, 0, 0.5, 0.5, 0.5, 1]);
+			gl.vertexAttribPointer(colorProgram.a_Color, 3, gl.SHORT, true, 2 * 8, 2 * 4);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'occlusion':
+			useProgram(colorProgram);
+			gl.uniformMatrix4fv(colorProgram.u_ColorMatrix, false, [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+			gl.vertexAttribPointer(colorProgram.a_Color, 1, gl.SHORT, true, 2 * 8, 2 * 7);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'curvature':
+			useProgram(colorProgram);
+			gl.uniformMatrix4fv(colorProgram.u_ColorMatrix, false, [0.5, 0, -0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+			gl.vertexAttribPointer(colorProgram.a_Color, 1, gl.SHORT, true, 2 * 8, 2 * 3);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'diffuse':
+			useProgram(classicProgram);
+			gl.uniform4f(classicProgram.u_Specular, 0, 0, 0, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'specular':
+			useProgram(classicProgram);
+			gl.uniform4f(classicProgram.u_Diffuse, 0, 0, 0, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'shadow':
+			drawShadowMap();
+			useProgram(shadowProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'ambient':
+			useProgram(globalProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(ambientProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'reflect':
+			useProgram(reflectProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'refract':
+			useProgram(environmentProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(refractProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'toon':
+			useProgram(outlineProgram);
+			gl.enable(gl.CULL_FACE);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			gl.disable(gl.CULL_FACE);
+			useProgram(toonProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'noise':
+			useProgram(noiseProgram);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'pearl':
+			useProgram(softProgram);
+			gl.uniform4f(softProgram.u_Ambient, 0.45, 0.45, 0.55, 0);
+			gl.uniform4f(softProgram.u_Diffuse, 0.35, 0.12, 0.06, 0);
+			gl.uniform4f(softProgram.u_Soft, 0.02, 0.25, 0.21, 0);
+			gl.uniform4f(softProgram.u_Specular, 0.23, 0.23, 0.23, 0);
+			gl.uniform1f(softProgram.u_Shininess, 2);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'soap':
+			useProgram(softProgram);
+			gl.uniform4f(softProgram.u_Ambient, 0.69, 0.63, 0.48, 0);
+			gl.uniform4f(softProgram.u_Diffuse, 0, 0, 0, 0);
+			gl.uniform4f(softProgram.u_Soft, 0.24, 0.26, 0.31, 0);
+			gl.uniform4f(softProgram.u_Specular, 0.08, 0.11, 0.14, 0);
+			gl.uniform1f(softProgram.u_Shininess, 2);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'chocolate':
+			useProgram(softProgram);
+			gl.uniform4f(softProgram.u_Ambient, 0.13, 0.06, 0.02, 0);
+			gl.uniform4f(softProgram.u_Diffuse, 0.05, 0.05, 0.05, 0);
+			gl.uniform4f(softProgram.u_Soft, 0.33, 0.16, 0.07, 0);
+			gl.uniform4f(softProgram.u_Specular, 0.6, 0.6, 0.6, 0);
+			gl.uniform1f(softProgram.u_Shininess, 10);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'wood':
+			drawShadowMap();
+			useProgram(woodProgram);
+			gl.uniform2f(woodProgram.u_Jitter, 0.005, 0.005);
+			gl.uniform4f(woodProgram.u_Diffuse, 1, 1, 1, 0);
+			gl.uniform4f(woodProgram.u_Specular, 0.2, 0.2, 0.2, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'snow':
+			drawShadowMap();
+			useProgram(globalProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(solidProgram);
+			gl.uniform4f(solidProgram.u_Ambient, 0.35, 0.35, 0.45, 0);
+			gl.uniform1f(solidProgram.u_Global, 1);
+			gl.uniform4f(solidProgram.u_Diffuse, 0.2, 0.15, 0.06, 0);
+			gl.uniform4f(solidProgram.u_Soft, 0.1, 0.15, 0.21, 0);
+			gl.uniform4f(solidProgram.u_Specular, 0.13, 0.13, 0.13, 0);
+			gl.uniform1f(solidProgram.u_Shininess, 2);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'gypsum':
+			drawShadowMap();
+			useProgram(globalProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(solidProgram);
+			gl.uniform4f(solidProgram.u_Ambient, 0.3, 0.3, 0.3, 0);
+			gl.uniform1f(solidProgram.u_Global, 0.3);
+			gl.uniform4f(solidProgram.u_Diffuse, 0.6, 0.6, 0.6, 0);
+			gl.uniform4f(solidProgram.u_Specular, 0.05, 0.05, 0.05, 0.1);
+			gl.uniform1f(solidProgram.u_Shininess, 2);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'sand':
+			drawShadowMap();
+			useProgram(globalProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(sandProgram);
+			gl.uniformMatrix4fv(sandProgram.u_ColorMatrix, false, [0.75, 0.82, 0.87, 0, 0.56, 0.30, 0.13, 0, 0.98, 0.97, 0.78, 0, 0.39, 0.47, 0.51, 1]);
+			gl.uniform4f(sandProgram.u_Diffuse, 0.4, 0.4, 0.4, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'skin':
+			drawShadowMap();
+			useProgram(globalProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(solidProgram);
+			gl.uniform4f(solidProgram.u_Ambient, 0.36, 0.12, 0.08, 0);
+			gl.uniform1f(solidProgram.u_Global, 0.5);
+			gl.uniform4f(solidProgram.u_Soft, 0.71, 0.45, 0.33, 0);
+			gl.uniform4f(solidProgram.u_Diffuse, 0.05, 0.3, 0.3, 0);
+			gl.uniform4f(solidProgram.u_Specular, 0.04, 0.04, 0.05, 0);
+			gl.uniform1f(solidProgram.u_Shininess, 10);
+			gl.uniform1f(solidProgram.u_SoftRadius, 0.3);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'wax':
+			drawShadowMap();
+			useProgram(blurProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(blurProgram);
+			gl.uniform4f(blurProgram.u_Ambient, 0.2, 0.2, 0.15, 0);
+			gl.uniform4f(blurProgram.u_Soft, 0.5, 0.4, 0.4, 0);
+			gl.uniform4f(blurProgram.u_Diffuse, 0.2, 0.2, 0.2, 0);
+			gl.uniform4f(blurProgram.u_Specular, 0.1, 0.1, 0.1, 0);
+			gl.uniform1f(blurProgram.u_Shininess, 10);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'gold':
+			drawNormalMap();
+			useProgram(metalProgram);
+			gl.uniformMatrix4fv(metalProgram.u_ColorMatrix, false, [0.98, 0, 0, 0, 0, 0.87, 0, 0, 0, 0, 0.41, 0, 0, 0, 0, 1]);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'iron':
+			drawNormalMap();
+			useProgram(metalProgram);
+			gl.uniform1f(metalProgram.u_Jitter, 0.3);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'water':
+			drawNormalMap(true);
+			useProgram(environmentProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(liquidProgram);
+			gl.uniform4f(liquidProgram.u_Decay, 0.2, 0.2, 0.1, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'glass':
+			drawNormalMap(true);
+			useProgram(environmentProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(liquidProgram);
+			gl.uniform1f(liquidProgram.u_Refraction, 0.6);
+			gl.uniform1f(liquidProgram.u_Fresnel, 2);
+			gl.uniform4f(liquidProgram.u_Decay, 1.8, 1, 1.2, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'ruby':
+			drawNormalMap(true);
+			useProgram(environmentProgram);
+			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+			useProgram(liquidProgram);
+			gl.uniform1f(liquidProgram.u_Refraction, 0.4);
+			gl.uniform1f(liquidProgram.u_Fresnel, 2);
+			gl.uniform4f(liquidProgram.u_Decay, 1, 10, 10, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'agate':
+			useProgram(lusterProgram);
+			gl.uniform1f(lusterProgram.u_Fresnel, 2);
+			gl.uniform4f(lusterProgram.u_Ambient, 0.2, 0.3, 0.3, 0);
+			gl.uniform4f(lusterProgram.u_Diffuse, 0.5, 0.7, 0.6, 0);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+
+			case 'fur':
+			useProgram(furProgram);
+			gl.uniform4f(furProgram.u_Ambient, 0.63, 0.57, 0.56, 1);
+			gl.uniform4f(furProgram.u_Diffuse, 0.36, 0.37, 0.34, 0);
+			gl.enable(gl.BLEND);
+			gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			for (var d = 0; d < 1; d += 0.1) {
+				gl.uniform1f(furProgram.u_Displacement, 0.1 * d);
+				gl.uniform1f(furProgram.u_Alpha, 1 - d * d);
+				gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			}
+			gl.blendFunc(gl.ONE, gl.ONE);
+			gl.disable(gl.BLEND);
+			break;
+
+			case 'fire':
+			drawVolumeMap();
+			useProgram(projectionProgram);
+			gl.uniformMatrix4fv(projectionProgram.u_ColorMatrix, false, [10, 5, 2, 1, 10, 5, 2, 1, 10, 5, 2, 1, 10, 5, 2, 1]);
+			gl.drawElements(gl.TRIANGLES, elementArrayBuffer.count, elementArrayBuffer.type, 0);
+			break;
+		}
+		gl.disable(gl.DEPTH_TEST);
+	}
+
+	onshape();
+	onmaterial();
+	drawable = true;
+	draw();
+}
+
+</script>
+<script id="classic-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Eye = position.xyz - u_Eye;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+	}
+</script>
+<script id="classic-fragment" type="x-shader/x-fragment">
+	uniform mediump vec3 u_Light;
+	uniform lowp vec4 u_Ambient;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp vec4 u_Specular;
+	uniform lowp float u_Shininess;
+	varying mediump vec3 v_Eye;
+	varying lowp vec3 v_Normal;
+	void main() {
+		lowp vec3 eye = normalize(v_Eye);
+		lowp vec3 normal = normalize(v_Normal);
+		lowp vec3 reflection = reflect(eye, normal);
+		gl_FragColor =
+		u_Ambient +
+		u_Diffuse * max(0.0, dot(normal, u_Light)) +
+		u_Specular * pow(max(0.0, dot(reflection, u_Light)), u_Shininess);
+	}
+</script>
+<script id="ambient-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_Red;
+	uniform mat4 u_Green;
+	uniform mat4 u_Blue;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec4 v_Color;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		vec4 normal = vec4(normalize((u_Rotation * a_Normal).xyz), 1.0);
+		v_Color = vec4(dot(normal, u_Red * normal), dot(normal, u_Green * normal), dot(normal, u_Blue * normal), 1.0);
+	}
+</script>
+<script id="ambient-fragment" type="x-shader/x-fragment">
+	varying mediump vec4 v_Color;
+	void main() {
+		gl_FragColor = v_Color;
+	}
+</script>
+<script id="light-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_LightMatrix;
+	attribute vec4 a_Position;
+	void main() {
+		gl_Position = u_LightMatrix * a_Position;
+	}
+</script>
+<script id="light-fragment" type="x-shader/x-fragment">
+	void main() {
+	}
+</script>
+<script id="shadow-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_LightMatrix;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec3 v_Normal;
+	varying vec3 v_ShadowCoord;
+	const vec3 shadowBias = vec3(0.5, 0.5, 0.49);
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		v_Normal = (u_Rotation * a_Normal).xyz;
+		vec4 shadowCoord = u_LightMatrix * a_Position;
+		v_ShadowCoord = 0.5 * shadowCoord.xyz + shadowBias;
+	}
+</script>
+<script id="shadow-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_DepthBuffer;
+	uniform lowp vec3 u_Light;
+	uniform lowp vec4 u_Ambient;
+	uniform lowp vec4 u_Diffuse;
+	varying lowp vec3 v_Normal;
+	varying mediump vec3 v_ShadowCoord;
+	void main() {
+		lowp vec3 normal = normalize(v_Normal);
+		lowp float shadow = step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy).r);
+		gl_FragColor = u_Ambient + u_Diffuse * max(0.0, dot(normal, u_Light)) * shadow;
+	}
+</script>
+<script id="wood-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_TextureMatrix;
+	uniform mat4 u_JitterMatrix;
+	uniform mat4 u_LightMatrix;
+	uniform vec3 u_Eye;
+	uniform vec4 u_Ambient;
+	uniform float u_Jitter;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	attribute vec4 a_Ambient;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	varying vec4 v_Ambient;
+	varying vec2 v_WoodCoord;
+	varying vec3 v_ShadowCoord;
+	const vec3 shadowBias = vec3(0.5, 0.5, 0.49);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Eye = position.xyz - u_Eye;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+		v_Ambient = u_Ambient * a_Ambient.rrra;
+		v_WoodCoord = 0.5 + 0.5 * (u_TextureMatrix * a_Position).xy + u_Jitter * sin(u_JitterMatrix * a_Position).xy;
+		v_ShadowCoord = 0.5 * (u_LightMatrix * a_Position).xyz + shadowBias;
+	}
+</script>
+<script id="wood-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_Wood;
+	uniform lowp sampler2D u_DepthBuffer;
+	uniform lowp vec3 u_Light;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp vec4 u_Specular;
+	uniform lowp float u_Shininess;
+	uniform mediump vec4 u_FramebufferDelta;
+	varying mediump vec3 v_Eye;
+	varying lowp vec3 v_Normal;
+	varying lowp vec4 v_Ambient;
+	varying mediump vec2 v_WoodCoord;
+	varying mediump vec3 v_ShadowCoord;
+	void main() {
+		lowp vec4 color = texture2D(u_Wood, v_WoodCoord);
+		lowp vec3 eye = normalize(v_Eye);
+		lowp vec3 normal = normalize(v_Normal);
+		lowp vec3 reflection = reflect(eye, normal);
+		lowp float shadow =
+		0.25 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.xz).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.wz).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.zy).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.zy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.xy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.wy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.xy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.wy).r);
+		gl_FragColor = color * v_Ambient +
+		color * u_Diffuse * max(0.0, dot(normal, u_Light)) * shadow +
+		u_Specular * pow(max(0.0, dot(reflection, u_Light)), u_Shininess) * shadow;
+	}
+</script>
+<script id="sand-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_LightMatrix;
+	uniform mat4 u_TextureMatrix;
+	uniform mat4 u_Red;
+	uniform mat4 u_Green;
+	uniform mat4 u_Blue;
+	uniform vec4 u_Ambient;
+	uniform vec4 u_Diffuse;
+	uniform vec3 u_Light;
+	uniform float u_Global;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	attribute float a_Ambient;
+	varying vec4 v_TexCoord;
+	varying vec4 v_Ambient;
+	varying vec4 v_Diffuse;
+	varying vec3 v_ShadowCoord;
+	const vec3 shadowBias = vec3(0.5, 0.5, 0.49);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		vec4 normal = vec4(normalize((u_Rotation * a_Normal).xyz), 1.0);
+		v_TexCoord = 0.5 + 0.5 * (u_TextureMatrix * a_Position);
+		v_Ambient = u_Ambient + a_Ambient * u_Global * vec4(dot(normal, u_Red * normal), dot(normal, u_Green * normal), dot(normal, u_Blue * normal), 0.0);
+		v_Diffuse = u_Diffuse * max(0.0, dot(normal.xyz, u_Light));
+		v_ShadowCoord = 0.5 * (u_LightMatrix * a_Position).xyz + shadowBias;
+	}
+</script>
+<script id="sand-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_DepthBuffer;
+	uniform mediump sampler2D u_Noise;
+	uniform lowp mat4 u_ColorMatrix;
+	varying mediump vec4 v_TexCoord;
+	varying lowp vec4 v_Ambient;
+	varying lowp vec4 v_Diffuse;
+	varying mediump vec3 v_ShadowCoord;
+	const mediump vec4 mean = vec4(1.0, 1.0, 1.0, 1.0);
+	void main() {
+		mediump vec4 seedX = texture2D(u_Noise, v_TexCoord.yz);
+		mediump vec4 seedY = texture2D(u_Noise, v_TexCoord.zx);
+		mediump vec4 seedZ = texture2D(u_Noise, v_TexCoord.xy);
+		mediump vec4 noise = fract(256.0 * fract(256.0 * seedX.argb * seedY.barg) * seedZ.gbar);
+		lowp vec4 color = u_ColorMatrix * noise / dot(mean, noise);
+		lowp float shadow = step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy).r);
+		gl_FragColor = (v_Ambient + v_Diffuse * shadow) * color;
+	}
+</script>
+<script id="soft-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	uniform float u_SoftRadius;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	attribute float a_Curvature;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	varying float v_Curvature;
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Eye = position.xyz - u_Eye;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+		v_Curvature = clamp(u_SoftRadius * a_Curvature, 0.0, 0.5);
+	}
+</script>
+<script id="soft-fragment" type="x-shader/x-fragment">
+	uniform lowp vec4 u_Ambient;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp vec4 u_Specular;
+	uniform lowp float u_Shininess;
+	uniform lowp vec4 u_Soft;
+	uniform lowp vec3 u_Light;
+	varying mediump vec3 v_Eye;
+	varying lowp vec3 v_Normal;
+	varying lowp float v_Curvature;
+	void main() {
+		lowp vec3 eye = normalize(v_Eye);
+		lowp vec3 normal = normalize(v_Normal);
+		lowp vec3 reflection = reflect(eye, normal);
+		gl_FragColor =
+		u_Ambient +
+		u_Diffuse * max(0.0, dot(normal, u_Light)) +
+		u_Specular * pow(max(0.0, dot(reflection, u_Light)), u_Shininess) +
+		u_Soft * max(0.0, v_Curvature + (1.0 - v_Curvature) * dot(normal, u_Light));
+	}
+</script>
+<script id="solid-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Red;
+	uniform mat4 u_Green;
+	uniform mat4 u_Blue;
+	uniform mat4 u_LightMatrix;
+	uniform mat4 u_TextureMatrix;
+	attribute vec4 a_Position;
+	uniform mat4 u_Rotation;
+	uniform vec4 u_Ambient;
+	uniform vec3 u_Eye;
+	uniform float u_Global;
+	uniform float u_SoftRadius;
+	attribute vec4 a_Normal;
+	attribute float a_Ambient;
+	attribute float a_Curvature;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	varying vec4 v_Ambient;
+	varying float v_Curvature;
+	varying vec3 v_ShadowCoord;
+	const vec3 shadowBias = vec3(0.5, 0.5, 0.49);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Eye = position.xyz - u_Eye;
+		vec4 normal = vec4(normalize((u_Rotation * a_Normal).xyz), 1.0);
+		v_Normal = normal.xyz;
+		v_Ambient = u_Ambient + a_Ambient * u_Global * vec4(dot(normal, u_Red * normal), dot(normal, u_Green * normal), dot(normal, u_Blue * normal), 0.0);
+		v_Curvature = clamp(u_SoftRadius * a_Curvature, 0.0, 0.5);
+		v_ShadowCoord = 0.5 * (u_LightMatrix * a_Position).xyz + shadowBias;
+	}
+</script>
+<script id="solid-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_DepthBuffer;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp vec4 u_Specular;
+	uniform lowp float u_Shininess;
+	uniform lowp vec4 u_Soft;
+	uniform lowp vec3 u_Light;
+	uniform mediump vec4 u_FramebufferDelta;
+	varying mediump vec3 v_Eye;
+	varying mediump vec3 v_Normal;
+	varying lowp vec4 v_Ambient;
+	varying lowp float v_Curvature;
+	varying mediump vec3 v_ShadowCoord;
+	void main() {
+		lowp vec3 eye = normalize(v_Eye);
+		lowp vec3 normal = normalize(v_Normal);
+		lowp vec3 reflection = reflect(eye, normal);
+		lowp float shadow =
+		0.25 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.xz).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.wz).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.zy).r) +
+		0.125 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.zy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.xy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy + u_FramebufferDelta.wy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.xy).r) +
+		0.0625 * step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy - u_FramebufferDelta.wy).r);
+		gl_FragColor =
+		v_Ambient +
+		u_Diffuse * max(0.0, dot(normal, u_Light)) * shadow +
+		u_Specular * pow(max(0.0, dot(reflection, u_Light)), u_Shininess) * shadow +
+		u_Soft * max(0.0, v_Curvature + (1.0 - v_Curvature) * min(dot(normal, u_Light), shadow));
+	}
+</script>
+<script id="blur-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_LightMatrix;
+	attribute vec4 a_Position;
+	uniform vec4 u_Ambient;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	uniform float u_Global;
+	uniform float u_SoftRadius;
+	attribute vec4 a_Normal;
+	attribute float a_Ambient;
+	varying vec4 v_Ambient;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	varying vec3 v_ShadowCoord;
+	const vec3 shadowBias = vec3(0.5, 0.5, 0.49);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Ambient = u_Ambient * a_Ambient;
+		v_Eye = position.xyz - u_Eye;
+		vec4 normal = vec4(normalize((u_Rotation * a_Normal).xyz), 1.0);
+		v_Normal = normal.xyz;
+		v_ShadowCoord = 0.5 * (u_LightMatrix * a_Position).xyz + shadowBias;
+	}
+</script>
+<script id="blur-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_DepthBuffer;
+	uniform lowp sampler2D u_ColorBuffer;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp vec4 u_Specular;
+	uniform lowp float u_Shininess;
+	uniform lowp vec4 u_Soft;
+	uniform lowp vec3 u_Light;
+	varying lowp vec4 v_Ambient;
+	varying mediump vec3 v_Eye;
+	varying mediump vec3 v_Normal;
+	varying mediump vec3 v_ShadowCoord;
+	void main() {
+		lowp vec3 eye = normalize(v_Eye);
+		lowp vec3 normal = normalize(v_Normal);
+		lowp vec3 reflection = reflect(eye, normal);
+		lowp float shadow = step(v_ShadowCoord.z, texture2D(u_DepthBuffer, v_ShadowCoord.xy).r);
+		lowp vec3 softNormal = vec3(0.0, 0.0, 0.0);
+		for (int x = -3; x <= 3; x++) {
+			for (int y = -3; y <= 3; y++) {
+				mediump vec2 delta = 0.005 * vec2(x, y);
+				mediump vec2 shadowCoord = v_ShadowCoord.xy + delta;
+				mediump float depth = texture2D(u_DepthBuffer, shadowCoord).r;
+				softNormal += 0.04 * exp(30.0 * min(depth - v_ShadowCoord.z, 0.0)) * (0.5 - texture2D(u_ColorBuffer, shadowCoord).xyz);
+			}
+		}
+		gl_FragColor =
+		v_Ambient +
+		u_Diffuse * max(0.0, dot(normal, u_Light)) * shadow +
+		u_Specular * pow(max(0.0, dot(reflection, u_Light)), u_Shininess) * shadow +
+		u_Soft * abs(dot(softNormal, u_Light));
+	}
+</script>
+<script id="noise-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_TextureMatrix;
+	attribute vec4 a_Position;
+	varying vec4 v_TexCoord;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		v_TexCoord = 0.5 + 0.5 * (u_TextureMatrix * a_Position);
+	}
+</script>
+<script id="noise-fragment" type="x-shader/x-fragment">
+	uniform mediump sampler2D u_Noise;
+	varying mediump vec4 v_TexCoord;
+	void main() {
+		mediump vec4 seedX = texture2D(u_Noise, v_TexCoord.yz);
+		mediump vec4 seedY = texture2D(u_Noise, v_TexCoord.zx);
+		mediump vec4 seedZ = texture2D(u_Noise, v_TexCoord.xy);
+		gl_FragColor = fract(256.0 * fract(256.0 * seedX.argb * seedY.barg) * seedZ.gbar);
+	}
+</script>
+<script id="depth-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	attribute vec4 a_Position;
+	varying vec4 v_Position;
+	const vec4 bias = vec4(0.0, 0.25, 0.5, 0.75) / 256.0;
+	void main() {
+		vec4 position = u_Projection * (u_Modelview * a_Position);
+		gl_Position = position;
+		v_Position = bias + 0.25 * position.z / position.w;
+	}
+</script>
+<script id="depth-fragment" type="x-shader/x-fragment">
+	varying lowp vec4 v_Position;
+	void main() {
+		gl_FragColor = v_Position;
+	}
+</script>
+<script id="color-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_ColorMatrix;
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	attribute vec4 a_Position;
+	attribute vec4 a_Color;
+	varying vec4 v_Color;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		v_Color = u_ColorMatrix * a_Color;
+	}
+</script>
+<script id="color-fragment" type="x-shader/x-fragment">
+	varying mediump vec4 v_Color;
+	void main() {
+		gl_FragColor = v_Color;
+	}
+</script>
+<script id="projection-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	attribute vec4 a_Position;
+	varying vec2 v_TexCoord;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		v_TexCoord = 0.5 + 0.5 * gl_Position.xy / gl_Position.w;
+	}
+</script>
+<script id="projection-fragment" type="x-shader/x-fragment">
+	uniform mediump sampler2D u_ColorBuffer;
+	uniform mediump mat4 u_ColorMatrix;
+	varying mediump vec2 v_TexCoord;
+	void main() {
+		gl_FragColor = u_ColorMatrix * texture2D(u_ColorBuffer, v_TexCoord);
+	}
+</script>
+<script id="reflect-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec2 v_TexCoord;
+	const vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		vec3 normal = normalize((u_Rotation * a_Normal).xyz);
+		vec3 eye = normalize(position.xyz - u_Eye);
+		vec3 reflection = reflect(eye, normal);
+		v_TexCoord = 0.5 - 0.5 * reflection.xy / length(reflection + c001);
+	}
+</script>
+<script id="reflect-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_Environment;
+	uniform lowp mat4 u_ColorMatrix;
+	varying mediump vec2 v_TexCoord;
+	void main() {
+		gl_FragColor = u_ColorMatrix * texture2D(u_Environment, v_TexCoord);
+	}
+</script>
+<script id="refract-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	uniform float u_Refraction;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec2 v_TexCoord;
+	const vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		vec3 normal = normalize((u_Rotation * a_Normal).xyz);
+		vec3 eye = normalize(position.xyz - u_Eye);
+		vec3 refraction = refract(eye, normal, u_Refraction);
+		v_TexCoord = 0.5 - 0.5 * refraction.xy / length(refraction - c001);
+	}
+</script>
+<script id="refract-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_Environment;
+	uniform lowp mat4 u_ColorMatrix;
+	varying mediump vec2 v_TexCoord;
+	void main() {
+		gl_FragColor = u_ColorMatrix * texture2D(u_Environment, v_TexCoord);
+	}
+</script>
+<script id="normal-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec3 v_Normal;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * a_Position);
+		v_Normal = (u_Rotation * a_Normal).xyz;
+	}
+</script>
+<script id="normal-fragment" type="x-shader/x-fragment">
+	varying mediump vec3 v_Normal;
+	void main() {
+		lowp vec3 normal = normalize(v_Normal);
+		gl_FragColor = vec4(0.5 + 0.5 * normal, 1.0);
+	}
+</script>
+<script id="luster-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	uniform vec3 u_Light;
+	uniform vec4 u_Ambient;
+	uniform vec4 u_Diffuse;
+	uniform float u_Fresnel;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec4 v_Color;
+	varying vec2 v_TexCoord;
+	varying float v_Fresnel;
+	const vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		vec3 normal = normalize((u_Rotation * a_Normal).xyz);
+		vec3 eye = normalize(position.xyz - u_Eye);
+		vec3 reflection = reflect(eye, normal);
+		v_Color = u_Ambient + u_Diffuse * max(dot(u_Light, normal), 0.0);
+		v_TexCoord = 0.5 - 0.5 * reflection.xy / length(reflection + c001);
+		v_Fresnel = pow(1.0 + dot(eye, normal), u_Fresnel);
+	}
+</script>
+<script id="luster-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_Environment;
+	uniform lowp mat4 u_ColorMatrix;
+	varying lowp vec4 v_Color;
+	varying mediump vec2 v_TexCoord;
+	varying lowp float v_Fresnel;
+	void main() {
+		gl_FragColor = v_Color + u_ColorMatrix * texture2D(u_Environment, v_TexCoord) * v_Fresnel;
+	}
+</script>
+<script id="liquid-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec4 v_Position;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Position = vec4(0.5 - 0.5 * position.xyz, 0.0);
+		v_Eye = position.xyz - u_Eye;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+	}
+</script>
+<script id="liquid-fragment" type="x-shader/x-fragment">
+	uniform mediump sampler2D u_ColorBuffer;
+	uniform mediump sampler2D u_DepthBuffer;
+	uniform mediump float u_Refraction;
+	uniform mediump vec4 u_Decay;
+	uniform mediump float u_Fresnel;
+	uniform lowp sampler2D u_Environment;
+	varying mediump vec4 v_Position;
+	varying mediump vec3 v_Eye;
+	varying mediump vec3 v_Normal;
+	const lowp vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		mediump vec4 position = v_Position;
+		mediump vec3 eye = normalize(v_Eye);
+		mediump vec3 normal = normalize(v_Normal);
+		mediump vec3 reflection = reflect(eye, normal);
+		mediump vec3 refraction = refract(eye, normal, u_Refraction);
+		mediump float fresnel = pow(1.0 + dot(eye, normal), u_Fresnel);
+		mediump vec4 velocity = vec4(-refraction, 1.0);
+		for (int i = 0; i < 10; i++) {
+			mediump float depth = texture2D(u_DepthBuffer, position.xy).r - position.z;
+			normal = normalize(0.5 - texture2D(u_ColorBuffer, position.xy).xyz);
+			position += clamp(depth * normal.z / (dot(normal.xy, velocity.xy) + normal.z * velocity.z), 0.0, 0.1) * velocity;
+		}
+		refraction = normalize(refract(refraction, normal, 1.0 / u_Refraction) + 0.001 * reflect(refraction, normal));
+		gl_FragColor = mix(
+		texture2D(u_Environment, 0.5 - 0.5 * refraction.xy / length(refraction - c001)) * exp(-u_Decay * position.w),
+		texture2D(u_Environment, 0.5 - 0.5 * reflection.xy / length(reflection - c001)), fresnel);
+	}
+</script>
+<script id="metal-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_TextureMatrix;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec4 v_Position;
+	varying vec4 v_TexCoord;
+	varying vec3 v_Eye;
+	varying vec3 v_Normal;
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Position = vec4(0.5 - 0.5 * position.xyz, 0.0);
+		v_TexCoord = 0.5 + 0.5 * (u_TextureMatrix * a_Position);
+		v_Eye = position.xyz - u_Eye;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+	}
+</script>
+<script id="metal-fragment" type="x-shader/x-fragment">
+	uniform mediump sampler2D u_ColorBuffer;
+	uniform mediump sampler2D u_DepthBuffer;
+	uniform mediump sampler2D u_Noise;
+	uniform lowp sampler2D u_Environment;
+	uniform lowp mat4 u_ColorMatrix;
+	uniform mediump float u_Jitter;
+	varying mediump vec4 v_Position;
+	varying mediump vec4 v_TexCoord;
+	varying mediump vec3 v_Eye;
+	varying mediump vec3 v_Normal;
+	const lowp vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		mediump vec4 seedX = texture2D(u_Noise, v_TexCoord.yz);
+		mediump vec4 seedY = texture2D(u_Noise, v_TexCoord.zx);
+		mediump vec4 seedZ = texture2D(u_Noise, v_TexCoord.xy);
+		mediump vec4 noise = fract(256.0 * fract(256.0 * seedX.argb * seedY.barg) * seedZ.gbar);
+		mediump vec3 eye = normalize(v_Eye + u_Jitter * (noise.xyz - 0.5));
+		mediump vec3 normal = normalize(v_Normal);
+		mediump vec3 reflection = reflect(eye, normal);
+		for (int j = 0; j < 2; j++) {
+			mediump vec4 position = v_Position;
+			mediump vec4 velocity = vec4(-0.02 * reflection / length(reflection.xy), 1.0);
+			for (int i = 0; i <= 10; i++) {
+				mediump vec4 next = position + velocity;
+				if (texture2D(u_DepthBuffer, next.xy).r < next.z) break;
+				position = next;
+			}
+			if (position.w > 9.9) break;
+			for (int i = 0; i < 8; i++) {
+				velocity *= 0.5;
+				mediump vec4 next = position + velocity;
+				if (texture2D(u_DepthBuffer, next.xy).r >= next.z) position = next;
+			}
+			normal = normalize(0.5 - texture2D(u_ColorBuffer, position.xy).xyz);
+			reflection = reflect(reflection, normal);
+		}
+		gl_FragColor = u_ColorMatrix * texture2D(u_Environment, 0.5 - 0.5 * reflection.xy / length(reflection + c001));
+	}
+</script>
+<script id="toon-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec3 v_Normal;
+	void main() {
+		vec4 position = u_Modelview * a_Position;
+		gl_Position = u_Projection * position;
+		v_Normal = (u_Rotation * a_Normal).xyz;
+	}
+</script>
+<script id="toon-fragment" type="x-shader/x-fragment">
+	uniform lowp vec3 u_Light;
+	uniform lowp vec4 u_Ambient;
+	uniform lowp vec4 u_Diffuse;
+	varying lowp vec3 v_Normal;
+	void main() {
+		lowp vec3 normal = normalize(v_Normal);
+		gl_FragColor = u_Ambient + u_Diffuse * step(0.0, dot(normal, u_Light));
+	}
+</script>
+<script id="outline-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * (a_Position + 0.005 * a_Normal));
+	}
+</script>
+<script id="outline-fragment" type="x-shader/x-fragment">
+	const lowp vec4 black = vec4(0.0, 0.0, 0.0, 1.0);
+	void main() {
+		gl_FragColor = black;
+	}
+</script>
+<script id="fur-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_Projection;
+	uniform mat4 u_Modelview;
+	uniform mat4 u_Rotation;
+	uniform mat4 u_TextureMatrix;
+	uniform float u_Displacement;
+	attribute vec4 a_Position;
+	attribute vec4 a_Normal;
+	varying vec3 v_Normal;
+	varying vec4 v_TexCoord;
+	void main() {
+		gl_Position = u_Projection * (u_Modelview * (a_Position + u_Displacement * a_Normal));
+		v_Normal = (u_Rotation * a_Normal).xyz;
+		v_TexCoord = 0.5 + 0.5 * (u_TextureMatrix * a_Position);
+	}
+</script>
+<script id="fur-fragment" type="x-shader/x-fragment">
+	uniform mediump sampler2D u_Noise;
+	uniform mediump vec3 u_Light;
+	uniform lowp vec4 u_Ambient;
+	uniform lowp vec4 u_Diffuse;
+	uniform lowp float u_Alpha;
+	varying lowp vec3 v_Normal;
+	varying mediump vec4 v_TexCoord;
+	void main() {
+		mediump vec4 seedX = texture2D(u_Noise, v_TexCoord.yz);
+		mediump vec4 seedY = texture2D(u_Noise, v_TexCoord.zx);
+		mediump vec4 seedZ = texture2D(u_Noise, v_TexCoord.xy);
+		mediump vec4 noise = fract(256.0 * fract(256.0 * seedX.argb * seedY.barg) * seedZ.gbar);
+		if (noise.x + u_Alpha < 1.0) discard;
+		lowp vec3 normal = normalize(v_Normal);
+		gl_FragColor = (u_Ambient + u_Diffuse * (0.5 + 0.5 * dot(normal, u_Light))) * u_Alpha;
+	}
+</script>
+<script id="environment-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_InverseProjection;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	varying vec3 v_Eye;
+	void main() {
+		gl_Position = a_Position;
+		vec4 position = u_InverseProjection * a_Position;
+		v_Eye = position.xyz / position.w - u_Eye;
+	}
+</script>
+<script id="environment-fragment" type="x-shader/x-fragment">
+	uniform lowp sampler2D u_Environment;
+	varying mediump vec3 v_Eye;
+	const mediump vec3 c001 = vec3(0.0, 0.0, 1.0);
+	void main() {
+		mediump vec3 eye = normalize(v_Eye);
+		mediump vec2 texCoord = 0.5 - 0.5 * eye.xy / length(eye - c001);
+		gl_FragColor = texture2D(u_Environment, texCoord);
+	}
+</script>
+<script id="global-vertex" type="x-shader/x-vertex">
+	uniform mat4 u_InverseProjection;
+	uniform vec3 u_Eye;
+	attribute vec4 a_Position;
+	varying vec3 v_Eye;
+	void main() {
+		gl_Position = a_Position;
+		vec4 position = u_InverseProjection * a_Position;
+		v_Eye = position.xyz / position.w - u_Eye;
+	}
+</script>
+<script id="global-fragment" type="x-shader/x-fragment">
+	uniform mediump mat4 u_Red;
+	uniform mediump mat4 u_Green;
+	uniform mediump mat4 u_Blue;
+	uniform mediump vec4 u_Ambient;
+	uniform mediump float u_Global;
+	varying mediump vec3 v_Eye;
+	void main() {
+		mediump vec4 eye = vec4(normalize(v_Eye), 1.0);
+		gl_FragColor = u_Ambient + u_Global * vec4(dot(eye, u_Red * eye), dot(eye, u_Green * eye), dot(eye, u_Blue * eye), 0.0);
+	}
+</script>
+<script type="text/javascript" src="cube.js"></script>
+</body>
+</html>
