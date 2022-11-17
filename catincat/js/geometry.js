@@ -1,4 +1,4 @@
-
+// クォータニオンの掛け算
 function multiplyQuaternion(a, b) {
 	return {
 	w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
@@ -7,23 +7,23 @@ function multiplyQuaternion(a, b) {
 	z: a.w * b.z + a.z * b.w + a.x * b.y - a.y * b.x,
 	};
 }
-
+// クォータニオンの共役
 function conjugateQuaternion(q) {
 	return {w:q.w, x:-q.x, y:-q.y, z:-q.z};
 }
-
+// クォータニオンの正規化
 function normalizeQuaternion(q) {
 	var r = Math.sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
 	return {w: q.w / r, x: q.x / r, y: q.y / r, z: q.z / r};
 }
-
+// 単位行列
 function makeIdentityMatrix(x, y, z) {
 	return [1, 0, 0, 0,
 			0, 1, 0, 0,
 			0, 0, 1, 0,
 			0, 0, 0, 1];
 }
-
+// うーん...平行投影の行列ね。
 function makeOrthoMatrix(left, right, bottom, top, near, far) {
 	return [1 / (right - left), 0, 0, 0,
 			0, 1 / (top - bottom), 0, 0,
@@ -77,7 +77,8 @@ function makeRotationMatrixWithQuaternion(w, x, y, z) {
 function concatFrustumMatrix(m, left, right, bottom, top, near, far) {
 	return concatMatrix(makeFrustumMatrix(left, right, bottom, top, near, far), m);
 }
-
+// あ、ここ完全に一緒だ（farとnearが距離依存じゃないことを除けば）
+// やっぱ距離依存やめようかなぁ
 function makeFrustumMatrix(left, right, bottom, top, near, far) {
 	return [2 * near / (right - left), 0, 0, 0,
 			0, 2 * near / (top - bottom), 0, 0,
@@ -89,6 +90,7 @@ function concatPerspectiveMatrix(m, fovy, aspect, zNear, zFar) {
 	return concatMatrix(makePerspectiveMatrix(fovy, aspect, zNear, zFar), m);
 }
 
+// あーここも完全に一緒...でいいと思う。じゃあorthoだけか、変なのは。
 function makePerspectiveMatrix(fovy, aspect, zNear, zFar) {
 	var f = 1 / Math.tan(fovy / 2);
 	return [f / aspect, 0, 0, 0,
@@ -101,6 +103,12 @@ function concatLookAtMatrix(m, eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX,
 	return concatMatrix(makeLookAtMatrix(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ), m);
 }
 
+// カメラが関係してるんだと思う
+// ていうか指定の仕方がp5jsなんだよな...あれ標準的なのかな。
+// fはeyeからcenterに向かうベクトル
+// これとupの外積でsが出る、これはcenterに向かう方向に対して右
+// それとfの外積で改めてuを取ってる...sはsideかな...
+// 自分のやり方とはfrontの向きが逆になってるのよね。そのまま移植するのは難しそう。困った。
 function makeLookAtMatrix(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY, upZ) {
 	var fx = centerX - eyeX;
 	var fy = centerY - eyeY;
@@ -120,6 +128,7 @@ function makeLookAtMatrix(eyeX, eyeY, eyeZ, centerX, centerY, centerZ, upX, upY,
 							0, 0, 0, 1], -eyeX, -eyeY, -eyeZ);
 }
 
+// おそらく掛け算なんだろうけどどうしてこんな変な書き方してあるんだろう...
 function concatMatrix(a, b) {
 	return [a[2] * b[8] + a[1] * b[4] + a[3] * b[12] + a[0] * b[0],
 			a[2] * b[9] + a[1] * b[5] + a[3] * b[13] + a[0] * b[1],
@@ -139,6 +148,9 @@ function concatMatrix(a, b) {
 			a[13] * b[7] + a[12] * b[3] + a[15] * b[15] + a[14] * b[11]];
 }
 
+// 逆行列。おそろしい。行列式使ってガチ計算してる...
+// まあ外でやるなら一瞬か。何度も呼び出すわけでもないし。
+// 射影行列の逆行列を計算していますね...正規化デバイスの逆を取ってる。何故そんなことをしているのかは不明。
 function invertMatrix(m) {
 	var determinant =
 	m[0]*(-m[6]*(m[15]*m[9]-m[11]*m[13])+m[7]*(m[14]*m[9]-m[10]*m[13])+(m[10]*m[15]-m[11]*m[14])*m[5])+
@@ -167,6 +179,8 @@ function invertMatrix(m) {
 	return inverse;
 }
 
+// matrixって書いてるけどなんか限定的だな
+// mもvも3成分だし
 function applyInverseMatrix(m, v) {
 	var u = {
 	x: (m.yy * m.zz - m.yz * m.yz) * v.x + (m.yz * m.zx - m.xy * m.zz) * v.y + (m.xy * m.yz - m.yy * m.zx) * v.z,

@@ -1363,6 +1363,8 @@ window.onload = function() {
 		gl_FragColor = v_Position;
 	}
 </script>
+<!-- 凄くシンプルな、単純に色を付けて返すだけのシェーダ -->
+<!-- colorMatrixは単純に0.5倍して0.5を足すだけの処理ですね。この場合は。つまり-1～1が0～1になるということ。アルファは無修正 -->
 <script id="color-vertex" type="x-shader/x-vertex">
 	uniform mat4 u_ColorMatrix;
 	uniform mat4 u_Projection;
