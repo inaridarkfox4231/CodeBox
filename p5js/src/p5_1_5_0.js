@@ -62669,7 +62669,7 @@
             }
             if (typeof maxHeight !== 'undefined') {
               if (this._rectMode === constants.CENTER) {
-                y -= maxHeight / 2;
+                y -= maxHeight / 2; finalMinHeight -= maxHeight/2; // これでよさそうです。
               }
               var originalY = y;
               var ascent = p.textAscent();
@@ -62798,7 +62798,7 @@
             } // Renders lines of text at any line breaks present in the original string
 
             for (var i = 0; i < lines.length; i++) {
-              this._renderText(p, lines[i], x, y - _offset2, finalMaxHeight, finalMinHeight);
+              this._renderText(p, lines[i], x, y - _offset2, finalMaxHeight, finalMinHeight - _offset2);
               y += p.textLeading();
             }
           }
