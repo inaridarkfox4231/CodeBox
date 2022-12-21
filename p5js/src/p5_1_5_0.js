@@ -102021,6 +102021,7 @@
           }
           if (this._doStroke) {
             if (this.immediateMode.geometry.lineVertices.length > 1) {
+              console.log(this.immediateMode.geometry.lineVertexColors);
               this._drawImmediateStroke();
             }
           }
@@ -102447,6 +102448,10 @@
         _main.default.RendererGL.prototype.createBuffers = function (gId, model) {
           var gl = this.GL; //initialize the gl buffers for our geom groups
           var buffers = this._initBufferDefaults(gId);
+          // ここですね。ここでmodelに放り込んでいる。
+          // そしてbuffersは戻り値（モドリッチ）ですから、ごめんこのときワールドカップ2022やってたので
+          // どうでもいいわ！！！
+          // 戻り値ですから、必然的に.model.vertices, .model.edges, ... ってなるわけ。
           buffers.model = model;
           var indexBuffer = buffers.indexBuffer;
           if (model.faces.length) {

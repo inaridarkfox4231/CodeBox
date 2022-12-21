@@ -84,63 +84,165 @@ stroke: [
 // 頂点色にしたってimmediateでしか使えないんだからいいんだよな
 // カスタムでやりたい人がカスタムでやればいいだけの話
 
+// shaderいじる。vertはそのまま。fragの方、bool uUseLineColor
+// this._useLineColorを追加しますね
+// これが
+// geometryの...難しいね。
+// modelに入ってる。のよ。retainedの場合はgeometry.modelってやらないとアクセスできない。
+// geometry.model.lineVertexColorsってアクセスしないとダメ。全部そう。
+// そんでカスタムの場合も。カスタムの場合はあらかじめ用意しておけばいけるはず。
+
+// どこでmodelにぶち込んでいるのかは不明だが...
+// RendererGL.prototype.createBuffers ここですね。ここの戻り値がbuffersで、そのbuffers.modelにいろいろぶちこんでるようです。
+
+// 変更点1: shaderを新しく作るのをやめて元のやつをいじる。vertは新しいやつで置き換える、つまりvColorとaVertexColorを追加する。
+// そしてvColor = aVertexColorを実行するだけ。それとは別にfragの方、こっちはuUseLineColorっていうboolを用意して、
+// これを2箇所ある_setStrokeUniformsの直前で、あの、RendererGLの方に this._useLineColor = false; で初期化する。_main.default.RendererGL = ここに追加。
+// immediateの方はimmediateGeometry.lineVertexColorsがなんか入ってるかどうかで見極めるけど、
+// retainedの場合はgeometry.lineVertexColorsを見る。そこらへん。
+
+// 変更点2: RenderBufferにRetainedの方も同じのを追加。使わなくても問題ないし、プリミティブはこれを使えない。カスタム前提。用意すれば、
+// _edgesToVerticesでちゃんと整形してくれる。
+
+// 以上。
+
 /*
-step1: lineColorVert, lineColorFragを用意する。内部でvarying vec4 vColorを用意してそこにattribute vec4 aVertexColorを放り込んでる。
-       fragではvColorを使って彩色している。
-step2: RendererGL.prototype._getImmediateStrokeShaderにおいて
-       immediateMode.geometry.lineVertexColorsに何も入ってない場合は通常のlineVertを使うように仕向ける（retainedで同じメソッド使ってるので）
-       immediateはretainedが発動中はオフになってるのでそれを使って抜け道を作る。
+-----main/src/webgl/shaders-----
+step1: lineVert, lineFragを改変する。
+       lineVertはattribute vec4 aVertexColorとvarying vec4 vColorを追加してvColorにaVertexColorを代入
+       lineFragはvarying vec4 vColorを追加してuniform bool uUseLineColorを追加してこれがtrueかどうかでvColor使うかuMaterialColor使うか選ぶ
 
-       if(this.immediateMode.geometry.lineVertexColors.length === 0){
-         return this._getLineShader();
-       }
 
-       if (!this._defaultStrokeColorShader) {
-         this._defaultStrokeColorShader = new _main.default.Shader(this, defaultShaders.lineColorVert, defaultShaders.lineColorFrag);
-       }
-       return this._defaultStrokeColorShader;
 
-step3: _main.default.RendererGL =
-       ここに  this._defaultStrokeColorShader = undefined;  を追加する
+-----main/src/webgl/p5.RendererGL.js-----
+step2: _main.default.RendererGL = ここに
+           this._useLineColor = false;
+         を追加。
 
-step4: RendererGL.prototype.vertexにおいて
-       var lineVertexColor = this.curStrokeColor || [0.5, 0.5, 0.5, 1];
-       this.immediateMode.geometry.lineVertexColors.push(lineVertexColor[0], lineVertexColor[1], lineVertexColor[2], lineVertexColor[3]);
-       これを追加
+-----main/src/webgl/p5.RendererGL.js-----
+step4: RenderBufferをretainedの方にも追加する。
+        this.retainedMode = { ってなってるところ。
+        new _main.default.RenderBuffer(4, 'lineVertexColors', 'lineColorBuffer', 'aVertexColor', this, this._flatten), を追加
 
-step5: lineVertexColorsがないとまずいので
+-----main/src/webgl/p5.RendererGL.js-----
+step5: _setStrokeUniformsの中で
+        uUseLineColorにthis._useLineColorをセットする。
+        strokeShader.setUniform('uUseLineColor', this._useLineColor); // 追加
+
+-----main/src/webgl/p5.RendererGL.js-----
+step10: this.immediateMode = {
+     ここに
+     new _main.default.RenderBuffer(4, 'lineVertexColors', 'lineColorBuffer', 'aVertexColor', this, this._flatten),
+     これを追加する
+
+
+
+-----main/src/webgl/p5.RendererGL.Immediate.js-----
+step3_1: _setStrokeUniformsが2箇所ある、ここの直前でlineVertexColorsが空かどうかにより_useLineColorを決定する。
+         決定の仕方はimmediateとretainedで微妙に異なる。
+
+         RendererGL.prototype._drawImmediateStroke =
+         immediateの方はこれ：this._useLineColor = (this.immediateMode.geometry.lineVertexColors.length > 0); // 追加
+
+-----main/src/webgl/p5.RendererGL.Immediate.js-----
+step6: RendererGL.prototype.vertexにおいて
+      var lineVertexColor = this.curStrokeColor || [0.5, 0.5, 0.5, 1];
+      this.immediateMode.geometry.lineVertexColors.push(lineVertexColor[0], lineVertexColor[1], lineVertexColor[2], lineVertexColor[3]);
+      これを追加
+
+
+
+-----main/src/webgl/p5.RendererGL.Retained.js-----
+step3_2: RendererGL.prototype.drawBuffers =
+         retainedの方はこれ：this._useLineColor = (geometry.model.lineVertexColors.length > 0); // 追加
+
+
+
+-----main/src/webgl/p5.Geometry.js-----
+step7: lineVertexColorsがないとまずいので
        _main.default.Geometry = のところに
          this.lineVertexColors = []; // 線の頂点色用
        を追加する
 
-step6: _main.default.Geometry.prototype.resetにおいても
+-----main/src/webgl/p5.Geometry.js-----
+step8: _main.default.Geometry.prototype.resetにおいても
        this.lineVertexColors.length = 0;
        これを追加
 
-step7: Geometry.prototype._edgesToVertices =
+-----main/src/webgl/p5.Geometry.js-----
+step9: Geometry.prototype._edgesToVertices =
        ここでlineVertexColorsになんか入ってる場合に
        それを用いてlineVertexColorsの中身を整形する処理を追加する
        ついでにe0とe1を用いて整理しましょう
 
-step8: this.immediateMode = {
-       ここに
-       new _main.default.RenderBuffer(4, 'lineVertexColors', 'lineColorBuffer', 'aVertexColor', this, this._flatten),
-       これを追加する
 
-step9: RendererGL.prototype.beginShape =
-       内でresetしているところをやめる
 
-step10: RendererGL.prototype.endShape =
-       内で最後、もろもろ終わったタイミングでresetする。これでretained実行中にimmediate云々が邪魔してくることはなくなる。
+       ここまで終わったらプルリクエストの準備を始める。それと同時にサンプルも作る。
+       サンプルはまず頂点ごとにstrokeを呼び出すとグラデーションがつくことがわかりやすいように円弧かなぁ...
+       直線のbefore/afterでいいよ。
+       あともうひとつジオメトリーでもできることをわかりやすいように表現する、こっちは正方形で。
+
+
+
+step--: RendererGL.prototype._getImmediateStrokeShaderにおいては変更点なし
+
+step--: shader直接いじることになったので不要。
+
+step--: reset云々の処理はもう不要ですね。まあ今のままでいいとは思わないけどあっちもこっちも変えるのめんどくさい。
 
 変更は以上です。
-
+ジオメトリーでもテストして。うまくいくかなぁ。
 */
+
+/*
+issue概要
+現在、immediateModeにおいて頂点に色をつけることができるようになっています。
+これはstroke, つまり曲線に関してはそうなっていません。
+頂点を呼び出すたびにstrokeを呼び出しても最後に呼び出したstrokeの色だけが採用されるため、
+全体が同じ色になってしまいます。
+これを、lineVertとlineFragを改造することにより、
+頂点呼び出しの際にstrokeで決めた色が反映されるように改造したいと思います。
+具体的には、begin～endShapeでvertexで線を引く場合に、vertexの直前に呼び出したstrokeの色がその頂点の色となり、
+頂点ごとに違う色が付与されて間については補間される様にします。
+また、p5.Geometryを作る際に頂点と同じ順番で0～1で色を指定していくことで、
+p5.Geometryで作った線についてもそれが反映されるようにします。
+*/
+
+// 頂点色についてはないんですよね...p5.Geometryであれした場合のあれこれ。んー。どうするかね。
+// それも作りたいね...いつかね。簡単ですよ、たぶん。とりあえず、線。
+
+// https://github.com/processing/p5.js/issues/5912
+// このissueで質問者さんが最後に「strokeの場合は補間されないのですね...」って言ってる
+// これに対するanswerの形でプルリクエスト送ったらよさそうです。
+
+// それはそれとして...
+// WEBGLのbezierVertexとquadraticVertexもどうでもいいfriendlyErrorだすんですけど...？
+// しかもp5.jsの公式レファレンスのサンプルがエラー出すのよ。もうふざけてる。
+// しかも
+// これあの仕様変更では防げないのよね。あれ_processVerticesからの呼び出しにしか対応できないから。
+// どうすんのよ。
+// 解決しました
+// あのエラー endShape で出してる
+// だからあの仕様変更で出なくなりますね
+// 一件落着！
+
+// じゃあいいか。
+
+// evenoddの実装ためらうのがばかばかしく思えてくる...もうこの際...全部...
+// まあevenoddくらいは実装したいよね。fillMode(EVENODD)的な感じで。
 
 function setup(){
   createCanvas(400, 400, WEBGL);
   noFill();
   strokeWeight(2);
+
+  const _gl = this._renderer;
+  const geom = new p5.Geometry();
+  geom.vertices = [createVector(-100,-100,0), createVector(100,-100,0)];
+  geom.lineVertexColors = [0, 1, 1, 1, 1, 1, 0, 1];
+  geom.edges = [[0, 1]];
+  geom._edgesToVertices();
+  _gl.createBuffers("customLine", geom);
 
   beginShape();
   stroke(255);
@@ -163,11 +265,6 @@ function setup(){
   sphere(40);
   translate(-100,0,0);
 
-  beginShape();
-  stroke(0,255,255);
-  vertex(-100, -100, 0);
-  stroke(255,255,0);
-  vertex(100, -100, 0);
-  endShape();
+  _gl.drawBuffers("customLine"); // 実験成功。
   console.log("---------------");
 }
