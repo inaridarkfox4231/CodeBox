@@ -5,7 +5,7 @@ function setup(){
   background(0);
   strokeWeight(3);
 
-  beginShape();
+  beginShape(TESS);
   stroke(255);
   vertex(-100, 0, 0);
   stroke(0, 0, 255);
