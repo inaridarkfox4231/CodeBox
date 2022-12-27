@@ -8,6 +8,20 @@
 
 // って思ったけどどうもやらない方がいいみたい...？
 // あんま意味ない気はするけど。残した方がいいのかもな。
+// というかcurveVertexの仕様がいまいちわからんのよね...
+
+// issue: Allow vertex-wise coloring of areas bounded by bezier and quadratic curves in webgl
+// webglにおいてbezier曲線およびquadratic曲線で囲まれた図形の着色を頂点ごとに行えるようにする
+
+// 線についても補間されるようにしたいですね。なので今の案件が終わらないと取り組めません。
+
+// 一応一通りテストできました。プレゼン用。これでいこう。
+
+// やっぱあれ片づけて...いや、ブランチ...
+// だめだ。mainいじってるから別のfork作らないとだめだ。
+// ああもう！最初からブランチで
+// 今更だよ
+// 仕方ないから片付くまで待つわ。
 
 function setup() {
   createCanvas(400, 400, WEBGL);

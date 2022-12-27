@@ -95170,13 +95170,6 @@
           return this;
         };
         _main.default.RendererGL.prototype.bezierVertex = function () {
-
-          // 最後に登録した色を取り出す
-          const vc = this.immediateMode.geometry.vertexColors;
-          const vcL = vc.length;
-          const preCol = [vc[vcL-4], vc[vcL-3], vc[vcL-2], vc[vcL-1]];
-          const curCol = this.curFillColor.slice();
-
           if (this.immediateMode._bezierVertex.length === 0) {
             throw Error('vertex() must be used once before calling bezierVertex()');
           } else {
@@ -95193,6 +95186,9 @@
             i;
             var argLength = arguments.length;
             t = 0;
+            // おそらくベジエ計算に使う値の列を毎回計算するのが重いので、重複を回避するための処理。
+            // テーブルがないか、あってもディテール変更に伴う再計算が要求される場合にここで計算しようということ。
+            // （lutは look up table の意）
             if (this._lookUpTableBezier.length === 0 || this._lutBezierDetail !== this._pInst._curveDetail) {
               this._lookUpTableBezier = [
               ];
@@ -95201,6 +95197,10 @@
               var start = 0;
               var end = 1;
               var j = 0;
+              // 質問でーす。end-=stepの意味が分かりません。
+              // あー、end減らしていってstepと一致したところでやめてる...んだけど、まわりくどくないか？？？
+              // 普通にディテールの数だけ用意するのなんかまずいのか？だれが作ったんだこれ...
+              // 憶測だけどbezierDetailが整数とは限らないことを想定している...のか？だったらfloor取ればよくね？
               while (start < 1) {
                 t = parseFloat(start.toFixed(6));
                 this._lookUpTableBezier[j] = this._bezierCoefficients(t);
@@ -95216,6 +95216,29 @@
               }
             }
             var LUTLength = this._lookUpTableBezier.length;
+
+            // 最後に登録した色を取り出す(curFill)
+            const _vertexColors = this.immediateMode.geometry.vertexColors;
+            const _vertexColorSize = _vertexColors.length;
+            const previousFillColor = [
+              _vertexColors[_vertexColorSize - 4],
+              _vertexColors[_vertexColorSize - 3],
+              _vertexColors[_vertexColorSize - 2],
+              _vertexColors[_vertexColorSize - 1]
+            ];
+            const fillColor = this.curFillColor.slice();
+
+            // 最後に登録した色を取り出す(curStroke)
+            const _lineVertexColors = this.immediateMode.geometry.lineVertexColors;
+            const _lineVertexColorSize = _lineVertexColors.length;
+            const previousStrokeColor = [
+              _lineVertexColors[_lineVertexColorSize - 4],
+              _lineVertexColors[_lineVertexColorSize - 3],
+              _lineVertexColors[_lineVertexColorSize - 2],
+              _lineVertexColors[_lineVertexColorSize - 1]
+            ];
+            const strokeColor = this.curStrokeColor.slice();
+
             if (argLength === 6) {
               this.isBezier = true;
               w_x = [
@@ -95234,16 +95257,23 @@
                 // 色を補間する
                 const ratio = i/LUTLength;
                 this.curFillColor = [
-                  preCol[0]*(1-ratio)+curCol[0]*ratio,
-                  preCol[1]*(1-ratio)+curCol[1]*ratio,
-                  preCol[2]*(1-ratio)+curCol[2]*ratio,
-                  preCol[3]*(1-ratio)+curCol[3]*ratio
+                  previousFillColor[0] * (1-ratio) + fillColor[0] * ratio,
+                  previousFillColor[1] * (1-ratio) + fillColor[1] * ratio,
+                  previousFillColor[2] * (1-ratio) + fillColor[2] * ratio,
+                  previousFillColor[3] * (1-ratio) + fillColor[3] * ratio
+                ];
+                this.curStrokeColor = [
+                  previousStrokeColor[0] * (1-ratio) + strokeColor[0] * ratio,
+                  previousStrokeColor[1] * (1-ratio) + strokeColor[1] * ratio,
+                  previousStrokeColor[2] * (1-ratio) + strokeColor[2] * ratio,
+                  previousStrokeColor[3] * (1-ratio) + strokeColor[3] * ratio
                 ];
                 _x = w_x[0] * this._lookUpTableBezier[i][0] + w_x[1] * this._lookUpTableBezier[i][1] + w_x[2] * this._lookUpTableBezier[i][2] + w_x[3] * this._lookUpTableBezier[i][3];
                 _y = w_y[0] * this._lookUpTableBezier[i][0] + w_y[1] * this._lookUpTableBezier[i][1] + w_y[2] * this._lookUpTableBezier[i][2] + w_y[3] * this._lookUpTableBezier[i][3];
                 this.vertex(_x, _y);
               }
-              this.curFillColor = curCol; // 色を戻す
+              this.curFillColor = fillColor; // 色を戻す
+              this.curStrokeColor = strokeColor; // 色を戻す
               this.immediateMode._bezierVertex[0] = arguments.length <= 4 ? undefined : arguments[4];
               this.immediateMode._bezierVertex[1] = arguments.length <= 5 ? undefined : arguments[5];
             } else if (argLength === 9) {
@@ -95270,18 +95300,24 @@
                 // 色を補間する
                 const ratio = i/LUTLength;
                 this.curFillColor = [
-                  preCol[0]*(1-ratio)+curCol[0]*ratio,
-                  preCol[1]*(1-ratio)+curCol[1]*ratio,
-                  preCol[2]*(1-ratio)+curCol[2]*ratio,
-                  preCol[3]*(1-ratio)+curCol[3]*ratio
+                  previousFillColor[0] * (1-ratio) + fillColor[0] * ratio,
+                  previousFillColor[1] * (1-ratio) + fillColor[1] * ratio,
+                  previousFillColor[2] * (1-ratio) + fillColor[2] * ratio,
+                  previousFillColor[3] * (1-ratio) + fillColor[3] * ratio
                 ];
-
+                this.curStrokeColor = [
+                  previousStrokeColor[0] * (1-ratio) + strokeColor[0] * ratio,
+                  previousStrokeColor[1] * (1-ratio) + strokeColor[1] * ratio,
+                  previousStrokeColor[2] * (1-ratio) + strokeColor[2] * ratio,
+                  previousStrokeColor[3] * (1-ratio) + strokeColor[3] * ratio
+                ];
                 _x = w_x[0] * this._lookUpTableBezier[i][0] + w_x[1] * this._lookUpTableBezier[i][1] + w_x[2] * this._lookUpTableBezier[i][2] + w_x[3] * this._lookUpTableBezier[i][3];
                 _y = w_y[0] * this._lookUpTableBezier[i][0] + w_y[1] * this._lookUpTableBezier[i][1] + w_y[2] * this._lookUpTableBezier[i][2] + w_y[3] * this._lookUpTableBezier[i][3];
                 _z = w_z[0] * this._lookUpTableBezier[i][0] + w_z[1] * this._lookUpTableBezier[i][1] + w_z[2] * this._lookUpTableBezier[i][2] + w_z[3] * this._lookUpTableBezier[i][3];
                 this.vertex(_x, _y, _z);
               }
-              this.curFillColor = curCol; // 色を戻す
+              this.curFillColor = fillColor; // 色を戻す
+              this.curStrokeColor = strokeColor; // 色を戻す
               this.immediateMode._bezierVertex[0] = arguments.length <= 6 ? undefined : arguments[6];
               this.immediateMode._bezierVertex[1] = arguments.length <= 7 ? undefined : arguments[7];
               this.immediateMode._bezierVertex[2] = arguments.length <= 8 ? undefined : arguments[8];
@@ -95328,6 +95364,29 @@
               }
             }
             var LUTLength = this._lookUpTableQuadratic.length;
+
+            // 最後に登録した色を取り出す(curFill)
+            const _vertexColors = this.immediateMode.geometry.vertexColors;
+            const _vertexColorSize = _vertexColors.length;
+            const previousFillColor = [
+              _vertexColors[_vertexColorSize - 4],
+              _vertexColors[_vertexColorSize - 3],
+              _vertexColors[_vertexColorSize - 2],
+              _vertexColors[_vertexColorSize - 1]
+            ];
+            const fillColor = this.curFillColor.slice();
+
+            // 最後に登録した色を取り出す(curStroke)
+            const _lineVertexColors = this.immediateMode.geometry.lineVertexColors;
+            const _lineVertexColorSize = _lineVertexColors.length;
+            const previousStrokeColor = [
+              _lineVertexColors[_lineVertexColorSize - 4],
+              _lineVertexColors[_lineVertexColorSize - 3],
+              _lineVertexColors[_lineVertexColorSize - 2],
+              _lineVertexColors[_lineVertexColorSize - 1]
+            ];
+            const strokeColor = this.curStrokeColor.slice();
+
             if (argLength === 4) {
               this.isQuadratic = true;
               w_x = [
@@ -95341,10 +95400,26 @@
                 arguments.length <= 3 ? undefined : arguments[3]
               ];
               for (i = 0; i < LUTLength; i++) {
+                // 色を補間する
+                const ratio = i/LUTLength;
+                this.curFillColor = [
+                  previousFillColor[0] * (1-ratio) + fillColor[0] * ratio,
+                  previousFillColor[1] * (1-ratio) + fillColor[1] * ratio,
+                  previousFillColor[2] * (1-ratio) + fillColor[2] * ratio,
+                  previousFillColor[3] * (1-ratio) + fillColor[3] * ratio
+                ];
+                this.curStrokeColor = [
+                  previousStrokeColor[0] * (1-ratio) + strokeColor[0] * ratio,
+                  previousStrokeColor[1] * (1-ratio) + strokeColor[1] * ratio,
+                  previousStrokeColor[2] * (1-ratio) + strokeColor[2] * ratio,
+                  previousStrokeColor[3] * (1-ratio) + strokeColor[3] * ratio
+                ];
                 _x = w_x[0] * this._lookUpTableQuadratic[i][0] + w_x[1] * this._lookUpTableQuadratic[i][1] + w_x[2] * this._lookUpTableQuadratic[i][2];
                 _y = w_y[0] * this._lookUpTableQuadratic[i][0] + w_y[1] * this._lookUpTableQuadratic[i][1] + w_y[2] * this._lookUpTableQuadratic[i][2];
                 this.vertex(_x, _y);
               }
+              this.curFillColor = fillColor; // 色を戻す
+              this.curStrokeColor = strokeColor; // 色を戻す
               this.immediateMode._quadraticVertex[0] = arguments.length <= 2 ? undefined : arguments[2];
               this.immediateMode._quadraticVertex[1] = arguments.length <= 3 ? undefined : arguments[3];
             } else if (argLength === 6) {
@@ -95365,11 +95440,27 @@
                 arguments.length <= 5 ? undefined : arguments[5]
               ];
               for (i = 0; i < LUTLength; i++) {
+                // 色を補間する
+                const ratio = i/LUTLength;
+                this.curFillColor = [
+                  previousFillColor[0] * (1-ratio) + fillColor[0] * ratio,
+                  previousFillColor[1] * (1-ratio) + fillColor[1] * ratio,
+                  previousFillColor[2] * (1-ratio) + fillColor[2] * ratio,
+                  previousFillColor[3] * (1-ratio) + fillColor[3] * ratio
+                ];
+                this.curStrokeColor = [
+                  previousStrokeColor[0] * (1-ratio) + strokeColor[0] * ratio,
+                  previousStrokeColor[1] * (1-ratio) + strokeColor[1] * ratio,
+                  previousStrokeColor[2] * (1-ratio) + strokeColor[2] * ratio,
+                  previousStrokeColor[3] * (1-ratio) + strokeColor[3] * ratio
+                ];
                 _x = w_x[0] * this._lookUpTableQuadratic[i][0] + w_x[1] * this._lookUpTableQuadratic[i][1] + w_x[2] * this._lookUpTableQuadratic[i][2];
                 _y = w_y[0] * this._lookUpTableQuadratic[i][0] + w_y[1] * this._lookUpTableQuadratic[i][1] + w_y[2] * this._lookUpTableQuadratic[i][2];
                 _z = w_z[0] * this._lookUpTableQuadratic[i][0] + w_z[1] * this._lookUpTableQuadratic[i][1] + w_z[2] * this._lookUpTableQuadratic[i][2];
                 this.vertex(_x, _y, _z);
               }
+              this.curFillColor = fillColor; // 色を戻す
+              this.curStrokeColor = strokeColor; // 色を戻す
               this.immediateMode._quadraticVertex[0] = arguments.length <= 3 ? undefined : arguments[3];
               this.immediateMode._quadraticVertex[1] = arguments.length <= 4 ? undefined : arguments[4];
               this.immediateMode._quadraticVertex[2] = arguments.length <= 5 ? undefined : arguments[5];
