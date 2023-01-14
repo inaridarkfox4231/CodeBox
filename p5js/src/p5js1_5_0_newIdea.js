@@ -1211,12 +1211,12 @@
               'params': [
                 {
                   'name': 'x1',
-                  'description': '<p>x-coordinate of the first point</p>\n',
+                  'description': '<p>x-coordinate of the first point だそうですよ</p>\n',
                   'type': 'Number'
                 },
                 {
                   'name': 'y1',
-                  'description': '<p>y-coordinate of the first point</p>\n',
+                  'description': '<p>y-coordinate of the first point ここをいじればいいんだけどね</p>\n',
                   'type': 'Number'
                 },
                 {
@@ -63908,7 +63908,7 @@
             this.drawingContext.closePath();
           }
           if (this._doFill) {
-            this.drawingContext.fill();
+            this.drawingContext.fill("evenodd");
           }
           if (this._doStroke) {
             this.drawingContext.stroke();
@@ -95233,6 +95233,12 @@
             strokeColors[0] = this.immediateMode.geometry.lineVertexColors.slice(-4);
             strokeColors[3] = this.curStrokeColor.slice();
 
+            const texCoords = [];
+            for (m = 0; m < 4; m++) texCoords.push([]);
+            texCoords[0] = this.immediateMode.geometry.uvs.slice(-2);
+            texCoords[3].push(this._currentTexCoord.x);
+            texCoords[3].push(this._currentTexCoord.y);
+
             if (argLength === 6) {
               this.isBezier = true;
 
@@ -95259,12 +95265,21 @@
                 strokeColors[2].push(
                   strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
                 );
+                if (k < 2) {
+                  texCoords[1].push(
+                    texCoords[0][k] * (1-d0) + texCoords[3][k] * d0
+                  );
+                  texCoords[2].push(
+                    texCoords[0][k] * d2 + texCoords[3][k] * (1-d2)
+                  );
+                }
               }
 
               for (i = 0; i < LUTLength; i++) {
                 // Interpolate colors using control points
                 this.curFillColor = [0, 0, 0, 0];
                 this.curStrokeColor = [0, 0, 0, 0];
+                this._currentTexCoord.set(0, 0);
                 _x = _y = 0;
                 for (m = 0; m < 4; m++) {
                   for (k = 0; k < 4; k++) {
@@ -95273,6 +95288,10 @@
                     this.curStrokeColor[k] +=
                       this._lookUpTableBezier[i][m] * strokeColors[m][k];
                   }
+                  this._currentTexCoord.x +=
+                    this._lookUpTableBezier[i][m] * texCoords[m][0];
+                  this._currentTexCoord.y +=
+                    this._lookUpTableBezier[i][m] * texCoords[m][1];
                   _x += w_x[m] * this._lookUpTableBezier[i][m];
                   _y += w_y[m] * this._lookUpTableBezier[i][m];
                 }
@@ -95281,6 +95300,7 @@
               // so that we leave currentColor with the last value the user set it to
               this.curFillColor = fillColors[3];
               this.curStrokeColor = strokeColors[3];
+              this._currentTexCoord.set(texCoords[3][0], texCoords[3][1]);
               this.immediateMode._bezierVertex[0] = args[4];
               this.immediateMode._bezierVertex[1] = args[5];
             } else if (argLength === 9) {
@@ -95310,11 +95330,20 @@
                 strokeColors[2].push(
                   strokeColors[0][k] * d2 + strokeColors[3][k] * (1-d2)
                 );
+                if (k < 2) {
+                  texCoords[1].push(
+                    texCoords[0][k] * (1-d0) + texCoords[3][k] * d0
+                  );
+                  texCoords[2].push(
+                    texCoords[0][k] * d2 + texCoords[3][k] * (1-d2)
+                  );
+                }
               }
               for (i = 0; i < LUTLength; i++) {
                 // Interpolate colors using control points
                 this.curFillColor = [0, 0, 0, 0];
                 this.curStrokeColor = [0, 0, 0, 0];
+                this._currentTexCoord.set(0, 0);
                 _x = _y = _z = 0;
                 for (m = 0; m < 4; m++) {
                   for (k = 0; k < 4; k++) {
@@ -95323,6 +95352,10 @@
                     this.curStrokeColor[k] +=
                       this._lookUpTableBezier[i][m] * strokeColors[m][k];
                   }
+                  this._currentTexCoord.x +=
+                    this._lookUpTableBezier[i][m] * texCoords[m][0];
+                  this._currentTexCoord.y +=
+                    this._lookUpTableBezier[i][m] * texCoords[m][1];
                   _x += w_x[m] * this._lookUpTableBezier[i][m];
                   _y += w_y[m] * this._lookUpTableBezier[i][m];
                   _z += w_z[m] * this._lookUpTableBezier[i][m];
@@ -95332,6 +95365,7 @@
               // so that we leave currentColor with the last value the user set it to
               this.curFillColor = fillColors[3];
               this.curStrokeColor = strokeColors[3];
+              this._currentTexCoord.set(texCoords[3][0], texCoords[3][1]);
               this.immediateMode._bezierVertex[0] = args[6];
               this.immediateMode._bezierVertex[1] = args[7];
               this.immediateMode._bezierVertex[2] = args[8];
@@ -95632,12 +95666,24 @@
           if (sy + sHeight <= img.height) {
             v1 = (sy + sHeight) / img.height;
           }
+          //const gl = this.GL;
+          //const depthTestIsEnable = gl.getParameter(gl.DEPTH_TEST);
+          //const cullFaceIsEnable = gl.getParameter(gl.CULL_FACE);
+
+          //gl.disable(gl.DEPTH_TEST);
+          //gl.disable(gl.CULL_FACE);
+
+          //this._curCamera._setDefaultCamera();
           this.beginShape();
           this.vertex(dx, dy, 0, u0, v0);
           this.vertex(dx + dWidth, dy, 0, u1, v0);
           this.vertex(dx + dWidth, dy + dHeight, 0, u1, v1);
           this.vertex(dx, dy + dHeight, 0, u0, v1);
           this.endShape(constants.CLOSE);
+
+          //if (depthTestIsEnable) { gl.enable(gl.DEPTH_TEST); }
+          //if (cullFaceIsEnable) { gl.enable(gl.CULL_FACE); }
+
           this._pInst.pop();
           if (this._isErasing) {
             this.blendMode(constants.REMOVE);
@@ -100392,7 +100438,8 @@
             local.z[1] * z,
             local.z[2] * z
           ];
-          this.camera(this.eyeX + dx[0] + dy[0] + dz[0], this.eyeY + dx[1] + dy[1] + dz[1], this.eyeZ + dx[2] + dy[2] + dz[2], this.centerX + dx[0] + dy[0] + dz[0], this.centerY + dx[1] + dy[1] + dz[1], this.centerZ + dx[2] + dy[2] + dz[2], 0, 1, 0);
+          // ここが(0, 1, 0)になってたのを、upX, upY, upZに直しました。
+          this.camera(this.eyeX + dx[0] + dy[0] + dz[0], this.eyeY + dx[1] + dy[1] + dz[1], this.eyeZ + dx[2] + dy[2] + dz[2], this.centerX + dx[0] + dy[0] + dz[0], this.centerY + dx[1] + dy[1] + dz[1], this.centerZ + dx[2] + dy[2] + dz[2], this.upX, this.upY, this.upZ);
         };
         /**
  * Set camera position in world-space while maintaining current camera
@@ -100442,7 +100489,7 @@
           var diffX = x - this.eyeX;
           var diffY = y - this.eyeY;
           var diffZ = z - this.eyeZ;
-          this.camera(x, y, z, this.centerX + diffX, this.centerY + diffY, this.centerZ + diffZ, 0, 1, 0);
+          this.camera(x, y, z, this.centerX + diffX, this.centerY + diffY, this.centerZ + diffZ, this.upX, this.upY, this.upZ);
         }; ////////////////////////////////////////////////////////////////////////////////
         // Camera Helper Methods
         ////////////////////////////////////////////////////////////////////////////////
@@ -100508,6 +100555,7 @@
           _cam.cameraType = this.cameraType;
           _cam.cameraMatrix = this.cameraMatrix.copy();
           _cam.projMatrix = this.projMatrix.copy();
+          _cam._computeCameraDefaultSettings();
           return _cam;
         };
         /**
@@ -100687,6 +100735,7 @@
  */
         _main.default.prototype.setCamera = function (cam) {
           this._renderer._curCamera = cam; // set the projection matrix (which is not normally updated each frame)
+          this._renderer.uMVMatrix.set(cam.cameraMatrix.mat4[0], cam.cameraMatrix.mat4[1], cam.cameraMatrix.mat4[2], cam.cameraMatrix.mat4[3], cam.cameraMatrix.mat4[4], cam.cameraMatrix.mat4[5], cam.cameraMatrix.mat4[6], cam.cameraMatrix.mat4[7], cam.cameraMatrix.mat4[8], cam.cameraMatrix.mat4[9], cam.cameraMatrix.mat4[10], cam.cameraMatrix.mat4[11], cam.cameraMatrix.mat4[12], cam.cameraMatrix.mat4[13], cam.cameraMatrix.mat4[14], cam.cameraMatrix.mat4[15]);
           this._renderer.uPMatrix.set(cam.projMatrix.mat4[0], cam.projMatrix.mat4[1], cam.projMatrix.mat4[2], cam.projMatrix.mat4[3], cam.projMatrix.mat4[4], cam.projMatrix.mat4[5], cam.projMatrix.mat4[6], cam.projMatrix.mat4[7], cam.projMatrix.mat4[8], cam.projMatrix.mat4[9], cam.projMatrix.mat4[10], cam.projMatrix.mat4[11], cam.projMatrix.mat4[12], cam.projMatrix.mat4[13], cam.projMatrix.mat4[14], cam.projMatrix.mat4[15]);
         };
         var _default = _main.default.Camera;
@@ -102111,7 +102160,11 @@
           var z,
           u,
           v; // default to (x, y) mode: all other arguments assumed to be 0.
-          z = u = v = 0;
+          //z = u = v = 0;
+          z = 0;
+          // uとvは引数が4つ以上の場合上書きされる形
+          u = this._currentTexCoord.x;
+          v = this._currentTexCoord.y;
           if (arguments.length === 3) {
             // (x, y, z) mode: (u, v) assumed to be 0.
             z = arguments[2];
@@ -102362,6 +102415,7 @@
  */
         _main.default.RendererGL.prototype._drawImmediateFill = function () {
           var gl = this.GL;
+          this._useVertexColor = (this.immediateMode.geometry.vertexColors.length > 0); // LCV関連で追加
           var shader = this._getImmediateFillShader();
           this._setFillUniforms(shader);
           var _iteratorNormalCompletion = true;
@@ -102665,8 +102719,8 @@
           var gl = this.GL;
           var geometry = this.retainedMode.geometry[gId];
           if (this._doStroke && geometry.lineVertexCount > 0) {
-            var strokeShader = this._getRetainedStrokeShader();
             this._useLineColor = (geometry.model.lineVertexColors.length > 0); // 追加
+            var strokeShader = this._getRetainedStrokeShader();
             this._setStrokeUniforms(strokeShader);
             var _iteratorNormalCompletion2 = true;
             var _didIteratorError2 = false;
@@ -102695,6 +102749,7 @@
             strokeShader.unbindShader();
           }
           if (this._doFill) {
+            this._useVertexColor = (geometry.model.vertexColors.length > 0); // LCV関連で追加
             var fillShader = this._getRetainedFillShader();
             this._setFillUniforms(fillShader);
             var _iteratorNormalCompletion3 = true;
@@ -103026,18 +103081,20 @@
         } /* lineVertとlineFragを変更 */
         // 具体的にはVertの方がvColorとaVertexColorを追加してvColorにaVertexColorを代入
         // Fragの方がvColorを追加してuMaterialColorはそのままでuUseLineColorというフラグを使う、これがtrueならvColorを使う、さもなければuMaterialColorを使う。
+
+        // LCV関連で追加...というか修正。phongVertとphongFrag,lightVertとlightTextureFragを改変
         var lightingShader = 'precision highp float;\nprecision highp int;\n\nuniform mat4 uViewMatrix;\n\nuniform bool uUseLighting;\n\nuniform int uAmbientLightCount;\nuniform vec3 uAmbientColor[5];\n\nuniform int uDirectionalLightCount;\nuniform vec3 uLightingDirection[5];\nuniform vec3 uDirectionalDiffuseColors[5];\nuniform vec3 uDirectionalSpecularColors[5];\n\nuniform int uPointLightCount;\nuniform vec3 uPointLightLocation[5];\nuniform vec3 uPointLightDiffuseColors[5];\t\nuniform vec3 uPointLightSpecularColors[5];\n\nuniform int uSpotLightCount;\nuniform float uSpotLightAngle[5];\nuniform float uSpotLightConc[5];\nuniform vec3 uSpotLightDiffuseColors[5];\nuniform vec3 uSpotLightSpecularColors[5];\nuniform vec3 uSpotLightLocation[5];\nuniform vec3 uSpotLightDirection[5];\n\nuniform bool uSpecular;\nuniform float uShininess;\n\nuniform float uConstantAttenuation;\nuniform float uLinearAttenuation;\nuniform float uQuadraticAttenuation;\n\nconst float specularFactor = 2.0;\nconst float diffuseFactor = 0.73;\n\nstruct LightResult {\n  float specular;\n  float diffuse;\n};\n\nfloat _phongSpecular(\n  vec3 lightDirection,\n  vec3 viewDirection,\n  vec3 surfaceNormal,\n  float shininess) {\n\n  vec3 R = reflect(lightDirection, surfaceNormal);\n  return pow(max(0.0, dot(R, viewDirection)), shininess);\n}\n\nfloat _lambertDiffuse(vec3 lightDirection, vec3 surfaceNormal) {\n  return max(0.0, dot(-lightDirection, surfaceNormal));\n}\n\nLightResult _light(vec3 viewDirection, vec3 normal, vec3 lightVector) {\n\n  vec3 lightDir = normalize(lightVector);\n\n  //compute our diffuse & specular terms\n  LightResult lr;\n  if (uSpecular)\n    lr.specular = _phongSpecular(lightDir, viewDirection, normal, uShininess);\n  lr.diffuse = _lambertDiffuse(lightDir, normal);\n  return lr;\n}\n\nvoid totalLight(\n  vec3 modelPosition,\n  vec3 normal,\n  out vec3 totalDiffuse,\n  out vec3 totalSpecular\n) {\n\n  totalSpecular = vec3(0.0);\n\n  if (!uUseLighting) {\n    totalDiffuse = vec3(1.0);\n    return;\n  }\n\n  totalDiffuse = vec3(0.0);\n\n  vec3 viewDirection = normalize(-modelPosition);\n\n  for (int j = 0; j < 5; j++) {\n    if (j < uDirectionalLightCount) {\n      vec3 lightVector = (uViewMatrix * vec4(uLightingDirection[j], 0.0)).xyz;\n      vec3 lightColor = uDirectionalDiffuseColors[j];\n      vec3 specularColor = uDirectionalSpecularColors[j];\n      LightResult result = _light(viewDirection, normal, lightVector);\n      totalDiffuse += result.diffuse * lightColor;\n      totalSpecular += result.specular * lightColor * specularColor;\n    }\n\n    if (j < uPointLightCount) {\n      vec3 lightPosition = (uViewMatrix * vec4(uPointLightLocation[j], 1.0)).xyz;\n      vec3 lightVector = modelPosition - lightPosition;\n    \n      //calculate attenuation\n      float lightDistance = length(lightVector);\n      float lightFalloff = 1.0 / (uConstantAttenuation + lightDistance * uLinearAttenuation + (lightDistance * lightDistance) * uQuadraticAttenuation);\n      vec3 lightColor = lightFalloff * uPointLightDiffuseColors[j];\n      vec3 specularColor = lightFalloff * uPointLightSpecularColors[j];\n\n      LightResult result = _light(viewDirection, normal, lightVector);\n      totalDiffuse += result.diffuse * lightColor;\n      totalSpecular += result.specular * lightColor * specularColor;\n    }\n\n    if(j < uSpotLightCount) {\n      vec3 lightPosition = (uViewMatrix * vec4(uSpotLightLocation[j], 1.0)).xyz;\n      vec3 lightVector = modelPosition - lightPosition;\n    \n      float lightDistance = length(lightVector);\n      float lightFalloff = 1.0 / (uConstantAttenuation + lightDistance * uLinearAttenuation + (lightDistance * lightDistance) * uQuadraticAttenuation);\n\n      vec3 lightDirection = (uViewMatrix * vec4(uSpotLightDirection[j], 0.0)).xyz;\n      float spotDot = dot(normalize(lightVector), normalize(lightDirection));\n      float spotFalloff;\n      if(spotDot < uSpotLightAngle[j]) {\n        spotFalloff = 0.0;\n      }\n      else {\n        spotFalloff = pow(spotDot, uSpotLightConc[j]);\n      }\n      lightFalloff *= spotFalloff;\n\n      vec3 lightColor = uSpotLightDiffuseColors[j];\n      vec3 specularColor = uSpotLightSpecularColors[j];\n     \n      LightResult result = _light(viewDirection, normal, lightVector);\n      \n      totalDiffuse += result.diffuse * lightColor * lightFalloff;\n      totalSpecular += result.specular * lightColor * specularColor * lightFalloff;\n    }\n  }\n\n  totalDiffuse *= diffuseFactor;\n  totalSpecular *= specularFactor;\n}\n';
         var defaultShaders = {
           immediateVert: 'attribute vec3 aPosition;\nattribute vec4 aVertexColor;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform float uResolution;\nuniform float uPointSize;\n\nvarying vec4 vColor;\nvoid main(void) {\n  vec4 positionVec4 = vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * uModelViewMatrix * positionVec4;\n  vColor = aVertexColor;\n  gl_PointSize = uPointSize;\n}\n',
           vertexColorVert: 'attribute vec3 aPosition;\nattribute vec4 aVertexColor;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\n\nvarying vec4 vColor;\n\nvoid main(void) {\n  vec4 positionVec4 = vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * uModelViewMatrix * positionVec4;\n  vColor = aVertexColor;\n}\n',
           vertexColorFrag: 'precision mediump float;\nvarying vec4 vColor;\nvoid main(void) {\n  gl_FragColor = vColor;\n}',
-          normalVert: 'attribute vec3 aPosition;\nattribute vec3 aNormal;\nattribute vec2 aTexCoord;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\n\nvarying vec3 vVertexNormal;\nvarying highp vec2 vVertTexCoord;\n\nvoid main(void) {\n  vec4 positionVec4 = vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * uModelViewMatrix * positionVec4;\n  vVertexNormal = normalize(vec3( uNormalMatrix * aNormal ));\n  vVertTexCoord = aTexCoord;\n}\n',
+          normalVert: 'attribute vec3 aPosition;\nattribute vec3 aNormal;\nvarying vec4 vColor;\nuniform bool uUseVertexColor;\nuniform vec4 uMaterialColor;\nattribute vec4 aVertexColor;\nattribute vec2 aTexCoord;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\n\nvarying vec3 vVertexNormal;\nvarying highp vec2 vVertTexCoord;\n\nvoid main(void) {\n  vec4 positionVec4 = vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * uModelViewMatrix * positionVec4;\n  vVertexNormal = normalize(vec3( uNormalMatrix * aNormal ));\n  vColor = (uUseVertexColor ? aVertexColor : uMaterialColor);\n  vVertTexCoord = aTexCoord;\n}\n',
           normalFrag: 'precision mediump float;\nvarying vec3 vVertexNormal;\nvoid main(void) {\n  gl_FragColor = vec4(vVertexNormal, 1.0);\n}',
-          basicFrag: 'precision mediump float;\nuniform vec4 uMaterialColor;\nvoid main(void) {\n  gl_FragColor = uMaterialColor;\n}',
-          lightVert: lightingShader + '// include lighting.glgl\n\nattribute vec3 aPosition;\nattribute vec3 aNormal;\nattribute vec2 aTexCoord;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\n\nvarying highp vec2 vVertTexCoord;\nvarying vec3 vDiffuseColor;\nvarying vec3 vSpecularColor;\n\nvoid main(void) {\n\n  vec4 viewModelPosition = uModelViewMatrix * vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * viewModelPosition;\n\n  vec3 vertexNormal = normalize(uNormalMatrix * aNormal);\n  vVertTexCoord = aTexCoord;\n\n  totalLight(viewModelPosition.xyz, vertexNormal, vDiffuseColor, vSpecularColor);\n\n  for (int i = 0; i < 8; i++) {\n    if (i < uAmbientLightCount) {\n      vDiffuseColor += uAmbientColor[i];\n    }\n  }\n}\n',
-          lightTextureFrag: 'precision highp float;\n\nuniform vec4 uMaterialColor;\nuniform vec4 uTint;\nuniform sampler2D uSampler;\nuniform bool isTexture;\nuniform bool uEmissive;\n\nvarying highp vec2 vVertTexCoord;\nvarying vec3 vDiffuseColor;\nvarying vec3 vSpecularColor;\n\nvoid main(void) {\n  if(uEmissive && !isTexture) {\n    gl_FragColor = uMaterialColor;\n  }\n  else {\n    gl_FragColor = isTexture ? texture2D(uSampler, vVertTexCoord) * (uTint / vec4(255, 255, 255, 255)) : uMaterialColor;\n    gl_FragColor.rgb = gl_FragColor.rgb * vDiffuseColor + vSpecularColor;\n  }\n}',
-          phongVert: 'precision highp float;\nprecision highp int;\n\nattribute vec3 aPosition;\nattribute vec3 aNormal;\nattribute vec2 aTexCoord;\n\nuniform vec3 uAmbientColor[5];\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\nuniform int uAmbientLightCount;\n\nvarying vec3 vNormal;\nvarying vec2 vTexCoord;\nvarying vec3 vViewPosition;\nvarying vec3 vAmbientColor;\n\nvoid main(void) {\n\n  vec4 viewModelPosition = uModelViewMatrix * vec4(aPosition, 1.0);\n\n  // Pass varyings to fragment shader\n  vViewPosition = viewModelPosition.xyz;\n  gl_Position = uProjectionMatrix * viewModelPosition;  \n\n  vNormal = uNormalMatrix * aNormal;\n  vTexCoord = aTexCoord;\n\n  // TODO: this should be a uniform\n  vAmbientColor = vec3(0.0);\n  for (int i = 0; i < 5; i++) {\n    if (i < uAmbientLightCount) {\n      vAmbientColor += uAmbientColor[i];\n    }\n  }\n}\n',
-          phongFrag: lightingShader + '// include lighting.glsl\nprecision highp float;\nprecision highp int;\n\nuniform vec4 uSpecularMatColor;\nuniform vec4 uAmbientMatColor;\nuniform vec4 uEmissiveMatColor;\n\nuniform vec4 uMaterialColor;\nuniform vec4 uTint;\nuniform sampler2D uSampler;\nuniform bool isTexture;\n\nvarying vec3 vNormal;\nvarying vec2 vTexCoord;\nvarying vec3 vViewPosition;\nvarying vec3 vAmbientColor;\n\nvoid main(void) {\n\n  vec3 diffuse;\n  vec3 specular;\n  totalLight(vViewPosition, normalize(vNormal), diffuse, specular);\n\n  // Calculating final color as result of all lights (plus emissive term).\n\n  gl_FragColor = isTexture ? texture2D(uSampler, vTexCoord) * (uTint / vec4(255, 255, 255, 255)) : uMaterialColor;\n  gl_FragColor.rgb = diffuse * gl_FragColor.rgb + \n                    vAmbientColor * uAmbientMatColor.rgb + \n                    specular * uSpecularMatColor.rgb + \n                    uEmissiveMatColor.rgb;\n}',
+          basicFrag: 'precision mediump float;\nvarying vec4 vColor;\nvoid main(void) {\n  gl_FragColor = vColor;\n}',
+          lightVert: lightingShader + '// include lighting.glgl\n\nattribute vec3 aPosition;\nvarying vec4 vColor;\nuniform bool uUseVertexColor;\nuniform vec4 uMaterialColor;\nattribute vec4 aVertexColor;\nattribute vec3 aNormal;\nattribute vec2 aTexCoord;\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\n\nvarying highp vec2 vVertTexCoord;\nvarying vec3 vDiffuseColor;\nvarying vec3 vSpecularColor;\n\nvoid main(void) {\n\n  vec4 viewModelPosition = uModelViewMatrix * vec4(aPosition, 1.0);\n  gl_Position = uProjectionMatrix * viewModelPosition;\n\n  vec3 vertexNormal = normalize(uNormalMatrix * aNormal);\n  vVertTexCoord = aTexCoord;\n  vColor = (uUseVertexColor ? aVertexColor : uMaterialColor);\n\n  totalLight(viewModelPosition.xyz, vertexNormal, vDiffuseColor, vSpecularColor);\n\n  for (int i = 0; i < 8; i++) {\n    if (i < uAmbientLightCount) {\n      vDiffuseColor += uAmbientColor[i];\n    }\n  }\n}\n',
+          lightTextureFrag: 'precision highp float;\n\nvarying vec4 vColor;\nuniform vec4 uTint;\nuniform sampler2D uSampler;\nuniform bool isTexture;\nuniform bool uEmissive;\n\nvarying highp vec2 vVertTexCoord;\nvarying vec3 vDiffuseColor;\nvarying vec3 vSpecularColor;\n\nvoid main(void) {\n  if(uEmissive && !isTexture) {\n    gl_FragColor = uMaterialColor;\n  }\n  else {\n    gl_FragColor = isTexture ? texture2D(uSampler, vVertTexCoord) * (uTint / vec4(255, 255, 255, 255)) : vColor;\n    gl_FragColor.rgb = gl_FragColor.rgb * vDiffuseColor + vSpecularColor;\n  }\n}',
+          phongVert: 'precision highp float;\nprecision highp int;\n\nattribute vec3 aPosition;\nattribute vec3 aNormal;\nattribute vec2 aTexCoord;\n\nuniform vec3 uAmbientColor[5];\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform mat3 uNormalMatrix;\nuniform int uAmbientLightCount;\n\nvarying vec3 vNormal;\nvarying vec2 vTexCoord;\nvarying vec4 vColor;\nuniform bool uUseVertexColor;\nuniform vec4 uMaterialColor;\nattribute vec4 aVertexColor;\nvarying vec3 vViewPosition;\nvarying vec3 vAmbientColor;\n\nvoid main(void) {\n\n  vec4 viewModelPosition = uModelViewMatrix * vec4(aPosition, 1.0);\n\n  // Pass varyings to fragment shader\n  vViewPosition = viewModelPosition.xyz;\n  gl_Position = uProjectionMatrix * viewModelPosition;  \n\n  vNormal = uNormalMatrix * aNormal;\n  vTexCoord = aTexCoord;\n\n  // TODO: this should be a uniform\n  vAmbientColor = vec3(0.0);\n  vColor = (uUseVertexColor ? aVertexColor : uMaterialColor);\n  for (int i = 0; i < 5; i++) {\n    if (i < uAmbientLightCount) {\n      vAmbientColor += uAmbientColor[i];\n    }\n  }\n}\n',
+          phongFrag: lightingShader + '// include lighting.glsl\nprecision highp float;\nprecision highp int;\n\nuniform vec4 uSpecularMatColor;\nuniform vec4 uAmbientMatColor;\nuniform vec4 uEmissiveMatColor;\n\nvarying vec4 vColor;\nuniform vec4 uTint;\nuniform sampler2D uSampler;\nuniform bool isTexture;\n\nvarying vec3 vNormal;\nvarying vec2 vTexCoord;\nvarying vec3 vViewPosition;\nvarying vec3 vAmbientColor;\n\nvoid main(void) {\n\n  vec3 diffuse;\n  vec3 specular;\n  totalLight(vViewPosition, normalize(vNormal), diffuse, specular);\n\n  // Calculating final color as result of all lights (plus emissive term).\n\n  gl_FragColor = isTexture ? texture2D(uSampler, vTexCoord) * (uTint / vec4(255, 255, 255, 255)) : vColor;\n  gl_FragColor.rgb = diffuse * gl_FragColor.rgb + \n                    vAmbientColor * uAmbientMatColor.rgb + \n                    specular * uSpecularMatColor.rgb + \n                    uEmissiveMatColor.rgb;\n}',
           fontVert: 'precision mediump float;\n\nattribute vec3 aPosition;\nattribute vec2 aTexCoord;\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\n\nuniform vec4 uGlyphRect;\nuniform float uGlyphOffset;\n\nvarying vec2 vTexCoord;\nvarying float w;\n\nvoid main() {\n  vec4 positionVec4 = vec4(aPosition, 1.0);\n\n  // scale by the size of the glyph\'s rectangle\n  positionVec4.xy *= uGlyphRect.zw - uGlyphRect.xy;\n\n  // move to the corner of the glyph\n  positionVec4.xy += uGlyphRect.xy;\n\n  // move to the letter\'s line offset\n  positionVec4.x += uGlyphOffset;\n  \n  gl_Position = uProjectionMatrix * uModelViewMatrix * positionVec4;\n  vTexCoord = aTexCoord;\n  w = gl_Position.w;\n}\n',
           fontFrag: '#extension GL_OES_standard_derivatives : enable\nprecision mediump float;\n\n#if 0\n  // simulate integer math using floats\n\t#define int float\n\t#define ivec2 vec2\n\t#define INT(x) float(x)\n\n\tint ifloor(float v) { return floor(v); }\n\tivec2 ifloor(vec2 v) { return floor(v); }\n\n#else\n  // use native integer math\n\tprecision highp int;\n\t#define INT(x) x\n\n\tint ifloor(float v) { return int(v); }\n\tint ifloor(int v) { return v; }\n\tivec2 ifloor(vec2 v) { return ivec2(v); }\n\n#endif\n\nuniform sampler2D uSamplerStrokes;\nuniform sampler2D uSamplerRowStrokes;\nuniform sampler2D uSamplerRows;\nuniform sampler2D uSamplerColStrokes;\nuniform sampler2D uSamplerCols;\n\nuniform ivec2 uStrokeImageSize;\nuniform ivec2 uCellsImageSize;\nuniform ivec2 uGridImageSize;\n\nuniform ivec2 uGridOffset;\nuniform ivec2 uGridSize;\nuniform vec4 uMaterialColor;\n\nvarying vec2 vTexCoord;\n\n// some helper functions\nint round(float v) { return ifloor(v + 0.5); }\nivec2 round(vec2 v) { return ifloor(v + 0.5); }\nfloat saturate(float v) { return clamp(v, 0.0, 1.0); }\nvec2 saturate(vec2 v) { return clamp(v, 0.0, 1.0); }\n\nint mul(float v1, int v2) {\n  return ifloor(v1 * float(v2));\n}\n\nivec2 mul(vec2 v1, ivec2 v2) {\n  return ifloor(v1 * vec2(v2) + 0.5);\n}\n\n// unpack a 16-bit integer from a float vec2\nint getInt16(vec2 v) {\n  ivec2 iv = round(v * 255.0);\n  return iv.x * INT(128) + iv.y;\n}\n\nvec2 pixelScale;\nvec2 coverage = vec2(0.0);\nvec2 weight = vec2(0.5);\nconst float minDistance = 1.0/8192.0;\nconst float hardness = 1.05; // amount of antialias\n\n// the maximum number of curves in a glyph\nconst int N = INT(250);\n\n// retrieves an indexed pixel from a sampler\nvec4 getTexel(sampler2D sampler, int pos, ivec2 size) {\n  int width = size.x;\n  int y = ifloor(pos / width);\n  int x = pos - y * width;  // pos % width\n\n  return texture2D(sampler, (vec2(x, y) + 0.5) / vec2(size));\n}\n\nvoid calulateCrossings(vec2 p0, vec2 p1, vec2 p2, out vec2 C1, out vec2 C2) {\n\n  // get the coefficients of the quadratic in t\n  vec2 a = p0 - p1 * 2.0 + p2;\n  vec2 b = p0 - p1;\n  vec2 c = p0 - vTexCoord;\n\n  // found out which values of \'t\' it crosses the axes\n  vec2 surd = sqrt(max(vec2(0.0), b * b - a * c));\n  vec2 t1 = ((b - surd) / a).yx;\n  vec2 t2 = ((b + surd) / a).yx;\n\n  // approximate straight lines to avoid rounding errors\n  if (abs(a.y) < 0.001)\n    t1.x = t2.x = c.y / (2.0 * b.y);\n\n  if (abs(a.x) < 0.001)\n    t1.y = t2.y = c.x / (2.0 * b.x);\n\n  // plug into quadratic formula to find the corrdinates of the crossings\n  C1 = ((a * t1 - b * 2.0) * t1 + c) * pixelScale;\n  C2 = ((a * t2 - b * 2.0) * t2 + c) * pixelScale;\n}\n\nvoid coverageX(vec2 p0, vec2 p1, vec2 p2) {\n\n  vec2 C1, C2;\n  calulateCrossings(p0, p1, p2, C1, C2);\n\n  // determine on which side of the x-axis the points lie\n  bool y0 = p0.y > vTexCoord.y;\n  bool y1 = p1.y > vTexCoord.y;\n  bool y2 = p2.y > vTexCoord.y;\n\n  // could web be under the curve (after t1)?\n  if (y1 ? !y2 : y0) {\n    // add the coverage for t1\n    coverage.x += saturate(C1.x + 0.5);\n    // calculate the anti-aliasing for t1\n    weight.x = min(weight.x, abs(C1.x));\n  }\n\n  // are we outside the curve (after t2)?\n  if (y1 ? !y0 : y2) {\n    // subtract the coverage for t2\n    coverage.x -= saturate(C2.x + 0.5);\n    // calculate the anti-aliasing for t2\n    weight.x = min(weight.x, abs(C2.x));\n  }\n}\n\n// this is essentially the same as coverageX, but with the axes swapped\nvoid coverageY(vec2 p0, vec2 p1, vec2 p2) {\n\n  vec2 C1, C2;\n  calulateCrossings(p0, p1, p2, C1, C2);\n\n  bool x0 = p0.x > vTexCoord.x;\n  bool x1 = p1.x > vTexCoord.x;\n  bool x2 = p2.x > vTexCoord.x;\n\n  if (x1 ? !x2 : x0) {\n    coverage.y -= saturate(C1.y + 0.5);\n    weight.y = min(weight.y, abs(C1.y));\n  }\n\n  if (x1 ? !x0 : x2) {\n    coverage.y += saturate(C2.y + 0.5);\n    weight.y = min(weight.y, abs(C2.y));\n  }\n}\n\nvoid main() {\n\n  // calculate the pixel scale based on screen-coordinates\n  pixelScale = hardness / fwidth(vTexCoord);\n\n  // which grid cell is this pixel in?\n  ivec2 gridCoord = ifloor(vTexCoord * vec2(uGridSize));\n\n  // intersect curves in this row\n  {\n    // the index into the row info bitmap\n    int rowIndex = gridCoord.y + uGridOffset.y;\n    // fetch the info texel\n    vec4 rowInfo = getTexel(uSamplerRows, rowIndex, uGridImageSize);\n    // unpack the rowInfo\n    int rowStrokeIndex = getInt16(rowInfo.xy);\n    int rowStrokeCount = getInt16(rowInfo.zw);\n\n    for (int iRowStroke = INT(0); iRowStroke < N; iRowStroke++) {\n      if (iRowStroke >= rowStrokeCount)\n        break;\n\n      // each stroke is made up of 3 points: the start and control point\n      // and the start of the next curve.\n      // fetch the indices of this pair of strokes:\n      vec4 strokeIndices = getTexel(uSamplerRowStrokes, rowStrokeIndex++, uCellsImageSize);\n\n      // unpack the stroke index\n      int strokePos = getInt16(strokeIndices.xy);\n\n      // fetch the two strokes\n      vec4 stroke0 = getTexel(uSamplerStrokes, strokePos + INT(0), uStrokeImageSize);\n      vec4 stroke1 = getTexel(uSamplerStrokes, strokePos + INT(1), uStrokeImageSize);\n\n      // calculate the coverage\n      coverageX(stroke0.xy, stroke0.zw, stroke1.xy);\n    }\n  }\n\n  // intersect curves in this column\n  {\n    int colIndex = gridCoord.x + uGridOffset.x;\n    vec4 colInfo = getTexel(uSamplerCols, colIndex, uGridImageSize);\n    int colStrokeIndex = getInt16(colInfo.xy);\n    int colStrokeCount = getInt16(colInfo.zw);\n    \n    for (int iColStroke = INT(0); iColStroke < N; iColStroke++) {\n      if (iColStroke >= colStrokeCount)\n        break;\n\n      vec4 strokeIndices = getTexel(uSamplerColStrokes, colStrokeIndex++, uCellsImageSize);\n\n      int strokePos = getInt16(strokeIndices.xy);\n      vec4 stroke0 = getTexel(uSamplerStrokes, strokePos + INT(0), uStrokeImageSize);\n      vec4 stroke1 = getTexel(uSamplerStrokes, strokePos + INT(1), uStrokeImageSize);\n      coverageY(stroke0.xy, stroke0.zw, stroke1.xy);\n    }\n  }\n\n  weight = saturate(1.0 - weight * 2.0);\n  float distance = max(weight.x + weight.y, minDistance); // manhattan approx.\n  float antialias = abs(dot(coverage, weight) / distance);\n  float cover = min(abs(coverage.x), abs(coverage.y));\n  gl_FragColor = uMaterialColor;\n  gl_FragColor.a *= saturate(max(antialias, cover));\n}',
           lineVert: '/*\n  Part of the Processing project - http://processing.org\n  Copyright (c) 2012-15 The Processing Foundation\n  Copyright (c) 2004-12 Ben Fry and Casey Reas\n  Copyright (c) 2001-04 Massachusetts Institute of Technology\n  This library is free software; you can redistribute it and/or\n  modify it under the terms of the GNU Lesser General Public\n  License as published by the Free Software Foundation, version 2.1.\n  This library is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n  Lesser General Public License for more details.\n  You should have received a copy of the GNU Lesser General\n  Public License along with this library; if not, write to the\n  Free Software Foundation, Inc., 59 Temple Place, Suite 330,\n  Boston, MA  02111-1307  USA\n*/\n\n#define PROCESSING_LINE_SHADER\n\nuniform mat4 uModelViewMatrix;\nuniform mat4 uProjectionMatrix;\nuniform float uStrokeWeight;\n\nuniform vec4 uViewport;\n\nuniform bool uUseLineColor;\n\nuniform vec4 uMaterialColor;\nuniform int uPerspective;\n\nattribute vec4 aPosition;\nattribute vec4 aDirection;\nattribute vec4 aVertexColor;\nvarying vec4 vColor;\n  \nvoid main() {\n  // using a scale <1 moves the lines towards the camera\n  // in order to prevent popping effects due to half of\n  // the line disappearing behind the geometry faces.\n  vec3 scale = vec3(0.9995);\n\n  vec4 posp = uModelViewMatrix * aPosition;\n  vec4 posq = uModelViewMatrix * (aPosition + vec4(aDirection.xyz, 0));\n\n vColor =  (uUseLineColor ? aVertexColor : uMaterialColor); \n\n  // Moving vertices slightly toward the camera\n  // to avoid depth-fighting with the fill triangles.\n  // Discussed here:\n  // http://www.opengl.org/discussion_boards/ubbthreads.php?ubb=showflat&Number=252848  \n  posp.xyz = posp.xyz * scale;\n  posq.xyz = posq.xyz * scale;\n\n  vec4 p = uProjectionMatrix * posp;\n  vec4 q = uProjectionMatrix * posq;\n\n  // formula to convert from clip space (range -1..1) to screen space (range 0..[width or height])\n  // screen_p = (p.xy/p.w + <1,1>) * 0.5 * uViewport.zw\n\n  // prevent division by W by transforming the tangent formula (div by 0 causes\n  // the line to disappear, see https://github.com/processing/processing/issues/5183)\n  // t = screen_q - screen_p\n  //\n  // tangent is normalized and we don\'t care which aDirection it points to (+-)\n  // t = +- normalize( screen_q - screen_p )\n  // t = +- normalize( (q.xy/q.w+<1,1>)*0.5*uViewport.zw - (p.xy/p.w+<1,1>)*0.5*uViewport.zw )\n  //\n  // extract common factor, <1,1> - <1,1> cancels out\n  // t = +- normalize( (q.xy/q.w - p.xy/p.w) * 0.5 * uViewport.zw )\n  //\n  // convert to common divisor\n  // t = +- normalize( ((q.xy*p.w - p.xy*q.w) / (p.w*q.w)) * 0.5 * uViewport.zw )\n  //\n  // remove the common scalar divisor/factor, not needed due to normalize and +-\n  // (keep uViewport - can\'t remove because it has different components for x and y\n  //  and corrects for aspect ratio, see https://github.com/processing/processing/issues/5181)\n  // t = +- normalize( (q.xy*p.w - p.xy*q.w) * uViewport.zw )\n\n  vec2 tangent = normalize((q.xy*p.w - p.xy*q.w) * uViewport.zw);\n\n  // flip tangent to normal (it\'s already normalized)\n  vec2 normal = vec2(tangent.y, -tangent.x);\n\n  float thickness = aDirection.w * uStrokeWeight;\n  vec2 offset = normal * thickness / 2.0;\n\n  vec2 curPerspScale;\n\n  if(uPerspective == 1) {\n    // Perspective ---\n    // convert from world to clip by multiplying with projection scaling factor\n    // to get the right thickness (see https://github.com/processing/processing/issues/5182)\n    // invert Y, projections in Processing invert Y\n    curPerspScale = (uProjectionMatrix * vec4(1, -1, 0, 0)).xy;\n  } else {\n    // No Perspective ---\n    // multiply by W (to cancel out division by W later in the pipeline) and\n    // convert from screen to clip (derived from clip to screen above)\n    curPerspScale = p.w / (0.5 * uViewport.zw);\n  }\n\n  gl_Position.xy = p.xy + offset.xy * curPerspScale;\n  gl_Position.zw = p.zw;\n}\n',
@@ -103135,6 +103192,7 @@
           this._useEmissiveMaterial = false;
           this._useNormalMaterial = false;
           this._useLineColor = false; // 追加
+          this._useVertexColor = false; // LCV関連で追加
           this._useShininess = 1;
           this._tint = [
             255,
@@ -103153,6 +103211,7 @@
           this.uPMatrix = new _main.default.Matrix();
           this.uNMatrix = new _main.default.Matrix('mat3'); // Current vertex normal
           this._currentNormal = new _main.default.Vector(0, 0, 1); // Camera
+          this._currentTexCoord = new _main.default.Vector(0, 0);
           this._curCamera = new _main.default.Camera(this);
           this._curCamera._computeCameraDefaultSettings();
           this._curCamera._setDefaultCamera();
@@ -103919,6 +103978,7 @@
           properties._tex = this._tex;
           properties.drawMode = this.drawMode;
           properties._currentNormal = this._currentNormal;
+          properties._currentTexCoord = this._currentTexCoord;
           properties.curBlendMode = this.curBlendMode;
           return style;
         };
@@ -104091,6 +104151,7 @@
         };
         _main.default.RendererGL.prototype._setFillUniforms = function (fillShader) {
           fillShader.bindShader(); // TODO: optimize
+          fillShader.setUniform('uUseVertexColor', this._useVertexColor); // LCV関連で追加
           fillShader.setUniform('uMaterialColor', this.curFillColor);
           fillShader.setUniform('isTexture', !!this._tex);
           if (this._tex) {

@@ -1,0 +1,360 @@
+defaultShaders:
+まず付加的に使われるlightingShaderというのがあってこれは
+lighting関連のバーテックスないしはフラグメントで使われているものです。
+
+0: immediateVert
+1: vertexColorVert (不使用)
+2: vertexColorFrag
+3: normalVert
+4: normalFrag
+5: basicFrag
+6: lightVert
+7: lightTextureFrag
+8: phongVert
+9: phongFrag
+10:fontVert
+11:fontFrag
+12:lineVert
+13:lineFrag
+14:pointVert
+15:pointFrag
+以上。
+
+次に組み合わせの方
+なんと8個しかないです。少ないね...
+
+フォンシェーディングシェーダ(8, 9)
+new _main.default.Shader(this, defaultShaders.phongVert, defaultShaders.phongFrag);
+
+グーローシェーディングシェーダ(6, 7)
+new _main.default.Shader(this, defaultShaders.lightVert, defaultShaders.lightTextureFrag);
+
+頂点彩色シェーダ(0, 2)
+new _main.default.Shader(this, defaultShaders.immediateVert, defaultShaders.vertexColorFrag);
+
+法線彩色シェーダ(3, 4)
+new _main.default.Shader(this, defaultShaders.normalVert, defaultShaders.normalFrag);
+
+単色彩色シェーダ(3, 5)
+new _main.default.Shader(this, defaultShaders.normalVert, defaultShaders.basicFrag);
+
+点描画シェーダ(14, 15)
+new _main.default.Shader(this, defaultShaders.pointVert, defaultShaders.pointFrag);
+
+線描画シェーダ(12, 13)
+new _main.default.Shader(this, defaultShaders.lineVert, defaultShaders.lineFrag);
+
+文字描画シェーダ(10, 11)
+new _main.default.Shader(this, defaultShaders.fontVert, defaultShaders.fontFrag);
+
+どこをいじるのか？？
+割と分かれてるのよね
+uMaterialColorはどこで使っているのか？
+
+basicFrag
+lightTextureFrag
+phongFrag
+fontFrag（いじる予定なし）
+lineVert（修正済みなのでいじる予定なし）
+pointFrag（いじる予定なし）
+
+使用分岐...めんどくさい。
+どこでshaderを取得しているのか？(fill限定で...fillしかいじらないので)
+immediateMode: endShapeの先の_getImmediateFillShader. 結果は3種類。
+retainedMode: drawBuffersの_getRetainedFillShader. 結果は3種類。
+下3つは例外枠なので上記5つのどれかですね。
+
+各種分岐フラグ
+_useNormalMaterial
+normalMaterialを実行すると発動する
+_enableLighting
+～Lightもしくは～Materialと名前の付いた7種類の関数を実行すると発動する。noLightsでオフになる。lightsでも可（それはそう）
+ambientLight, directionalLight, spotLight, pointLight, lights, ambientMaterial, emissiveMaterial, specularMaterial.
+
+
+immediateMode:
+まず
+_useNormalMaterialがオンの場合は this._getNormalShader(); が返される
+ただしuserFillがaNormalを利用している場合はスルー
+次に
+_enableLightingがオンの場合は以下略
+----------------------------------------
+いじるのはデフォルトシェーダなのでとりあえずこの辺精査するのはいいやね
+
+問題点をはっきりさせよう
+
+まあnormalMaterialの場合はそれでいいんですけど、そういう彩色方法なので
+でもですね
+_enableLightingについて今現在
+単色とtextureの二択なんですね
+そこを
+単色と頂点彩色とtextureの三択にしたい
+そういうことです。
+なのでいじるのは3つのシェーダーになりますね
+
+ひとつめ（ここが本題）
+_getLightShaderに出てくるフォンないしグーローの、つまり6,7,8,9をいじる。いじって単色が使われるところを頂点色との分岐にする。
+
+ふたつめ～
+immediateModeのtexの下、頂点色しか選べないところ。ここ頂点彩色しか選べないんですけど、
+整合性が取れないので単色との分岐にします
+ただ
+フラグが常にオフなので意味のない処理です
+いじる必要ないかもしれません。まあ要らないか。
+
+みっつめ～～（おまけ）
+this._getColorShader(); retainedのここですね。単色彩色シェーダ
+これを頂点彩色との分岐にする
+そうなるとnormalVertはvColorをはきだしてそれがbasicFragで使われる流れになるんだよね
+そうなるとnormalFragもvColor持ってないと整合性取れないから一応追加する
+けど使われないので無意味かもしれない
+けど一応追加する（彩色は法線ベースのまま無修正）
+
+フラグ：uUseVertexColorはいつ決めるのか？
+uniform関連処理の直前ですかね
+immediateであれば_drawImmediateFillのthis._setFillUniforms(shader);の直前
+retainedであればdrawBuffersのthis._setFillUniforms(fillShader);の直前
+それぞれsetFillUniformsでフラグを投入すればいいですね
+内容的にはuUseVertexColorに_useVertexColorを入れる。そして
+_useVertexColorは(vertexColors.length > 0)で決める。
+
+ふたつめはいじらなくていいと思うけど
+フラグが使われていないシェーダーがあるとまずいか？
+いや
+使わないuniformが送られるのは問題ないはずなので
+いいでしょう、別に。
+
+もうひとつ：uUseLineColorをuUseLineVertexColorに改名するのは...（同時に_useLineColor →　_useLineVertexColor）
+必要なら追加するけどまあ、なくてもいいといえばいい...
+場所が確定してからにしましょう。
+
+step1: フラグ_useVertexColorを導入
+step2: setFillUniformsの前で_useVertexColorを計算してuniform変数であるboolのuUseVertexColorに放り込む
+step3: いくつかのシェーダをいじって単色のところを頂点色との分岐にする
+以上！
+
+step1: rendererGLに フラグ：_useVertexColor (false) とシェーダー：_defaultVertexColorShader (undefined)を追加する。
+step2: _useVertexColorはvertexColorsになんか入ってるかどうかでt/fを決める。決める場所は
+       retained: drawBuffersのfill処理のところ、immediate: _drawImmediateFillのところ。いずれもsetFillUniformsの前ならOK.
+step3: setFillUniformsでuUseVertexColorに_useVertexColorを入れる処理を追加
+step4: retainedのシェーダー取得部分で_defaultColorShaderを取得しているところにとんで、
+       _useVertexColorがONの場合は_defaultVertexColorShaderを返すようにする。これは最初の一回に関しては、
+       vertexColorVertとvertexColorFragから作られるものとする。
+step5: lighting用のシェーダ(6,7,8,9)について、
+       まずフラグメントシェーダのuMaterialColorを廃止して、そこをvColorで置き換える。varying vec4 vColor;
+       一方、バーテックスシェーダに
+       varying vec4 vColor; uniform bool uUseVertexColor; uniform vec4 uMaterialColor; attribute vec4 aVertexColor;
+       を追加して、uUseVertexColorがONかどうかでaVertexColorとuMaterialColorのどちらを使うか決める。以上。
+
+       \nvarying vec4 vColor;\nuniform bool uUseVertexColor;\nuniform vec4 uMaterialColor;\nattribute vec4 aVertexColor;
+       \n  vColor = (uUseVertexColor ? aVertexColor : uMaterialColor);
+
+unit test
+思いつくのは今のとこ3つ。
+1つ：immediateModeにおいては常に_useVertexColorがONになる
+2つ：immediateModeでlightingを使っても頂点ごとの彩色が採用される（directionalでも何でもいい）
+3つ：retainedでp5.GeometryでvertexColorsになんか入れると頂点彩色できる。その辺り。
+
+はい
+vertexColorVertはダメだしされました！（当然か）
+というわけでBプラン実行
+シェーダー取得部分を元に戻したうえで
+normalVertとbasicFragを書き換えます。まあ、楽勝ですね。
+さてと...
+
+step1: _default~~~~~~を削除
+削除したよ～～
+step2: _getColorShaderを元に戻す
+元に戻したよ～～～
+step3: basicFragのuMaterialColorをvColorにする
+直したよ～～～～
+step4: normalVertにaVertexColor, vColor, uMaterialColor, uUseVertexColorを追加してvColorを計算する
+できたよ～～～これでlightingなしでretainedやると頂点色のはず。
+step5: 要るかな...normalFragでvColorを受け取る...？うん。要らんわ。やめよ。こっちはいじらなくてOK！
+
+で、unit test
+まずimmediateでlightingを使ったときに頂点彩色が崩れないかどうか
+retained
+geometryで頂点彩色しない場合に単色になること、頂点彩色する場合に補間されること。
+それがlightingが有効な状態で実行されること...？
+lightingで頂点彩色
+あー
+今の仕様の場合vertexColorsになんか入れても単色にしかならないのだよ
+だから
+lightingOKでもNOでもvertexColorsになんか入ってれば頂点彩色できるように
+なっていることを確認しましょう
+入ってない場合に単色になることも確認しろって
+ことだと思います。
+この5つですかね...いや6つか。
+lightのあるなしでimmediate, non-vc geometry(プリミティブでいいと思う), vc geometryかな。
+
+immediate mode uses vertex color. (light/noLight)
+geometry without vertex color uses curFillColor. (light/noLight)
+geometry with vertex color uses their color. (light/noLight)
+
+suite: color-interpolation でいいと思う。ここに入れてしまおう。もしくは...strokeとfillに分けるか？？
+分けるのはいつでもできるからとりあえず便乗してぶち込んでしまおう。
+この4つでいきます。
+1.immediate mode uses vertex colors (noLight)
+2.immediate mode uses vertex colors (light)
+3.geom without vertex colors use curFillCol (noLight)
+4.geom without vertex colors use curFillCol (light)
+5.geom with vertex colors use their color (noLight)
+6.geom with vertex colors use their color (light)
+使うのはdirectionalLight(255, 255, 255, 0, 0, -1)で。
+diffuseFactor = 0.73; なので普通に適用されると単純に73％になるので計算は容易ですね。
+え？？？上下逆？？
+
+ひとつめ
+ライトがない状態で頂点ごとの彩色が有効であることを確かめます
+_useVertexColorがtrueであることと色の補間を確認
+ふたつめ
+ライトがある状態で頂点ごとの彩色が有効であることを確かめます
+_useVertexColorがtrueであることと色の補間を確認（ただしdirectionalの255,255,255）
+しかし色が若干暗くなるのよね...なんでだろ：diffuseFactor = 0.73; これで73％に抑えられてるからです。はい次！
+みっつめ
+ライトがない状態でプリミティブ。単色が使われることと_useVertexColor == falseを確認
+よっつめ
+ライトがある状態でプリミティブ。単色が使われることと_useVertexColor == falseを確認
+いつつめ
+ジオメトリーを頂点彩色で作ります。ライトがある状態で == true と色補間を確認
+むっつめ
+ジオメトリーを...ライトがない状態で == true と色補間を確認
+
+もう実験することないんだけどUVくらいはやっとくか
+
+uvsにはvertexのたびに常になんか入ってます。なので色と同様に補間が可能なのですよ。
+で、normalのように_currentTexCoordみたいな変数を用意してtexCoord(u, v)って感じでそこに数を入れればそれが適用される...
+デフォルトを(0, 0)にしておくなどして（_currentNormalのデフォルト値は(0, 0, 1)）。
+そうしたうえでbezierやquadraticで補間方法を指定する。
+ただ_triangulateが汚いので碌な結果にならないと思うけどね...
+やりかたはnormalと一緒ではまずいです。u=v=0と初期化してるところを
+u = this._currentTexCoord[0];
+v = this._currentTexCoord[1];
+とする。で、引数がある場合はそちらを優先するわけ。
+bezierやquadraticが引数3つのvertexしか呼び出せないので、その代わりに_currentTexCoordで支配するってわけ。
+
+200/255で書き直すか。
+
+
+
+
+これ通ったら
+終わりでいいか。
+
+
+
+
+constants.EVENODDを追加してCLOSEの機能に加えて"evenodd"指定の機能を持たせて
+_doFillStrokeCloseに一緒に送りつつ2番目の引数をtrueにすることで
+それにより"evenodd"が発動するようにするとか
+それなら新しい関数もプロパティも要らないはず
+
+残念でした
+新しい定数を追加するハードルは高いのです
+ていうか
+あれ無茶だろ
+
+今んとこ現実的なのはそれしかないわね
+定数を追加する方法が謎だけれど
+
+新しくEVENODDを追加する場合
+たとえばそれが2Donlyであることの確かめとかも必要にはなるわね
+TESSがwebglでしか使えない的なあれ
+
+EVENODDでかつCLOSEでないという選択肢に価値がないんですよね
+導入する動機がbegin～endContourを使いやすくすることなので
+これ意味ないんですよ
+（begin～endContourを一度でも実行すると自動的にCLOSE前提になる）
+だからね
+で
+EVENODDは「CLOSE」かつ「"evenodd"」という形にして
+そのうえで_doFillStrokeCloseにはフラグであるmodeを直接渡します
+それを_doFillStrokeClose内で判定して処理する
+これは可能だろうか？
+（webglにおいてEVENODDが意味をなさないのでそこら辺のバリデーションも必要）
+（加えて2DのendShapeにEVENODDが来てもびっくりしないための処理が必要らしい...そこら辺詳しくないので）
+2DのendShapeの中でcloseShapeを計算しているが...
+closeShape, 割と活躍してる
+ならば
+closeShapeは残しましょう
+CLOSE||EVENODDという形で
+そのうえで
+_doFillStrokeShapeに渡すのだけmodeに変更すればいい
+そのうえでmodeを見て
+CLOSEか？EVENODDか？どっちでもない未定義か？
+ってやればいいと思う。
+const isClose = (mode === constatns.CLOSE || mode === constants.EVENODD)
+const isEvenOdd = (mode === constants.EVENODD);
+で、いいと思う。これを_doFillStrokeClose内で計算すればいい
+endShape内のcloseShapeに関するところは一切の変更なし！！
+closeShapeを上記のisCloseと同じ値として計算すればOK, あと全部一緒
+これであとは
+EVENODDを新たに定数として追加するだけでいいんだけど...
+そこのハードルが高そうなのよね。難しそう...できるの？？？
+定数の追加さえうまくいけば変更点は多くない
+そのうえメリット盛りだくさん
+導入しない手はないのよね
+あの人はすべてのfillにfillRuleのオプションを付けようとしたみたいだけど
+要らねぇよ
+endShapeだけでいいんだよ
+それなら通ると思う
+要らないの！！！！！！
+
+根拠その1:
+webglでデフォルトがTESSになります。TESSで実行されるテッセレーションはEVENODDルールに基づいているので、
+これを使えば2Dの"evenodd"に類する見た目を作ることができます。
+しかし同じ見た目を実現する場合、ベンチマーク的なことを考えた時に、
+テッセレーションは負荷が重いので2Dに軍配が上がります。（これは持ち出さない方がいいかも...根拠として弱そう）
+またwebglはbegin～endContourを持たないので、複数のcontourによりEVENODDを実行するようなことはできません
+drawingContextに頼って実行するのも容易ではありませんが、2Dに実装すればそれは簡単に実現できます。（こっちなら強いかも。実際使えないし）
+根拠その2:
+それに関連してですが、2Dのbegin～endContourには複数のcontourでfillの描画を実行する際に、
+"evenodd"の効果を得るためには切り替えるたびに時計回りと反時計回りを逆にしなければなりません。
+これは非常に面倒な仕様であると考えています。
+begin～endContourの場合、何も指示しなくてもCLOSEは実行されるので、
+EVENODDのフラグがCLOSEを前提としていることには妥当性があります。
+またEVENODDであれば向きを気にすることなくくりぬき効果を実現できます。
+
+以上のことから、endShapeに新たにEVENODDのフラグを追加し、
+2Dのbegin～endShapeにおいて"evenodd"での描画を可能にする仕様変更を提案します。
+
+五分五分...過去の閉じられた提案に言及するとかも必要かもね。
+
+this._fillRuleは
+それを使う手もあるんですが
+結局そこに手を出してしまうと他のfillはいいの？？ってなってしまうので
+不愉快なので
+あのね
+他のfillはどうでもいいんですよ
+begin～endShapeのfillRuleしかいじりたくないので
+でしょ？
+それ使えば簡便にはなるけど
+どうせ使う人いないでしょう...
+そういうわけです
+まあ
+あればね
+文字のくりぬきとかできるんだけど
+それも魅力的ではあるんだけどね...んー。
+ああでもだめか
+文字のくりぬきもハードルが高い
+ていうか
+必要ないだろ
+
+要らないだろ
+
+
+OK!
+って思ったけど
+想像以上にあちこち変えないといけなさそうで
+やばいねぇ
+んー......
+レファレンスもあちこち変えないといけないし
+厳しいか
+まあいいや諦めよ
+
+ベンチマークは根拠にならなさそう
+contourが使えない、だけなら通るかも
+まあ速さはどうでもいいのよ
+簡便に見た目をあれできるってことの方が重要だわね
+うん

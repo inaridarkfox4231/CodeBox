@@ -140,3 +140,35 @@ table作成パートは一緒なのでカット
 BezierToCutmullで現れる頂点にしかるべく色を配すればいける、かもね。
 合理的な割り当て。
 その方が合理的かなぁ。知らんけど。
+
+uMaterialColorを使ってるいくつかのfragについてそこをvColorで置き換えて
+それとペアになりうるvertでaVertexColorとvColorとuMaterialColorとuUseVertexColorを実装する
+vColorはuUseVertexColor == false;の場合uMaterialColorrでtrueの場合aVertexColor. これをfragに送る。あとは一緒。
+合わせるためにuUseLineColorをuUseLineVertexColorに改名する
+今シェーダーに送る方がlineVertexColorsという名前なので、整合性を取るため。
+vertexColors ------- uUseVertexColor,     _useVertexColor
+lineVertexColors --- uUseLineVertexColor, _useLineVertexColor だと正確な気がする。
+
+仕様変更詳細（これでラスト！）
+step1: uUseLineColor → uUseLineVertexColor, _useLineColor → _useLineVertexColor 改名
+step2: フラグ_useVertexColorをジオメトリーに導入する。これはシェーダーに投入する直前に、
+       vertexColorsのlengthが正かどうかで決める。
+step3: uMaterialColorを使っているフラグメントシェーダーについてそれをvec4のvColorで置き換える
+step4: fillShaderでuMaterialColorを使っているフラグメントシェーダと対になって使われているバーテックスシェーダに
+       vec4のvColorを導入、あとuMaterialColorとaVertexColorも追加。さらにvarying vec4 vColorも追加。
+       boolのuUseVertexColorも追加！そしてこのフラグでvColorを分岐決定する。
+以上です。
+不備？
+この時出てくるバーテックスシェーダが対応するフラグメントシェーダで漏れてるのがあるかもしれないな...ちょっと気になるので
+もうこの際
+ていうかどういうときどのシェーダーが使われるのかもういい加減はっきりさせた方がいいな
+レファレンス不親切すぎるんだよな
+まずすべてのデフォルトシェーダを洗い出して...
+
+
+実験的にbezierVertexだけ_currentTexCoordの補間やってみたけど
+駄目
+使い物にならない
+原因はおそらく縦ベースの雑な_triangulateのせい
+こりゃ
+無理だわ
