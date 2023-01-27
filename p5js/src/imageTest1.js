@@ -57,6 +57,9 @@ function draw() {
   const y = 100*sin(t);
   translate(x, y, 100);
   sphere(80);
+  resetMatrix();
+  translate(0, 0, 200);
+  sphere(40);
 
   gl.disable(gl.DEPTH_TEST);
   setCamera(defaultCam);

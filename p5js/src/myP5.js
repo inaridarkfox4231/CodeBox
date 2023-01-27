@@ -95666,36 +95666,23 @@
           if (sy + sHeight <= img.height) {
             v1 = (sy + sHeight) / img.height;
           }
-          //const gl = this.GL;
-          //const depthTestIsEnable = gl.getParameter(gl.DEPTH_TEST);
-          //const cullFaceIsEnable = gl.getParameter(gl.CULL_FACE);
+          const gl = this.GL;
+          const depthTestIsEnable = gl.getParameter(gl.DEPTH_TEST);
+          const cullFaceIsEnable = gl.getParameter(gl.CULL_FACE);
 
-          //gl.disable(gl.DEPTH_TEST);
-          //gl.disable(gl.CULL_FACE);
+          gl.disable(gl.DEPTH_TEST);
+          gl.disable(gl.CULL_FACE);
 
-          //this._curCamera._setDefaultCamera();
-
-          // 即席でgeometry作る。そのように書き直す。
-          const geom = new _main.default.Geometry();
-          geom.vertices = [this._pInst.createVector(dx, dy, 0),
-        									 this._pInst.createVector(dx + dWidth, dy, 0),
-        									 this._pInst.createVector(dx + dWidth, dy + dHeight, 0),
-        									 this._pInst.createVector(dx, dy + dHeight, 0)];
-        	geom.faces = [[0, 1, 2], [0, 2, 3]];
-        	geom.uvs = [u0, v0, u1, v0, u1, v1, u0, v1];
-        	this.createBuffers("image", geom);
-        	this.drawBuffers("image");
-
-/*
+          this._curCamera._setDefaultCamera();
           this.beginShape();
           this.vertex(dx, dy, 0, u0, v0);
           this.vertex(dx + dWidth, dy, 0, u1, v0);
           this.vertex(dx + dWidth, dy + dHeight, 0, u1, v1);
           this.vertex(dx, dy + dHeight, 0, u0, v1);
           this.endShape(constants.CLOSE);
-*/
-          //if (depthTestIsEnable) { gl.enable(gl.DEPTH_TEST); }
-          //if (cullFaceIsEnable) { gl.enable(gl.CULL_FACE); }
+
+          if (depthTestIsEnable) { gl.enable(gl.DEPTH_TEST); }
+          if (cullFaceIsEnable) { gl.enable(gl.CULL_FACE); }
 
           this._pInst.pop();
           if (this._isErasing) {
@@ -103316,7 +103303,7 @@
           // See issue #3850, safer to enable AA in Safari
           var applyAA = navigator.userAgent.toLowerCase().includes('safari');
           var defaults = {
-            alpha: true,
+            alpha: false,
             depth: true,
             stencil: true,
             antialias: applyAA,
