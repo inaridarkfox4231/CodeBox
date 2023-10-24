@@ -26,6 +26,7 @@ function Cubemap() {
       gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imgXpos);
   };
   imgXpos.src = "https://inaridarkfox4231.github.io/assets/webglWaterImgs/xpos.jpg";
+  imgXpos.crossorigin = "anonymous";
   let imgYneg = new Image();
   imgYneg.onload = () => {
       gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, imgYneg);

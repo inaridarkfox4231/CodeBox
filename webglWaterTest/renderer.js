@@ -117,7 +117,13 @@ function Renderer(tile) {
   this.tileTexture = tile;
   this.lightDir = new GL.Vector(2.0, 2.0, -1.0).unit();
   this.causticTex = new GL.Texture(1024, 1024);
-  this.waterMesh = GL.Mesh.plane({ detail: 200 });
+  this.waterMesh = GL.Mesh.plane({ detail: 200 }); // 200x200のメッシュ。つまり40000枚の小さな板を描画してる。
+  // 要するにshadertoyでは実現できないわけね。そりゃそうだ。水面が隆起してるんだから平面なわけがないんだよな。
+  // そこがずっと引っかかってたんだよ。やっと納得できたわ。
+  // 平面じゃない。立体なんだ。shadertoyでは、実現できないんだ。
+  // タイルが24枚。200を24で割ると8.333なので、このタイルの8分の1以下。めっちゃ小さい。
+  // そりゃ細かい表現ができるわけだわ。というかこのくらいが限界か？
+  // しかしcausticTexが1024x1024でこれを貼り付けてるっぽいし、こっちは平面？こっちなら実現できる感じなんかね。
   this.waterShaders = [];
   for (var i = 0; i < 2; i++) {
     this.waterShaders[i] = new GL.Shader('\
@@ -190,7 +196,7 @@ function Renderer(tile) {
           gl_FragColor = vec4(mix(refractedColor, reflectedColor, fresnel), 1.0);\
         ') + '\
       }\
-    ');
+    '); // 上：水中と水面でshaderを分けてるみたいです。
   }
   this.sphereMesh = GL.Mesh.sphere({ detail: 10 });
   this.sphereShader = new GL.Shader(helperFunctions + '\
@@ -316,8 +322,14 @@ Renderer.prototype.renderWater = function(water, sky) {
   sky.bind(2);
   this.causticTex.bind(3);
   gl.enable(gl.CULL_FACE);
+  // おそらくだけど
+  // 40000枚の細かい平面のうち
+  // こっちに見えるかどうかで水中なのか水面上なのか分けてるっぽいね
+  // 見え方の違いがカリングやshaderの違いに反映されてるのだろうけど
+  // カリングについては内部で判定できるんだよなぁ...(gl定数がある)
   for (var i = 0; i < 2; i++) {
     gl.cullFace(i ? gl.BACK : gl.FRONT);
+    // uniformsの書き方が俺に似てる（？
     this.waterShaders[i].uniforms({
       light: this.lightDir,
       water: 0,
