@@ -5,39 +5,19 @@
 
 // It's so hard to learn JavaScript!
 
-// 戻ってきた
-// p5.Soundは1.3.1まで大丈夫。1.4にすると聞こえが悪くなる。原因は不明。
-// まあjs備え付けのAPI使うべきなのよね...webglと一緒で、やっぱ生の...それ学ばないとどう改変すればいいかもわからんからね。
-
-// 20221016
-// ClickCountが使われてないことと演奏部分は時間ベースだけどモーショングラフィックスはフレームカウントベースなので
-// fps落としても聞こえはあんま変わんないけどモーションがもっさりすることが分かった
-// あと等間隔ということができないので、タイムスタンプがインターバルを2つ以上越えてしまう場合は
-// 強制的にカレントに一致させる力技を使っていますね...
-// まあ仕方ない、それやらないと連続して音が出ちゃう、それは不自然だと思ったのでしょう。
-// あっちみたいに時間ベースでモーションを書く場合、差分を位置のずれで表現できるからいいけど、
-// 演奏の場合たとえば0.01秒ずれたからといって0.01秒前にその音が出されたような表現をすることはできないので
-// それを無視して音を出すしかない、そこが現実に音を出すこととの違いなんですね。
-
-// しかしそれでモーションをカウントベースにすることができないことの理由になるかと言ったら
-// ならない、むしろモーションは時間ベースでなければならないはずだ。だって音が出るタイミングは厳密に決まっているんだから。
-// そのタイミングで動きがスタートするべきだし、一定のミリ秒数でその動きは終了すべきだと思う。
-// 思うんだけどね。当時の自分は全部カウント制にしちゃえ～～思考停止ばんざい！ってやっちゃった。馬鹿。
-
-// outputをmasterにしたけど、decayとsustainを長めにしたらsin波についてはいい感じになりました。ノイズ系は調査中！
-
-// 20221101
-// 1.3.1でいいよ。それより例のあれは気にしなくていい、だって
-
-// 20231024
-// FALさんが正義
+// 最初だけ音が鳴らない問題を修正しました
+// いちいち再起動するのめんどくさいでしょ
+// 和音これでいいやね
 
 var backgroundColor;
 
 var metronome;
 var myTrackSystem;
 
-var soundEnabled = true;
+var soundEnabled = false;
+
+
+let isStarted = false;
 
 /* ------- Sound --------------------------------------*/
 
@@ -49,22 +29,24 @@ var EnvelopedOscillator = function(oscillatorType, envelopeParameter) {
     case 'triangle':
     case 'sawtooth':
     case 'square':
-      this.oscillator = new p5.Oscillator(); // オシレーターを追加
+      this.oscillator = new p5.Oscillator();
       break;
     case 'white':
     case 'pink':
     case 'brown':
-      this.oscillator = new p5.Noise(); // ノイズを追加
+      this.oscillator = new p5.Noise();
       break;
   }
-  this.oscillator.setType(oscillatorType); // ここはp5.Soundのメソッドでどうもタイプを指定するみたい。
-  this.envelope = new p5.Env(); // 何でしょうね...
-  // envelopeにパラメータを設定していますね。
+  this.oscillator.setType(oscillatorType);
+  this.envelope = new p5.Env();
   this.envelope.setADSR(envelopeParameter.attackTime, envelopeParameter.decayTime, envelopeParameter.susPercent, envelopeParameter.releaseTime);
   this.envelope.setRange(envelopeParameter.attackLevel, envelopeParameter.releaseLevel);
 };
 EnvelopedOscillator.prototype.play = function(startTime, sustainTime, frequency) {
-  if (frequency) this.oscillator.freq(frequency);
+	const m = random([0,4,7,12]);
+  if (frequency) this.oscillator.freq(frequency*(1+pow(2, m/12)));
+	let c = random([1,2,3,4]);
+	this.envelope.setADSR(c*this.envelopeParameter.attackTime, c*this.envelopeParameter.decayTime, this.envelopeParameter.susPercent, c*this.envelopeParameter.releaseTime);
   this.envelope.play(this.oscillator, startTime, sustainTime);
 };
 EnvelopedOscillator.prototype.start = function() {
@@ -75,33 +57,19 @@ EnvelopedOscillator.prototype.stop = function() {
   this.oscillator.amp(0);
   this.oscillator.stop();
 };
-// ノイズをpanさせていますね（微妙に）
 EnvelopedOscillator.prototype.pan = function(value) {
   this.oscillator.pan(value);
 };
-// connectは使われてないですね...
-/*
 EnvelopedOscillator.prototype.connect = function(unit) {
   this.connectedUnit = unit;
   this.oscillator.disconnect();
   this.oscillator.connect(unit);
 };
-*/
 
-// 複数バージョンですねぇ。capacityは8が設定されてて8つ
-// なぜ複数？？
-// 調べると分かりますが1でも8でも変わんないのよね
-// これおそらく和音...かなぁ、想定してる？
-// じゃなくてあれ、多分非同期...というか、複数のオシレータにかわるがわる任せる感じでやることによって
-// 同じオシレータが担当するとずれとかおきちゃうからそれを防いでるんだろ
-// それぞれのあれが発動して終わってみたいな。
-// だから和音やりたかったらこれ使って複数同時にやれば
-// いけるかもだね
 
-// metronomeが120msなんですが...
 var ParallelEnvelopedOscillatorSet = function(oscillatorType, envelopeParameter, capacity) {
   this.envelopedOscillatorArray = [];
-  this.capacity = capacity; // 個数合計
+  this.capacity = capacity;
   this.currentIndex = 0;
   for (var i = 0; i < this.capacity; i++) {
     this.envelopedOscillatorArray.push(new EnvelopedOscillator(oscillatorType, envelopeParameter));
@@ -136,8 +104,8 @@ var Metronome = {
   create: function(intervalMillisecond) {
     var newObject = Object.create(Metronome.prototype);
     newObject.intervalMillisecond = intervalMillisecond;
-    newObject.lastNoteTimeStamp = millis();
-    //newObject.clickCount = 0; // 使われてない
+    newObject.lastNoteTimeStamp = 0;
+    newObject.clickCount = 0;
     return newObject;
   },
   prototype: {
@@ -145,18 +113,8 @@ var Metronome = {
       var currentTimeStamp = millis();
       if (currentTimeStamp >= this.lastNoteTimeStamp + this.intervalMillisecond) {
         this.lastNoteTimeStamp += this.intervalMillisecond;
-        // ぶっちゃけここは杞憂だと思う
-        // これが発生するためにはフレーム更新の...だから33とか16.7のなかにintervalが2つ入らないといけないわけ。
-        // それが40だったとして。40の中に2つ以上入るってなったらあそこ、120のところを20以下にしないといけないでしょ。
-        // バリデーションで30より大きい、とでもしておけば問題ないわけ！！！
-        // 試しに60とかにしてみたら速すぎて意味不明だった（ますます杞憂）
-
-        // だそうです。つまり♩= 60 だと四分音符が60秒に60回、♩= 120 だと120回。
-        // これを「それ」に合わせるならば、小節を区切って、...
-        // BPMを指定するとそれが四分音符の長さになるから適宜それを4倍とか1/4倍とかして
-        // あるいはチャンネルを増やして然るべきタイミングで和音用に発火させる、自由自在、何でもできる。
         if (currentTimeStamp >= this.lastNoteTimeStamp + this.intervalMillisecond) this.lastNoteTimeStamp = currentTimeStamp;
-        //this.clickCount++; // あとこれは使われてないですね...
+        this.clickCount++;
         return true;
       }
       return false;
@@ -492,18 +450,14 @@ TrackSystem.prototype.initializeVisualizers = function() {
 function setup() {
   var canvasSideLength = max(min(windowWidth, windowHeight) * 0.95, min(displayWidth, displayHeight) * 0.5);
   createCanvas(canvasSideLength, canvasSideLength);
-
+	pixelDensity(1);
   backgroundColor = color(240);
   ellipseMode(CENTER);
   rectMode(CENTER);
 
   masterVolume(0.7);
-  // 120ミリ秒ごとに発火。
-  // BPM的には60秒が60000ミリ秒なので60000/120=500でBPMは500ね。
-  // もっとわかりやすくいうとたとえば125の場合1秒8拍なわけで8*60=480で60秒だと480拍
-  // というかうん、そういうこと。
-  // で、fps=30とかだとフレーム更新に1000ミリ秒/30で33？ですね。fps=60なら16.7になります。
   metronome = Metronome.create(120);
+
 
   myTrackSystem = new TrackSystem(32);
 
@@ -521,12 +475,15 @@ function setup() {
     pan: 0,
     startTime: 0.01,
     sustainTime: 0.08,
-    frequency: 880,
+    frequency: 440*pow(2,-9/12),
     isRandom: true,
     probability: 0.6
   };
   var sineTrack = new Track(sineTrackParameter);
   myTrackSystem.trackArray.push(sineTrack);
+	sineTrackParameter.frequency *= 2;
+	var sineTrack2 = new Track(sineTrackParameter);
+	myTrackSystem.trackArray.push(sineTrack2);
 
   var shortWhiteNoiseEnvelopeParameter = {
     attackLevel: 0.8,
@@ -590,20 +547,27 @@ function setup() {
   myTrackSystem.trackArray.push(brownNoiseTrack);
 
 
-  myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(sineTrack, SineNoteVisualizer, width * 0.08, height * 0.16));
+  myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(sineTrack, SineNoteVisualizer, width * 0.08, height * 0.08));
+	myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(sineTrack2, SineNoteVisualizer, width * 0.08, height * 0.16));
   myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(shortWhiteNoiseTrack, ShortWhiteNoiseNoteVisualizer, width * 0.08, height * 0.24));
   myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(longWhiteNoiseTrack, LongWhiteNoiseNoteVisualizer, width * 0.08, height * 0.32));
   myTrackSystem.trackVisualizerArray.push(TrackVisualizer.create(brownNoiseTrack, BrownNoiseNoteVisualizer, width * 0.08, height * 0.40));
 
-
-  myTrackSystem.start();
+	// ここでStartしてしまうと反則を食らうんですよね
+	// インタラクションで起動させないといけない仕様なんです（面倒ですが）
 }
 
 
 
 function draw() {
   background(backgroundColor);
-
+	if (!soundEnabled) background(0, 32);
+	if (!isStarted) {
+		textAlign(CENTER,CENTER);
+		textSize(width*0.05);
+		text("click to start.", width/2, height/2);
+		return;
+	}
   myTrackSystem.display();
 
   if (metronome.check()) {
@@ -611,6 +575,7 @@ function draw() {
   }
 }
 
-function mousePressed() {
-  soundEnabled = !soundEnabled;
+function mouseClicked(){
+	if (!isStarted){ myTrackSystem.start(); isStarted = true; }
+	soundEnabled = !soundEnabled;
 }
